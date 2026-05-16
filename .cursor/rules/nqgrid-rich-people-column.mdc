@@ -1,0 +1,33 @@
+---
+description: >-
+  Rich people column engine contract (stable keys, reconcile) and how to replicate
+  multi-select UI (e.g. nqui Combobox) in apps — prefer this over reverse-engineering playground-only styling.
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# nqgrid — `PeopleRichColumn` engine + picker UI replication
+
+## Engine (library: `@nqlib/nqgrid`)
+
+- Column def: `kind: "people"` with optional `editable`, `pickerOptions` (roster), `onValueChange`, `max`, `avatarSizePx`, `empty`.
+- Wiring: pass `RichColumnFactoryConfig.renderPeoplePicker` into `buildRichColumnFromDef` / `buildRichColumnsFromDefs` when you want custom cells. If `editable && pickerOptions?.length && onValueChange && renderPeoplePicker`, the factory delegates the cell to your renderer.
+- **Stable keys:** `richPersonOptionKey(p)` is `p.id` (string) when set, otherwise `p.name`. The combobox `value` must use the **same keys** as `ComboboxItem value` built from `pickerOptions`. If row data used `name`-only objects but the roster used `id`, the controlled value will not match and multi-select will appear broken.
+- **Reconcile (recommended):** `reconcileRichPeopleWithRoster(selected, roster)` maps each selected person to the roster entry by key, then by exact `name`, so persisted row state matches roster identity (`id`, canonical `image`, etc.).
+- **Commit path:** `buildRichColumnFromDef` already runs `reconcileRichPeopleWithRoster` on `onValueChange` when a roster exists — apps should still pass a correct `renderPeoplePicker` and keep row values consistent with roster keys.
+
+Helpers: `resolveRichPeopleByOptionKeys`, `normalizePeopleList`, `richPersonOptionKey`, `reconcileRichPeopleWithRoster`.
+
+## UI replication (app / design system — e.g. `@nqlib/nqui`)
+
+Playground demos are **non-authoritative**; they only illustrate one composition. When replicating:
+
+1. **Contract** — Implement `RenderRichPeoplePicker`: receive `value`, `options`, `max`, `onChange`, `avatarSizePx`, `empty`, `row`.
+2. **Keys** — Drive the picker from `selectedKeys = reconcileRichPeopleWithRoster(value, options).map(richPersonOptionKey)`; on change, `onChange(resolveRichPeopleByOptionKeys(options, keys).slice(0, max))`.
+3. **nqui Combobox** — `Combobox` with `multiple`, `items={options}` when the version you use expects it; `value: string[]` of keys; list built with `ComboboxItem value={richPersonOptionKey(p)}`.
+4. **Remove affordance** — Either:
+   - `ComboboxChip` + `showRemove` (chip layout), or
+   - Per-avatar dismiss that calls `onChange` with keys minus one (stop pointer propagation so the anchor does not steal the click).
+5. **Dense table trigger** — Overlapping `Avatar`s + overflow “…” token is a layout choice; table shell tokens live in `@nqlib/nqgrid/styles` (`tableRichPill*` adjacent patterns); see `.cursor/skills/nqgrid-table-design/SKILL.md` for scroll/shell rules.
+
+Do **not** copy playground files into the library; keep `@nqlib/nqgrid` free of `@nqlib/nqui` peer UI.

@@ -1,0 +1,92 @@
+{
+  "name": "@nqlib/nqgrid",
+  "version": "0.1.0",
+  "description": "Headless TanStack table engine helpers, layout tokens, and demo fixtures — compose UI with @nqlib/nqui",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles": {
+      "types": "./dist/styles.d.ts",
+      "import": "./dist/styles.js",
+      "require": "./dist/styles.cjs"
+    },
+    "./fixtures": {
+      "types": "./dist/fixtures.d.ts",
+      "import": "./dist/fixtures.js",
+      "require": "./dist/fixtures.cjs"
+    },
+    "./engine": {
+      "types": "./dist/engine.d.ts",
+      "import": "./dist/engine.js",
+      "require": "./dist/engine.cjs"
+    },
+    "./sheet": {
+      "types": "./dist/sheet.d.ts",
+      "import": "./dist/sheet.js",
+      "require": "./dist/sheet.cjs"
+    },
+    "./spreadsheet": {
+      "types": "./dist/spreadsheet.d.ts",
+      "import": "./dist/spreadsheet.js",
+      "require": "./dist/spreadsheet.cjs"
+    },
+    "./advanced": {
+      "types": "./dist/advanced.d.ts",
+      "import": "./dist/advanced.js",
+      "require": "./dist/advanced.cjs"
+    },
+    "./configurator": {
+      "types": "./dist/configurator.d.ts",
+      "import": "./dist/configurator.js",
+      "require": "./dist/configurator.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "CHANGELOG.md", "docs"],
+  "sideEffects": false,
+  "publishConfig": {
+    "registry": "https://registry.npmjs.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nqlib/nqgrid.git"
+  },
+  "keywords": ["react", "tanstack", "table", "grid", "headless", "nqui", "tailwind"],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "dev": "pnpm --filter nqgrid-playground dev",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
+  },
+  "peerDependencies": {
+    "@tanstack/react-table": "^8.21.0",
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-table": { "optional": false }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@tanstack/react-table": "^8.21.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "globals": "^17.4.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tsup": "^8.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,19 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@nqlib/nqui/styles";
+
+@custom-variant dark (&:is(.dark *));
+
+@source "../../../src/**/*.ts";
+@source "../**/*.{ts,tsx}";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans, ui-sans-serif, system-ui);
+}
