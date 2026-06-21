@@ -1,0 +1,47 @@
+{
+  "name": "@nqlib/nqgantt",
+  "version": "0.1.0",
+  "description": "Headless gantt / timeline engine — projects @nqlib/nqgrid's schema-typed rows onto a time axis via the shared ColumnType contract (toInterval). Table · gantt · board, one data model.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "publishConfig": {
+    "registry": "https://registry.npmjs.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nqlib/nqgrid.git",
+    "directory": "packages/nqgantt"
+  },
+  "keywords": ["react", "gantt", "timeline", "roadmap", "schedule", "headless", "nqgrid"],
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@nqlib/nqgrid": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tsup": "^8.5.0",
+    "typescript": "~5.9.3"
+  }
+}

@@ -17,9 +17,19 @@ pnpm add @nqlib/nqgrid @tanstack/react-table react react-dom
 | `@nqlib/nqgrid/engine` | Table engine utilities |
 | `@nqlib/nqgrid/sheet` | Virtual sheet / viewport |
 | `@nqlib/nqgrid/spreadsheet` | Spreadsheet-style commands / formats |
-| `@nqlib/nqgrid/advanced` | Rich schema, `buildRichColumnFromDef`, formatters |
+| `@nqlib/nqgrid/advanced` | Rich schema, `buildRichColumnFromDef`, formatters, the `compareKey` sort layer + `toInterval` time-axis seam |
 | `@nqlib/nqgrid/fixtures` | Mock datasets for examples |
 | `@nqlib/nqgrid/configurator` | Typed import plan + feature flags |
+
+## Sibling packages
+
+`nqgrid` is the **table** member of a `table · gantt · board` family that all render over one
+shared `ColumnType` contract (value/format/style kept separate; sort/group on parsed
+`compareKey`, never the display string).
+
+| Package | Purpose |
+|---------|---------|
+| **[`@nqlib/nqgantt`](./packages/nqgantt)** | Headless gantt/timeline engine — projects the same nqgrid schema + rows onto a time axis (`toInterval`) with drag-to-reschedule, milestones, dependencies, and swimlanes. See the **Gantt** tab in the playground. |
 
 ## Documentation
 

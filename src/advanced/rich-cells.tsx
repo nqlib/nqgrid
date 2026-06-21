@@ -15,6 +15,7 @@ import type { FormulaPresentation, RichNumberFormatOptions, RichPillVariant, Ric
 import {
   avatarSrc,
   formatDateValue,
+  formatTimelineValue,
   formatNumberValue,
   formatPercentPlain,
   initials,
@@ -251,6 +252,17 @@ export function RichColumnCell(props: {
       return (
         <span className={tableNumericMutedClass}>
           {formatDateValue(raw, mergeRichDateFormatLocale(def.format, defaultLocale), def.empty ?? "—")}
+        </span>
+      );
+    case "timeline":
+      return (
+        <span className={tableNumericMutedClass}>
+          {formatTimelineValue(
+            raw,
+            mergeRichDateFormatLocale(def.format, defaultLocale),
+            def.separator,
+            def.empty ?? "—",
+          )}
         </span>
       );
     case "status":

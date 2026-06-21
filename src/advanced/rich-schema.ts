@@ -137,6 +137,34 @@ export type DateRichColumn<TData extends object> = RichColumnBase &
     readonly empty?: string;
   };
 
+/** Anything coercible to a `Date` by {@link coerceDate}. */
+export type DateLike = string | number | Date;
+
+/**
+ * Raw shape a `timeline` cell stores. The SSOT is two dates — never a pixel position.
+ * Accepted at the accessor: `{ start, end }`, a `[start, end]` tuple, or a single
+ * date-like value (a zero-width interval → milestone).
+ */
+export type RichTimelineRaw =
+  | { readonly start: DateLike; readonly end?: DateLike | null }
+  | readonly [DateLike, (DateLike | null)?]
+  | DateLike;
+
+/**
+ * Time-interval column — the seam that lets the SAME schema feed a gantt/timeline view.
+ * The table renders it as a `start – end` label; a time-axis engine reads its interval
+ * via `toInterval` (see `rich-interval.ts`). `end` omitted/equal to `start` ⇒ milestone.
+ */
+export type TimelineRichColumn<TData extends object> = RichColumnBase &
+  AccessorOf<TData> & {
+    readonly kind: "timeline";
+    /** Formatting for each endpoint when rendered in a table cell. */
+    readonly format?: RichDateFormatOptions;
+    readonly empty?: string;
+    /** Separator between start and end in the table label (default `" – "`). */
+    readonly separator?: string;
+  };
+
 export type RichStatusValueChange<TData extends object> = (args: {
   readonly row: TData;
   readonly value: string;
@@ -239,6 +267,7 @@ export type RichSchemaColumnDef<TData extends object = Record<string, unknown>> 
   | CurrencyRichColumn<TData>
   | PercentRichColumn<TData>
   | DateRichColumn<TData>
+  | TimelineRichColumn<TData>
   | StatusRichColumn<TData>
   | TagRichColumn<TData>
   | PeopleRichColumn<TData>

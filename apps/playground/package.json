@@ -15,6 +15,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hugeicons/core-free-icons": "^4.0.0",
     "@hugeicons/react": "^1.1.6",
+    "@nqlib/nqgantt": "workspace:*",
     "@nqlib/nqgrid": "workspace:*",
     "@nqlib/nqui": "^0.5.6",
     "@remixicon/react": "^4.9.0",
