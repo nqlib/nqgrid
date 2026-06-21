@@ -68,6 +68,9 @@ importers:
       '@hugeicons/react':
         specifier: ^1.1.6
         version: 1.1.6(react@19.2.6)
+      '@nqlib/nqgantt':
+        specifier: workspace:*
+        version: link:../../packages/nqgantt
       '@nqlib/nqgrid':
         specifier: workspace:*
         version: link:../..
@@ -135,6 +138,28 @@ importers:
       react-grab:
         specifier: ^0.1.33
         version: 0.1.34(react@19.2.6)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/nqgantt:
+    dependencies:
+      '@nqlib/nqgrid':
+        specifier: workspace:*
+        version: link:../..
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      react:
+        specifier: ^19.2.4
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.2.4
+        version: 19.2.6(react@19.2.6)
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.14)(typescript@5.9.3)
       typescript:
         specifier: ~5.9.3
         version: 5.9.3

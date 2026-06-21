@@ -2,6 +2,29 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
+## [Unreleased]
+
+### Added
+
+- **Contract: `compareKey` sort/group layer** — rich columns now attach a `sortingFn`
+  derived from the parsed value, not the display string. `status`/`tag` columns sort by
+  **workflow order** (their `choiceOrder` / option order) instead of alphabetically;
+  numbers/percent/currency sort numerically; dates and timelines by timestamp. New exports
+  from `@nqlib/nqgrid/advanced`: `richCompareKey`, `richSortingFn`.
+- **Contract: `toInterval` time-axis seam** — a new `timeline` column kind (raw
+  `{ start, end }`, a `[start, end]` tuple, or a single date ⇒ milestone) plus
+  `richToInterval`, `isTimelineCapable`, `findTimelineColumn`, `readRichAccessor`, and
+  `parseTimelineRaw` / `formatTimelineValue`. `date` columns project as zero-width
+  intervals (milestones). The table renders a `start – end` label; time-axis engines read
+  the interval.
+- **`@nqlib/nqgantt` (new sibling package)** — a headless gantt/timeline engine that
+  projects the SAME nqgrid schema + rows onto a time axis with zero data duplication:
+  invertible `createTimeScale` (day/week/month/quarter), `buildGanttModel`
+  (interval-positioned bars, status-colored, swimlanes by `compareKey`),
+  drag-to-reschedule (`rescheduleInterval` commits raw dates), milestones, and
+  finish-to-start dependency routing. Includes a `<Gantt>` React renderer and a
+  playground demo (Gantt tab) sharing one task store with a grid.
+
 ## [0.1.0] - 2026-05-15
 
 ### Added

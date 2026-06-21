@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import type { RichColumnFactoryConfig } from "./factory-config";
 import { normalizeRichSchemaColumnDef } from "./normalize-rich-schema";
+import { richCompareKey } from "./rich-compare-key";
 import { RichColumnCell } from "./rich-cells";
 import type {
   CustomRichColumn,
@@ -68,6 +69,13 @@ export function buildRichColumnFromDef<TData extends object>(
     header,
     size: normalized.width,
     enableSorting: sorting,
+    // Sort/group on the parsed compareKey (workflow order for status, numeric for
+    // number/percent, timestamp for dates) — never on the rendered display string.
+    sortingFn: (rowA, rowB, columnId) => {
+      const ka = richCompareKey(normalized, rowA.getValue(columnId));
+      const kb = richCompareKey(normalized, rowB.getValue(columnId));
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    },
     meta: metaForKind(normalized.kind),
     cell: (info) => {
       const row = info.row.original;

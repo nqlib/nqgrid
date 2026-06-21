@@ -202,6 +202,48 @@ export function formatDateValue(value: unknown, fmt?: RichDateFormatOptions, emp
   }
 }
 
+/**
+ * Coerce a `timeline` raw value into an ordered `[start, end]` date pair.
+ * Accepts `{ start, end }`, a `[start, end]` tuple, or a single date-like (milestone).
+ * Returns `undefined` when no valid start can be read.
+ */
+export function parseTimelineRaw(raw: unknown): { start: Date; end: Date } | undefined {
+  if (raw == null) return undefined;
+
+  let startRaw: unknown;
+  let endRaw: unknown;
+  if (Array.isArray(raw)) {
+    startRaw = raw[0];
+    endRaw = raw.length > 1 ? raw[1] : undefined;
+  } else if (typeof raw === "object" && !(raw instanceof Date) && ("start" in raw || "end" in raw)) {
+    const o = raw as { start?: unknown; end?: unknown };
+    startRaw = o.start;
+    endRaw = o.end;
+  } else {
+    startRaw = raw;
+    endRaw = undefined;
+  }
+
+  const start = coerceDate(startRaw);
+  if (!start) return undefined;
+  const end = coerceDate(endRaw) ?? start; // omitted / unparseable end ⇒ milestone
+  // Keep the pair ordered so downstream geometry never produces a negative width.
+  return end.getTime() < start.getTime() ? { start: end, end: start } : { start, end };
+}
+
+export function formatTimelineValue(
+  raw: unknown,
+  fmt?: RichDateFormatOptions,
+  separator = " – ",
+  empty = "",
+): string {
+  const iv = parseTimelineRaw(raw);
+  if (!iv) return empty;
+  const start = formatDateValue(iv.start, fmt, empty);
+  if (iv.end.getTime() === iv.start.getTime()) return start;
+  return `${start}${separator}${formatDateValue(iv.end, fmt, empty)}`;
+}
+
 export function resolveStatusEntry(
   raw: unknown,
   map: Readonly<Record<string, RichStatusMapEntry>>,

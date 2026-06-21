@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nqlib/nqui";
 import { mockFlightsOperations, mockPortfolio, mockProjects } from "@nqlib/nqgrid";
 import { FlightsTable } from "./demos/flights-table";
+import { GanttTimelineDemo } from "./demos/gantt-timeline-demo";
 import { GroupingDemo } from "./demos/grouping-demo";
 import { InfiniteRowsDemo } from "./demos/infinite-rows-demo";
 import { KeyboardCellDemo } from "./demos/keyboard-cell-demo";
@@ -58,6 +59,9 @@ export function App() {
           <TabsTrigger className="shrink-0 flex-none" value="flights">
             Flights (ops)
           </TabsTrigger>
+          <TabsTrigger className="shrink-0 flex-none" value="gantt">
+            Gantt
+          </TabsTrigger>
           <TabsTrigger className="shrink-0 flex-none" value="parity">
             Parity / nqdg
           </TabsTrigger>
@@ -70,6 +74,9 @@ export function App() {
         </TabsContent>
         <TabsContent value="flights" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
           <FlightsTable data={mockFlightsOperations} />
+        </TabsContent>
+        <TabsContent value="gantt" className="flex min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
+          <GanttTimelineDemo />
         </TabsContent>
         <TabsContent value="parity" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
           <Tabs defaultValue="sheet" className="flex min-h-0 flex-1 flex-col gap-3">
