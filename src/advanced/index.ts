@@ -4,10 +4,13 @@ export type {
   RichPeoplePickerRenderArgs,
   RenderRichPeoplePicker,
 } from "./factory-config";
-export { buildColumnFromDef, type ColumnType, type SchemaColumnDef } from "./column-factory";
-export { buildRichColumnFromDef, buildRichColumnsFromDefs } from "./build-rich-column";
-export { RichColumnCell, RichFormulaPresentationCell, RichNumberCell } from "./rich-cells";
-export { RichStatusCell, richStatusEntryInlineStyle, statusChoiceKeys } from "./rich-status-cell";
+// Migration bridge: legacy rich union → ColumnType contract (see contract.ts).
+export {
+  createRichRegistry,
+  richDefToColumnSchema,
+  richSchemaToColumns,
+  type BridgedColumn,
+} from "./rich-schema-bridge";
 export {
   effectiveNumberStyle,
   normalizeRichSchemaColumnDef,

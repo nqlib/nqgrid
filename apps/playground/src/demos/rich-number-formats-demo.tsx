@@ -17,31 +17,29 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   cn,
 } from "@nqlib/nqui";
 import {
-  buildRichColumnFromDef,
-  tableCellClass,
-  tableDenseTypography,
-  tableFooterClass,
-  tableHeaderClass,
-  tableHeadClass,
-  tableRowClass,
-  tableScrollAreaContentClass,
-  tableScrollAreaRootClass,
-  tableScrollViewportStyle,
-  tableShellClass,
   type PeopleRichColumn,
   type RichSchemaColumnDef,
   type StatusRichColumn,
 } from "@nqlib/nqgrid";
+import { buildRichColumnFromDef } from "../lib/nqgrid-styling";
+import {
+  gridBodyHoverClass,
+  gridCellClass,
+  gridHeadCellClass,
+  gridHeaderClass,
+  gridRowClass,
+  gridTableClass,
+} from "../lib/grid-styles";
+import {
+  neutralTanStackRowFillClass,
+  playgroundTanStackRowStripeData,
+  useNeutralPlaygroundTable,
+} from "../lib/playground-neutral-table";
+import { EngineScrollTableShell } from "../parity/engine-scroll-table-shell";
 import { PlaygroundPeopleComboboxCell } from "./playground-people-combobox-cell";
-import { usePlaygroundTableBodyClass } from "../playground-table-settings";
 import { RichGridLabAddColumnDialog } from "./rich-grid-lab-add-column-dialog";
 import { RichGridLabColumnSheet } from "./rich-grid-lab-column-sheet";
 import {
@@ -117,7 +115,7 @@ export function RichNumberFormatsDemo() {
   const [rows, setRows] = useState<LabRow[]>(createInitialRows);
   const [configureId, setConfigureId] = useState<string | null>(null);
   const [pendingInsert, setPendingInsert] = useState<PendingInsert | null>(null);
-  const tableBodyClassName = usePlaygroundTableBodyClass();
+  const { tokens } = useNeutralPlaygroundTable();
 
   const configureColumn = useMemo(
     () => (configureId ? columns.find((c) => c.id === configureId) ?? null : null),
@@ -309,56 +307,58 @@ export function RichNumberFormatsDemo() {
         </Button>
       </div>
 
-      <div className={tableShellClass}>
-        <ScrollArea
-          orientation="both"
-          fadeMask={false}
-          className={tableScrollAreaRootClass}
-          viewportStyle={tableScrollViewportStyle}
-        >
-          <div className={tableScrollAreaContentClass}>
-            <table className={cn(tableDenseTypography, "min-w-[720px]")}>
-              <TableHeader className={tableHeaderClass}>
-                {table.getHeaderGroups().map((hg) => (
-                  <TableRow key={hg.id} className={tableRowClass}>
-                    {hg.headers.map((header) => {
-                      const numeric = (header.column.columnDef.meta as { numericAlign?: boolean } | undefined)?.numericAlign;
-                      return (
-                        <TableHead
-                          key={header.id}
-                          className={cn(tableHeadClass, numeric && "text-right")}
-                          style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
-                        >
-                          {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody className={tableBodyClassName}>
-                {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} className={tableRowClass}>
-                    {row.getVisibleCells().map((cell) => {
-                      const numeric = (cell.column.columnDef.meta as { numericAlign?: boolean } | undefined)?.numericAlign;
-                      return (
-                        <TableCell key={cell.id} className={cn(tableCellClass, numeric && "text-right")}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </table>
-          </div>
-        </ScrollArea>
-        <div className={tableFooterClass}>
+      <EngineScrollTableShell
+        className="max-h-[min(50dvh,420px)]"
+        footer={
           <p className="text-xs text-muted-foreground">
             {columns.length} columns · {rows.length} rows · configure per column via ⋮ menu
           </p>
-        </div>
-      </div>
+        }
+      >
+        <table className={gridTableClass} style={{ width: table.getTotalSize(), minWidth: 720 }}>
+          <colgroup>
+            {table.getVisibleLeafColumns().map((col) => (
+              <col key={col.id} style={{ width: col.getSize() }} />
+            ))}
+          </colgroup>
+          <thead className={gridHeaderClass}>
+            {table.getHeaderGroups().map((hg) => (
+              <tr key={hg.id}>
+                {hg.headers.map((header) => {
+                  const numeric = (header.column.columnDef.meta as { numericAlign?: boolean } | undefined)?.numericAlign;
+                  return (
+                    <th
+                      key={header.id}
+                      className={cn(gridHeadCellClass, numeric ? "text-right" : undefined)}
+                      style={{ width: header.getSize() }}
+                    >
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          <tbody className={gridBodyHoverClass}>
+            {table.getRowModel().rows.map((row) => (
+              <tr
+                key={row.id}
+                className={cn(gridRowClass, neutralTanStackRowFillClass(tokens, row.index))}
+                {...playgroundTanStackRowStripeData(tokens, row.index)}
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const numeric = (cell.column.columnDef.meta as { numericAlign?: boolean } | undefined)?.numericAlign;
+                  return (
+                    <td key={cell.id} className={cn(gridCellClass, numeric ? "text-right" : undefined)}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </EngineScrollTableShell>
 
       <RichGridLabColumnSheet
         open={configureId != null}

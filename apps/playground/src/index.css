@@ -4,8 +4,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@source "../../../src/**/*.ts";
 @source "../**/*.{ts,tsx}";
+@source "../node_modules/@nqlib/nqui/dist/**/*.js";
+@source "../../../src/**/*.{ts,tsx}";
 
 html,
 body,
@@ -16,4 +17,71 @@ body,
 body {
   margin: 0;
   font-family: var(--font-sans, ui-sans-serif, system-ui);
+}
+
+@keyframes select-cell-hold-ring {
+  from {
+    opacity: 0.25;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.select-cell-hold-ring {
+  animation-name: select-cell-hold-ring;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* ── Pinned-cell background consistency ──────────────────────────────────────
+   A sticky cell must be OPAQUE (other cells scroll under it) and the SAME color
+   as the body row it sits in. REST + STRIPE come from the cell's own opaque fill
+   class (buildPinnedBodyCellFill → matches the <tr> fill per row), so we don't
+   set them here. We only supply HOVER/SELECTED, which the body applies as a
+   translucent overlay (and which excludes [data-pinned]); the opaque equivalent
+   is color-mix(overlay, <the row's own base>). The base differs by stripe:
+     --nqgrid-row-base   = the plain/odd row surface
+     --nqgrid-row-stripe = the tinted/even row surface
+   Set these per-table to whatever the row fills resolve to.
+   Keyed off [data-pinned] regardless of edge, so pinned rows/corner inherit it. */
+:root {
+  --nqgrid-row-base: var(--background);
+  --nqgrid-row-stripe: color-mix(in oklab, var(--foreground) 5%, var(--card));
+
+  /* becocharts categorical palette — purple, teal, blue, gold, orange. */
+  --chart-1: oklch(0.55 0.23 275);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+}
+
+.dark {
+  --chart-1: oklch(0.58 0.21 275);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.72 0.12 220);
+  --chart-4: oklch(0.82 0.16 84);
+  --chart-5: oklch(0.72 0.19 55);
+}
+/* hover — opaque equivalent of the body's bg-muted/40, over the correct base */
+tbody tr:hover > [data-pinned]:not([data-row-header]) {
+  background-color: color-mix(in oklab, var(--muted) 40%, var(--nqgrid-row-base));
+}
+tbody tr[data-stripe="even"]:hover > [data-pinned]:not([data-row-header]) {
+  background-color: color-mix(in oklab, var(--muted) 40%, var(--nqgrid-row-stripe));
+}
+/* selected — opaque equivalent of the body's bg-muted/50 */
+tbody tr[data-state="selected"] > [data-pinned]:not([data-row-header]) {
+  background-color: color-mix(in oklab, var(--muted) 50%, var(--nqgrid-row-base));
+}
+tbody tr[data-stripe="even"][data-state="selected"] > [data-pinned]:not([data-row-header]) {
+  background-color: color-mix(in oklab, var(--muted) 50%, var(--nqgrid-row-stripe));
+}
+
+/* Column reorder: toolbar/menu buttons must not end an active header drag. */
+body[data-nqgrid-column-dragging] :is(button, [role="button"], [role="menuitem"]) {
+  pointer-events: none;
 }

@@ -11,7 +11,19 @@
     "isolatedModules": true,
     "useDefineForClassFields": true,
     "verbatimModuleSyntax": false,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": {
+      "@/lib/utils": ["./src/beecharts/lib-utils.ts"],
+      "@/registry/*": ["./src/beecharts/registry/*"],
+      "@nqlib/nqgrid": ["../../src/index.ts"],
+      "@nqlib/nqgrid/engine": ["../../src/engine/index.ts"],
+      "@nqlib/nqgrid/grid": ["../../src/grid/index.ts"],
+      "@nqlib/nqgrid/sheet": ["../../src/sheet/index.ts"],
+      "@nqlib/nqgrid/spreadsheet": ["../../src/spreadsheet/index.ts"],
+      "@nqlib/nqgrid/advanced": ["../../src/advanced/index.ts"],
+      "@nqlib/nqgrid/configurator": ["../../src/configurator/index.ts"],
+      "@nqlib/nqgrid/fixtures": ["../../src/fixtures/index.ts"]
+    }
   },
   "include": ["src"]
 }

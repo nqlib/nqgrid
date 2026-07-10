@@ -1,14 +1,18 @@
-export * from "./paging";
-export * from "./pinned-layout";
-export * from "./pinned-cell-styles";
-export * from "./tanstack-defaults";
-export * from "./use-infinite-visible-rows";
-export * from "./use-pinned-table-columns";
-export * from "./clipboard-tsv";
-export * from "./group-by-tree";
-export * from "./use-master-detail";
-export * from "./use-cell-keyboard-table";
-export * from "./use-grid-imperative";
-export * from "./col-span-frozen";
-export * from "./a11y";
-export * from "./row-reorder";
+// Pinned columns + row pinning
+export * from "./pinning";
+// Freeze panes / frozen rows
+export * from "./freeze";
+// Row virtualization + windowed data
+export * from "./virtualization";
+// Selection, keyboard, a11y
+export * from "./selection";
+// Drag reorder
+export * from "./reorder";
+// Row/column outline + grouping
+export * from "./outline";
+// Pivot / cross-tab
+export * from "./pivot";
+// ColumnType contract: registry + core plugins + view-mode (table/list/board) helpers
+export * from "./column-types";
+// Paging, clipboard, TanStack defaults, imperative
+export * from "./data";

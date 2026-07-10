@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Playground Dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "nqgrid-playground", "dev"],
+      "port": 5174,
+      "autoPort": true
+    },
+    {
+      "name": "Playground Preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "nqgrid-playground", "preview"],
+      "port": 4173
+    }
+  ]
+}

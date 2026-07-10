@@ -1,40 +1,35 @@
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nqlib/nqui";
-import { mockFlightsOperations, mockPortfolio, mockProjects } from "@nqlib/nqgrid";
-import { FlightsTable } from "./demos/flights-table";
-import { GroupingDemo } from "./demos/grouping-demo";
-import { InfiniteRowsDemo } from "./demos/infinite-rows-demo";
-import { KeyboardCellDemo } from "./demos/keyboard-cell-demo";
-import { RichInlineTasksDemo } from "./demos/rich-inline-tasks-demo";
-import { RichNumberFormatsDemo } from "./demos/rich-number-formats-demo";
-import { MasterDetailDemo } from "./demos/master-detail-demo";
-import { PortfolioTable } from "./demos/portfolio-table";
-import { ProjectsTable } from "./demos/projects-table";
-import { SheetVirtualDemo } from "./demos/sheet-virtual-demo";
-import { SpreadsheetChromeDemo } from "./demos/spreadsheet-chrome-demo";
-import { TableSelectionDemo } from "./demos/table-selection-demo";
+import { DesignTokensPage } from "./design-tokens/design-tokens-page";
+import { ExamplesPage } from "./examples/examples-page";
+import { SpreadsheetPage } from "./demos/spreadsheet/spreadsheet-page";
+import { ProjectsPage } from "./demos/projects/projects-page";
 import { PlaygroundTableSettingsMenu } from "./playground-table-settings";
 import { ThemeToggle } from "./theme-toggle";
 
-const GROUPING_DATA = [
-  { id: "1", country: "US", city: "NYC", units: 12 },
-  { id: "2", country: "US", city: "SF", units: 8 },
-  { id: "3", country: "DE", city: "BER", units: 5 },
-  { id: "4", country: "DE", city: "MUC", units: 7 },
-];
+/** Override nqui defaults (`flex-1 min-w-0` + string `truncate` wrapper) so labels show in full. */
+const playgroundTabTriggerClass = "flex-none shrink-0 px-3";
 
-const SELECTION_DATA = [
-  { id: "a", label: "Alpha", amount: 120 },
-  { id: "b", label: "Bravo", amount: 45 },
-  { id: "c", label: "Charlie", amount: 210 },
-];
-
-const KEYBOARD_DATA = [
-  { id: "k1", sku: "SKU-100" },
-  { id: "k2", sku: "SKU-200" },
-  { id: "k3", sku: "SKU-300" },
-];
+/** Persist the active tab so a full reload (incl. Vite HMR full-reloads) restores it. */
+const TAB_STORAGE_KEY = "nqgrid-playground-tab";
+function readStoredTab(): string {
+  try {
+    return localStorage.getItem(TAB_STORAGE_KEY) ?? "examples";
+  } catch {
+    return "examples";
+  }
+}
 
 export function App() {
+  const [tab, setTab] = useState<string>(readStoredTab);
+  const onTabChange = (value: string) => {
+    setTab(value);
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, value);
+    } catch {
+      /* ignore */
+    }
+  };
   return (
     <div className="flex min-h-full flex-col gap-4 bg-background p-6 text-foreground">
       <header className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -47,71 +42,41 @@ export function App() {
         </div>
       </header>
 
-      <Tabs defaultValue="portfolio" className="flex min-h-0 flex-1 flex-col gap-3">
-        <TabsList className="max-w-full shrink-0 self-start overflow-x-auto overflow-y-hidden">
-          <TabsTrigger className="shrink-0 flex-none" value="portfolio">
-            Portfolio
+      <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col gap-3">
+        <TabsList className="w-fit shrink-0 self-start">
+          <TabsTrigger className={playgroundTabTriggerClass} value="examples">
+            <span className="whitespace-nowrap">Examples</span>
           </TabsTrigger>
-          <TabsTrigger className="shrink-0 flex-none" value="projects">
-            Projects
+          <TabsTrigger className={playgroundTabTriggerClass} value="spreadsheet">
+            <span className="whitespace-nowrap">Spreadsheet</span>
           </TabsTrigger>
-          <TabsTrigger className="shrink-0 flex-none" value="flights">
-            Flights (ops)
+          <TabsTrigger className={playgroundTabTriggerClass} value="projects">
+            <span className="whitespace-nowrap">Projects</span>
           </TabsTrigger>
-          <TabsTrigger className="shrink-0 flex-none" value="parity">
-            Parity / nqdg
+          <TabsTrigger className={playgroundTabTriggerClass} value="design-tokens">
+            <span className="whitespace-nowrap">Design tokens</span>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="portfolio" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
-          <PortfolioTable data={mockPortfolio} />
+        <TabsContent value="examples" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
+          <ExamplesPage />
         </TabsContent>
-        <TabsContent value="projects" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
-          <ProjectsTable data={mockProjects} />
+        <TabsContent
+          value="spreadsheet"
+          className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden"
+        >
+          <SpreadsheetPage />
         </TabsContent>
-        <TabsContent value="flights" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
-          <FlightsTable data={mockFlightsOperations} />
+        <TabsContent
+          value="projects"
+          className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden"
+        >
+          <ProjectsPage />
         </TabsContent>
-        <TabsContent value="parity" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
-          <Tabs defaultValue="sheet" className="flex min-h-0 flex-1 flex-col gap-3">
-            <TabsList className="max-w-full shrink-0 flex-wrap gap-1">
-              <TabsTrigger value="sheet">Sheet</TabsTrigger>
-              <TabsTrigger value="selection">Table selection</TabsTrigger>
-              <TabsTrigger value="keyboard">Cell keyboard</TabsTrigger>
-              <TabsTrigger value="grouping">Grouping</TabsTrigger>
-              <TabsTrigger value="master">Master detail</TabsTrigger>
-              <TabsTrigger value="spreadsheet">Spreadsheet chrome</TabsTrigger>
-              <TabsTrigger value="infinite">Infinite rows</TabsTrigger>
-              <TabsTrigger value="richInline">Rich + inline edit</TabsTrigger>
-              <TabsTrigger value="richNumbers">Number formats</TabsTrigger>
-            </TabsList>
-            <TabsContent value="sheet" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <SheetVirtualDemo />
-            </TabsContent>
-            <TabsContent value="selection" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <TableSelectionDemo data={SELECTION_DATA} />
-            </TabsContent>
-            <TabsContent value="keyboard" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <KeyboardCellDemo data={KEYBOARD_DATA} />
-            </TabsContent>
-            <TabsContent value="grouping" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <GroupingDemo data={GROUPING_DATA} />
-            </TabsContent>
-            <TabsContent value="master" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <MasterDetailDemo />
-            </TabsContent>
-            <TabsContent value="spreadsheet" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <SpreadsheetChromeDemo />
-            </TabsContent>
-            <TabsContent value="infinite" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <InfiniteRowsDemo />
-            </TabsContent>
-            <TabsContent value="richInline" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <RichInlineTasksDemo />
-            </TabsContent>
-            <TabsContent value="richNumbers" className="min-h-0 flex-1 data-[state=inactive]:hidden">
-              <RichNumberFormatsDemo />
-            </TabsContent>
-          </Tabs>
+        <TabsContent
+          value="design-tokens"
+          className="min-h-0 flex-1 overflow-y-auto outline-none data-[state=inactive]:hidden"
+        >
+          <DesignTokensPage />
         </TabsContent>
       </Tabs>
     </div>

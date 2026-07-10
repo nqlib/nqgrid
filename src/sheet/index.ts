@@ -1,2 +1,2 @@
-export { VirtualSheet, type VirtualSheetProps } from "./VirtualSheet";
+export { VirtualSheet, type VirtualSheetProps } from "./virtual-sheet";
 export { computeSheetViewport, useSheetViewport, type SheetViewportInput, type SheetViewportRange } from "./use-sheet-viewport";

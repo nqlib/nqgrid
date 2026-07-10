@@ -1,12 +1,9 @@
 /** Stable ids for the import planner + docs. */
 export type NqgridFeatureId =
-  | "styles.tokens"
   | "fixtures.dashboard"
   | "engine.headless"
   | "sheet.virtual"
-  | "spreadsheet.chrome"
-  | "advanced.columnFactory"
-  | "components.tablePercentBattery";
+  | "spreadsheet.chrome";
 
 export interface NqgridFeatureDescriptor {
   readonly id: NqgridFeatureId;
@@ -15,12 +12,10 @@ export interface NqgridFeatureDescriptor {
   /** ESM import specifier (matches `package.json#exports`). */
   readonly entry:
     | "@nqlib/nqgrid"
-    | "@nqlib/nqgrid/styles"
     | "@nqlib/nqgrid/fixtures"
     | "@nqlib/nqgrid/engine"
     | "@nqlib/nqgrid/sheet"
-    | "@nqlib/nqgrid/spreadsheet"
-    | "@nqlib/nqgrid/advanced";
+    | "@nqlib/nqgrid/spreadsheet";
   /** Representative named exports to seed import statements (merge + dedupe per entry). */
   readonly namedExports: readonly string[];
   /** How to configure when this feature is on (library + usual TanStack peers). */
@@ -28,44 +23,6 @@ export interface NqgridFeatureDescriptor {
 }
 
 export const NQGRID_FEATURES = [
-  {
-    id: "styles.tokens",
-    label: "Table shell & class tokens",
-    summary: "Scroll layout, typography, tbody/header chrome, numeric helpers.",
-    entry: "@nqlib/nqgrid/styles",
-    namedExports: [
-      "tableShellClass",
-      "tableScrollAreaRootClass",
-      "tableScrollViewportStyle",
-      "tableScrollAreaContentClass",
-      "tableDenseTypography",
-      "tableHeaderClass",
-      "tableHeadClass",
-      "tableBodyClass",
-      "tableBodyStripedClass",
-      "tableBodyClassFor",
-      "tableRowClass",
-      "tableCellClass",
-      "tableFooterClass",
-      "flightsTableShellExtraClass",
-      "tableNumericClass",
-      "tableNumericMutedClass",
-      "tableNumericStrongClass",
-      "tablePercentBatteryShellClass",
-      "tablePercentBatteryTrackClass",
-      "tablePercentBatteryFillClass",
-      "tablePercentBatteryLabelMutedClass",
-      "tablePercentBatteryLabelStrongClass",
-    ],
-    configure: [
-      { key: "styles.tableBodyFill", hint: "Pass `'solid' | 'striped'` into `tableBodyClassFor` (or `tableBodyClassFromLibraryConfig`)." },
-      {
-        key: "styles.percentProgressDisplay",
-        hint: "Optional `'plain' | 'battery'` for percent cells — battery uses `TablePercentBattery` from `@nqlib/nqgrid`.",
-      },
-      { key: "UI peer", hint: "Compose with `@nqlib/nqui` `Table`, `ScrollArea`, etc." },
-    ],
-  },
   {
     id: "fixtures.dashboard",
     label: "Dashboard fixtures",
@@ -88,21 +45,37 @@ export const NQGRID_FEATURES = [
   {
     id: "engine.headless",
     label: "TanStack engine helpers",
-    summary: "Pinned columns, infinite rows, clipboard, grouping, keyboard, defaults.",
+    summary: "TanStack row-model presets, pinned geometry, virtualizer glue, keyboard, clipboard.",
     entry: "@nqlib/nqgrid/engine",
     namedExports: [
       "EMPTY_ROW_SELECTION",
+      "TANSTACK_ROW_MODEL_PRESETS",
       "clampPageIndex",
       "colSpanCrossesFrozenBoundary",
       "computePinnedLayout",
+      "computeFrozenTopLayout",
+      "createFreezePanesState",
+      "freezePanesFromExcelCell",
+      "getFreezePaneCellStickyStyle",
+      "createGlobalFilterFn",
       "getDirectionDocument",
       "getPageCount",
       "getPinnedTableCellStickyStyle",
       "getTableWrapperAria",
+      "getVirtualTableRowStyle",
+      "getBottomPinnedRowStyle",
+      "useTableRowSections",
+      "useFrozenTopRows",
+      "useFrozenTableColumns",
+      "withFreezePanesSupport",
+      "columnOutlineToVisibility",
+      "buildColumnOutlineGroups",
+      "getOutlineRowIndentStyle",
       "isLastPinnedColumn",
       "isPinnedColumn",
       "moveRowBefore",
       "resolvePinnedLeftPrefix",
+      "resolvePinnedLeftWithLeadingGutter",
       "slicePage",
       "tsvToMatrix",
       "useCellKeyboardTable",
@@ -111,20 +84,32 @@ export const NQGRID_FEATURES = [
       "useMasterDetail",
       "usePinnedTableColumns",
       "useScrollToCellScroller",
+      "useTableRowVirtualizer",
       "withCoreRowModel",
       "withCoreSorting",
       "withCoreSortingExpanded",
       "withCoreSortingRowSelection",
+      "withCoreSortingFiltered",
+      "withCoreSortingPaginated",
+      "withCoreSortingGroupedExpanded",
+      "withCoreSortingFaceted",
+      "withCoreDataTable",
       "buildGroupedFlatRows",
     ],
     configure: [
-      { key: "engine.pinnedLeftIds", hint: "Prefix column ids for `usePinnedTableColumns`." },
+      { key: "engine.pinnedLeftIds", hint: "Prefix column ids for `usePinnedTableColumns`, or `fromColumnPinning: true` with TanStack `columnPinning` state." },
+      { key: "engine.freezePanes", hint: "`createFreezePanesState` + `useTableRowSections` + `useFrozenTableColumns`; virtualize `centerRows` with `bandOffsetPx`." },
+      { key: "engine.rowPinning", hint: "`withFreezePanesSupport` + controlled `rowPinning`; render top/center/bottom bands, not flat `getRowModel().rows`." },
+      { key: "engine.columnOutline", hint: "`columnOutlineToVisibility` + `flattenOutlineHeaderRows` for Excel-style column collapse." },
+      { key: "engine.globalFilter", hint: "`withCoreSortingFiltered` + `createGlobalFilterFn` + controlled `globalFilter`." },
+      { key: "engine.virtualizer", hint: "Optional peer `@tanstack/react-virtual`; `useTableRowVirtualizer`." },
       { key: "engine.moveRowBefore", hint: "Reorder stable-id row arrays when not using `@nqlib/nqui/sortable`." },
       {
         key: "TanStack.rowSelection",
         hint: "Use `getRowId` when rows have stable ids; bind checkbox `checked` to `row.getIsSelected()` and `EMPTY_ROW_SELECTION` / `withCoreSortingRowSelection` defaults.",
       },
       { key: "TanStack", hint: "Peer: `@tanstack/react-table` v8." },
+      { key: "docs", hint: "See `docs/engine-tanstack-matrix.md`." },
     ],
   },
   {
@@ -147,41 +132,6 @@ export const NQGRID_FEATURES = [
       "useCellFormats",
     ],
     configure: [{ key: "spreadsheet", hint: "Wire `useSpreadsheetCommands` to your sheet adapter / state." }],
-  },
-  {
-    id: "advanced.columnFactory",
-    label: "Advanced column factory",
-    summary: "Build TanStack columns from a small schema DSL.",
-    entry: "@nqlib/nqgrid/advanced",
-    namedExports: [
-      "buildColumnFromDef",
-      "buildRichColumnFromDef",
-      "buildRichColumnsFromDefs",
-      "RichColumnCell",
-      "RichFormulaPresentationCell",
-      "getByPath",
-      "formatNumberValue",
-    ],
-    configure: [
-      {
-        key: "RichSchemaColumnDef",
-        hint: "Discriminated `kind`: text, number, currency, percent, date, status, tag, people, formula, custom.",
-      },
-      { key: "ColumnFactoryConfig.locale", hint: "Default Intl `locale` for rich columns." },
-    ],
-  },
-  {
-    id: "components.tablePercentBattery",
-    label: "Percent battery cell",
-    summary: "Optional 0–100 readout with a filled track behind tabular text.",
-    entry: "@nqlib/nqgrid",
-    namedExports: ["TablePercentBattery"],
-    configure: [
-      {
-        key: "styles.percentProgressDisplay",
-        hint: "Toggle `'battery'` vs `'plain'` in your app config / column renderers.",
-      },
-    ],
   },
 ] as const satisfies readonly NqgridFeatureDescriptor[];
 

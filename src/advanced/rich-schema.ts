@@ -233,6 +233,14 @@ export type CustomRichColumn<TData extends object> = RichColumnBase & {
   readonly cell: (ctx: CellContext<TData, unknown>) => ReactNode;
 } & Partial<AccessorOf<TData>>;
 
+/**
+ * @deprecated The `kind`-discriminated rich union is superseded by the headless
+ * ColumnType contract. Author a `ColumnSchema` (from `@nqlib/nqgrid/engine`) and
+ * render it through a registry, or migrate an existing def mechanically with
+ * `richDefToColumnSchema(def)` / `richSchemaToColumns(defs)` + `createRichRegistry()`.
+ * See `src/engine/column-types/contract.ts`. This union remains for back-compat and
+ * the demo's styled builders; new columns should not use it.
+ */
 export type RichSchemaColumnDef<TData extends object = Record<string, unknown>> =
   | TextRichColumn<TData>
   | NumberRichColumn<TData>
@@ -245,6 +253,7 @@ export type RichSchemaColumnDef<TData extends object = Record<string, unknown>> 
   | FormulaRichColumn<TData>
   | CustomRichColumn<TData>;
 
+/** @deprecated Type-as-registry-key now; see {@link RichSchemaColumnDef}. */
 export type RichColumnKind = RichSchemaColumnDef["kind"];
 
 /** Optional TanStack `meta` marker for rich columns. */
