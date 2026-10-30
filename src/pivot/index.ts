@@ -6,6 +6,7 @@
  */
 export * from "./grid-state";
 export * from "./use-pivot-grid";
+export * from "./export-request";
 export * from "./tanstack";
 export * from "./layout";
 export * from "./heat";

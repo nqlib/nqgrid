@@ -38,6 +38,7 @@
       "require": "./dist/render-static.cjs"
     },
     "./contract/pivot/v1/pivot-spec.schema.json": "./contract/pivot/v1/pivot-spec.schema.json",
+    "./contract/pivot/v1/export-request.schema.json": "./contract/pivot/v1/export-request.schema.json",
     "./engine": {
       "types": "./dist/engine.d.ts",
       "import": "./dist/engine.js",

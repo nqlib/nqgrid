@@ -22,12 +22,18 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 - **Contract** — golden `contract/pivot/v1/examples/planning.html`.
 - **Pivot** — `PivotTable` `kpiPanel` and `fillSpanHeight` props; static mode renders one `<tbody>` per top-level group; `pivotBodyGroups`, `pivotKpiPanelHeight`, `PIVOT_KPI_PANEL_METRICS`.
 - **Configurator** — `pivot.renderStatic` feature.
+- **Export request contract** — `contract/pivot/v1/export-request.schema.json` (`{ spec, rows | dataset, format?, options? }`, JSON-only options, no `css`) with golden `examples/planning.request.json`; core `buildPivotExportRequest`, `sanitizePivotExportOptions`, `pivotExportFilename`, `PIVOT_EXPORT_FORMATS`, `PivotExportRequest` / `PivotExportOptions` types and `PIVOT_EXPORT_REQUEST_JSON_SCHEMA`. `nqgrid-export` now takes its formats from core, and its tests check that the schema and the CLI validator agree.
+- **Pivot** — `pivotExportRequestFromGrid(grid, { format, options, includeRows, dataset })` ("export what I see": spec + `dataset` reference by default); `usePivotGrid` also returns `rows`.
+- **Python integration** (`integrations/python`, distribution `nqgrid-export-client`, import `nqgrid_export`) — sync / async httpx client for `nqgrid-export serve`, `SubprocessExporter`, typed errors (`NqgridInvalidInput` with `details`, `NqgridPayloadTooLarge`, `NqgridInternalError`, `NqgridUnavailable`), Pydantic v2 models generated from the JSON Schemas (`scripts/generate_models.sh`), schema + referential validation, `write_xlsx_from_sheet` (openpyxl), report email with injectable senders, and a reference MCP server (`export_pivot_report`, `describe_pivot_spec`, schema / guide resources) with pluggable row providers. Pytest suite incl. end-to-end tests against the real service.
+- **Playground** — the Planning pivot Export button shows / downloads the export request JSON and, with `VITE_NQGRID_EXPORT_URL` (dev proxy `/nqgrid-export`), downloads the PDF / XLSX.
+- **Docs / CI** — `docs/integrations/secolab.md` (architecture, deployment, security, timeouts, Tauri snippet, adoption checklist); `.github/workflows/ci.yml`.
 
 ### Changed
 
 - Pivot style tokens (`pivot*Class`) now start with a semantic `nqg-pivot-*` class; the Tailwind utilities are unchanged.
 - Pure helpers (`pinned-layout`, `col-span-frozen`, `row-reorder`, `paging`, `clipboard-tsv`, `group-by-tree`, rich value formatting and format option types) moved to `src/core`; `engine`, `advanced` and the main barrel re-export them, so existing imports keep working.
 - `buildGroupedFlatRows` key type no longer depends on React's `Key` (`GroupRowKey = string | number | bigint`, structurally identical).
+- `contract/pivot/v1/pivot-spec.schema.json`: `title`s on the aggregate variants (`WeightedAvgAggregate`, `RatioAggregate`, `CustomAggregate`) for code generators; validation unchanged.
 
 ## [0.1.0] - 2026-05-15
 

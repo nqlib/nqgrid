@@ -33,5 +33,13 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5174,
     strictPort: true,
+    // Planning pivot "Export": run with VITE_NQGRID_EXPORT_URL=/nqgrid-export to reach
+    // `nqgrid-export serve` (no CORS headers) through this proxy.
+    proxy: {
+      "/nqgrid-export": {
+        target: process.env.NQGRID_EXPORT_PROXY_TARGET ?? "http://127.0.0.1:8787",
+        rewrite: (p) => p.replace(/^\/nqgrid-export/, ""),
+      },
+    },
   },
 });

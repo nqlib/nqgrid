@@ -31,6 +31,24 @@ pnpm add @nqlib/nqgrid @tanstack/react-table react react-dom
 - **`docs/configurator.md`** — configurator usage (in `docs/`).
 - **[docs/pivot-headless.md](./docs/pivot-headless.md)** — pivot core, cross-language contract (`contract/pivot/v1`), static HTML, export roadmap.
 - **[packages/nqgrid-export](./packages/nqgrid-export/README.md)** — `nqgrid-export` CLI / HTTP service: pivot → PDF, XLSX, HTML (Docker image).
+- **[integrations/python](./integrations/python/README.md)** — Python client for `nqgrid-export` (HTTP + subprocess), Pydantic models of the pivot contract, openpyxl writer and an MCP tool that emails reports. Integration guide: **[docs/integrations/secolab.md](./docs/integrations/secolab.md)**.
+
+## Python backends
+
+Pivot reports for Python services and MCP agents live in **[`integrations/python`](./integrations/python/README.md)**
+(`nqgrid-export-client`). The app sends its spec, the backend loads the rows and calls `nqgrid-export`, and the PDF / XLSX
+matches the grid:
+
+```python
+from nqgrid_export import NqgridExportClient
+
+pdf = NqgridExportClient("http://127.0.0.1:8787").export(spec, rows, format="pdf")
+```
+
+```ts
+import { pivotExportRequestFromGrid } from "@nqlib/nqgrid/pivot";
+const request = pivotExportRequestFromGrid(grid, { format: "pdf" }); // { spec, dataset, format } for the backend
+```
 
 ## Playground & Cursor skills
 

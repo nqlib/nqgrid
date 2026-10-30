@@ -2,7 +2,7 @@ import eslint from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-/** Library `src/` and Node packages under `packages/` — the playground (`apps/`) uses its own Vite/tsconfig. */
+/** Library `src/` and Node packages under `packages/` — the playground (`apps/`) uses its own Vite/tsconfig; `integrations/` is Python. */
 export default tseslint.config(
   {
     ignores: [
@@ -11,6 +11,8 @@ export default tseslint.config(
       "packages/*/dist/**",
       "packages/*/*.config.ts",
       "apps/**",
+      "integrations/**",
+      "**/.venv/**",
       "**/*.test.ts",
       "eslint.config.mjs",
       "tsup.config.ts",

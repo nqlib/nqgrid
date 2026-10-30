@@ -53,6 +53,7 @@ describe("usePivotGrid", () => {
     }
     expect(renderToStaticMarkup(createElement(Probe))).toBe(`<span>${model.rows.length}</span>`);
     expect(seen!.spec).toBe(planningPivotSpec);
+    expect(seen!.rows).toBe(rows);
     expect(seen!.model).toEqual(model);
   });
 

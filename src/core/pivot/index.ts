@@ -7,4 +7,5 @@ export * from "./validate";
 export * from "./build-model";
 export * from "./interaction";
 export * from "./to-sheet";
-export { PIVOT_SPEC_JSON_SCHEMA } from "./schema";
+export * from "./export-request";
+export { PIVOT_EXPORT_REQUEST_JSON_SCHEMA, PIVOT_SPEC_JSON_SCHEMA } from "./schema";

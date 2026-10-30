@@ -1,12 +1,22 @@
-import { validatePivotSpec, type PivotDataRow, type PivotSpec } from "@nqlib/nqgrid/core";
+import {
+  isPivotExportFormat,
+  PIVOT_EXPORT_FORMATS,
+  validatePivotSpec,
+  type PivotDataRow,
+  type PivotExportFormat,
+  type PivotSpec,
+} from "@nqlib/nqgrid/core";
 import { PIVOT_PAGE_SIZES_MM, type RenderPivotHtmlOptions } from "@nqlib/nqgrid/render-static";
 
 import { invalidInput } from "./errors";
 
-export const PIVOT_EXPORT_FORMATS = ["pdf", "xlsx", "html", "model", "sheet"] as const;
-export type PivotExportFormat = (typeof PIVOT_EXPORT_FORMATS)[number];
+/** Formats and the wire types live in `@nqlib/nqgrid/core` (`contract/pivot/v1/export-request.schema.json`). */
+export { isPivotExportFormat, PIVOT_EXPORT_FORMATS, type PivotExportFormat };
 
-/** JSON-safe render options accepted over the wire (`renderPivotHtml` options minus `css`). */
+/**
+ * JSON-safe render options accepted over the wire (`renderPivotHtml` options minus `css`). The
+ * core `PivotExportOptions` wire type is assignable to this (checked in `test/contract.test.ts`).
+ */
 export type PivotExportOptions = Omit<RenderPivotHtmlOptions, "css" | "generatedAt"> & {
   /** Printed verbatim (pass the timestamp in; the exporter never reads the clock). */
   readonly generatedAt?: string | null;
@@ -14,7 +24,10 @@ export type PivotExportOptions = Omit<RenderPivotHtmlOptions, "css" | "generated
   readonly headerFooter?: boolean;
 };
 
-/** What the CLI reads (`--input`) and serve mode accepts (`POST /export`). */
+/**
+ * What the CLI reads (`--input`) and serve mode accepts (`POST /export`): the core
+ * `PivotExportRequest` with `rows` required (a `dataset` reference is ignored here).
+ */
 export interface PivotExportRequest {
   readonly spec: PivotSpec;
   readonly rows: readonly PivotDataRow[];
@@ -24,10 +37,6 @@ export interface PivotExportRequest {
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-
-export function isPivotExportFormat(v: unknown): v is PivotExportFormat {
-  return typeof v === "string" && (PIVOT_EXPORT_FORMATS as readonly string[]).includes(v);
-}
 
 function validateOptions(input: unknown, errors: string[]): PivotExportOptions | undefined {
   if (input === undefined || input === null) return undefined;

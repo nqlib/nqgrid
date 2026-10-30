@@ -15,6 +15,8 @@ export interface UsePivotGridOptions extends BuildPivotModelOptions {
 export interface PivotGridState {
   /** Current spec, including view state — send it to a backend to "export what I see". */
   readonly spec: PivotSpec;
+  /** The `rows` passed in (for `pivotExportRequestFromGrid(grid, { includeRows: true })`). */
+  readonly rows: readonly PivotDataRow[];
   /** `buildPivotModel(spec, rows)`, memoized on `spec`, `rows`, `aggregators` and `validate`. */
   readonly model: PivotModel;
   readonly dispatch: (action: PivotGridAction) => void;
@@ -65,7 +67,7 @@ export function usePivotGrid(
   );
 
   return useMemo(
-    () => ({ spec: current, model, dispatch, toggleGroup, expandAll, collapseAll, setHeatScope, setSpec }),
-    [current, model, dispatch, toggleGroup, expandAll, collapseAll, setHeatScope, setSpec],
+    () => ({ spec: current, rows, model, dispatch, toggleGroup, expandAll, collapseAll, setHeatScope, setSpec }),
+    [current, rows, model, dispatch, toggleGroup, expandAll, collapseAll, setHeatScope, setSpec],
   );
 }

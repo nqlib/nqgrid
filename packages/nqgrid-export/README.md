@@ -30,6 +30,10 @@ user sees in the app. Use it as a CLI, a Node API, or a small HTTP service.
 Specs are validated with `validatePivotSpec`; custom aggregators and `options.css` are rejected (they cannot
 cross JSON). Every problem is reported at once.
 
+The request is specified by [`contract/pivot/v1/export-request.schema.json`](../../contract/pivot/v1/export-request.schema.json)
+(build it with `buildPivotExportRequest` from `@nqlib/nqgrid/core`). A `dataset` field is ignored here (it is the
+app → backend reference); Python callers use [`integrations/python`](../../integrations/python/README.md).
+
 ## CLI
 
 ```bash
@@ -66,6 +70,9 @@ Errors are JSON `{"error":{"code","message","details?"}}`: `400 invalid_input`, 
 `415` (not JSON), `500 internal`. One JSON log line per request goes to stderr.
 
 ### From Python
+
+Use the client in [`integrations/python`](../../integrations/python/README.md) (`NqgridExportClient`, `SubprocessExporter`,
+typed errors). Without it:
 
 ```python
 import httpx, json, subprocess

@@ -1,0 +1,509 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nqlib/nqgrid/contract/pivot/v1/pivot-spec.schema.json",
+  "title": "PivotSpec",
+  "description": "nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis) are done by validatePivotSpec().",
+  "type": "object",
+  "required": [
+    "version",
+    "rows",
+    "measures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    },
+    "columns": {
+      "$ref": "#/$defs/dimension"
+    },
+    "measures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/measure"
+      }
+    },
+    "values": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "grandTotal": {
+          "type": "boolean"
+        },
+        "grandTotalPosition": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "grandTotalLabel": {
+          "type": "string"
+        },
+        "rowTotal": {
+          "type": "boolean"
+        },
+        "rowTotalLabel": {
+          "type": "string"
+        }
+      }
+    },
+    "expanded": {
+      "oneOf": [
+        {
+          "enum": [
+            "all",
+            "none"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "heat": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "measure": {
+              "type": "string"
+            },
+            "scope": {
+              "enum": [
+                "all",
+                "column",
+                "row",
+                "group"
+              ]
+            },
+            "levels": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 32
+            },
+            "applyTo": {
+              "enum": [
+                "leaf",
+                "group",
+                "all"
+              ]
+            },
+            "domain": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        }
+      ]
+    },
+    "headerCharts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "measure": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "bar",
+                "line"
+              ]
+            },
+            "breakdown": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "kpis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "measure"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          },
+          "measure": {
+            "type": "string",
+            "minLength": 1
+          },
+          "compareTo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "format": {
+            "$ref": "#/$defs/numberFormat"
+          },
+          "deltaFormat": {
+            "$ref": "#/$defs/numberFormat"
+          }
+        }
+      }
+    },
+    "kpiLevels": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "layout": {
+      "enum": [
+        "tabular",
+        "compact"
+      ]
+    }
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sort": {
+          "enum": [
+            "asc",
+            "desc",
+            "none"
+          ]
+        },
+        "keepEmpty": {
+          "type": "boolean"
+        },
+        "blankLabel": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "aggregate": {
+      "oneOf": [
+        {
+          "title": "BuiltInAggregate",
+          "enum": [
+            "sum",
+            "avg",
+            "min",
+            "max",
+            "count",
+            "first",
+            "last"
+          ]
+        },
+        {
+          "title": "WeightedAvgAggregate",
+          "type": "object",
+          "required": [
+            "type",
+            "weightField"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "weightedAvg"
+            },
+            "weightField": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "title": "RatioAggregate",
+          "type": "object",
+          "required": [
+            "type",
+            "numeratorField",
+            "denominatorField"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "ratio"
+            },
+            "numeratorField": {
+              "type": "string",
+              "minLength": 1
+            },
+            "denominatorField": {
+              "type": "string",
+              "minLength": 1
+            },
+            "offset": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "title": "CustomAggregate",
+          "type": "object",
+          "required": [
+            "type",
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "custom"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "showAs": {
+      "enum": [
+        "value",
+        "percentOfColumnTotal",
+        "percentOfParentRow",
+        "percentOfRowTotal",
+        "percentOfGrandTotal"
+      ]
+    },
+    "measure": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "aggregate": {
+          "$ref": "#/$defs/aggregate"
+        },
+        "format": {
+          "$ref": "#/$defs/numberFormat"
+        },
+        "percentFormat": {
+          "$ref": "#/$defs/numberFormat"
+        },
+        "showAs": {
+          "$ref": "#/$defs/showAs"
+        },
+        "groupShowAs": {
+          "$ref": "#/$defs/showAs"
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "field is required unless the aggregate is count, ratio or custom",
+          "if": {
+            "anyOf": [
+              {
+                "not": {
+                  "required": [
+                    "aggregate"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "aggregate"
+                ],
+                "properties": {
+                  "aggregate": {
+                    "enum": [
+                      "sum",
+                      "avg",
+                      "min",
+                      "max",
+                      "first",
+                      "last"
+                    ]
+                  }
+                }
+              },
+              {
+                "required": [
+                  "aggregate"
+                ],
+                "properties": {
+                  "aggregate": {
+                    "type": "object",
+                    "required": [
+                      "type"
+                    ],
+                    "properties": {
+                      "type": {
+                        "const": "weightedAvg"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "field"
+            ]
+          }
+        }
+      ]
+    },
+    "numberFormat": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": {
+          "enum": [
+            "decimal",
+            "currency",
+            "percent"
+          ]
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3
+        },
+        "currencySymbol": {
+          "type": "string"
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "compact": {
+          "type": "boolean"
+        },
+        "significantDigits": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 21
+        },
+        "compactUnits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "signDisplay": {
+          "enum": [
+            "auto",
+            "always",
+            "exceptZero",
+            "never"
+          ]
+        },
+        "negative": {
+          "enum": [
+            "minus",
+            "parentheses"
+          ]
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "suffix": {
+          "type": "string"
+        },
+        "groupSeparator": {
+          "type": "string"
+        },
+        "decimalSeparator": {
+          "type": "string"
+        },
+        "empty": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
