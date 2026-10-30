@@ -2,6 +2,7 @@
 export type NqgridFeatureId =
   | "styles.tokens"
   | "fixtures.dashboard"
+  | "core.pivot"
   | "engine.headless"
   | "sheet.virtual"
   | "spreadsheet.chrome"
@@ -17,6 +18,7 @@ export interface NqgridFeatureDescriptor {
     | "@nqlib/nqgrid"
     | "@nqlib/nqgrid/styles"
     | "@nqlib/nqgrid/fixtures"
+    | "@nqlib/nqgrid/core"
     | "@nqlib/nqgrid/engine"
     | "@nqlib/nqgrid/sheet"
     | "@nqlib/nqgrid/spreadsheet"
@@ -83,6 +85,25 @@ export const NQGRID_FEATURES = [
         key: "types",
         hint: "Use `import type { PortfolioRow, ProjectRow, FlightRow } from \"@nqlib/nqgrid/fixtures\"`.",
       },
+    ],
+  },
+  {
+    id: "core.pivot",
+    label: "Pivot core (framework-free)",
+    summary: "PivotSpec JSON → PivotModel: groups, subtotals, show-values-as, heat, header series, KPIs, XLSX sheet.",
+    entry: "@nqlib/nqgrid/core",
+    namedExports: [
+      "buildPivotModel",
+      "validatePivotSpec",
+      "togglePivotGroup",
+      "pivotModelToSheet",
+      "formatPivotNumber",
+      "PIVOT_SPEC_JSON_SCHEMA",
+    ],
+    configure: [
+      { key: "PivotSpec", hint: "Same JSON from the app or a backend (schema: `contract/pivot/v1/pivot-spec.schema.json`)." },
+      { key: "spec.expanded", hint: "View state lives in the spec — send it to the backend to export what the user sees." },
+      { key: "aggregators", hint: "Register `{ type: \"custom\", name }` functions via `buildPivotModel(spec, rows, { aggregators })`." },
     ],
   },
   {

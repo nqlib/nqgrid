@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
-import type { PinnedLayoutResult } from "./pinned-layout";
-import { isPinnedColumn } from "./pinned-layout";
+import type { PinnedLayoutResult } from "../core/pinned-layout";
+import { isPinnedColumn } from "../core/pinned-layout";
 
 export interface PinnedStickyStyleOptions {
   variant: "head" | "body";

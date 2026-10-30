@@ -14,7 +14,8 @@ pnpm add @nqlib/nqgrid @tanstack/react-table react react-dom
 |--------|---------|
 | `@nqlib/nqgrid` | Main barrel (engine + components used by demos) |
 | `@nqlib/nqgrid/styles` | Tailwind class tokens for table shells and scroll |
-| `@nqlib/nqgrid/engine` | Table engine utilities |
+| `@nqlib/nqgrid/core` | Framework-free engine (no React/DOM): pivot model, formatting, layout math — runs in Node for exports |
+| `@nqlib/nqgrid/engine` | Table engine utilities (TanStack / React hooks; re-exports the pure helpers from `core`) |
 | `@nqlib/nqgrid/sheet` | Virtual sheet / viewport |
 | `@nqlib/nqgrid/spreadsheet` | Spreadsheet-style commands / formats |
 | `@nqlib/nqgrid/advanced` | Rich schema, `buildRichColumnFromDef`, formatters |
@@ -26,6 +27,7 @@ pnpm add @nqlib/nqgrid @tanstack/react-table react react-dom
 - **[CHANGELOG.md](./CHANGELOG.md)** — release history (start at **0.1.0**).
 - **[docs/RELEASE-0.1.0.md](./docs/RELEASE-0.1.0.md)** — v0.1.0 release notes + GitHub release snippet.
 - **`docs/configurator.md`** — configurator usage (in `docs/`).
+- **[docs/pivot-headless.md](./docs/pivot-headless.md)** — pivot core, cross-language contract (`contract/pivot/v1`), export roadmap.
 
 ## Playground & Cursor skills
 

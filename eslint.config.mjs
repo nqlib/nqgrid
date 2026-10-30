@@ -25,4 +25,19 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // `@nqlib/nqgrid/core` runs in Node (PDF/XLSX export) and any webview: keep it framework-free.
+    files: ["src/core/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["react", "react-dom", "react/*", "@tanstack/*"], message: "src/core must stay framework-free." },
+            { group: ["../engine/*", "../advanced/*", "../sheet/*", "../spreadsheet/*", "../components/*", "../styles/*"], message: "src/core must not depend on React layers." },
+          ],
+        },
+      ],
+    },
+  },
 );

@@ -2,6 +2,23 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
+## [Unreleased]
+
+### Added
+
+- **`@nqlib/nqgrid/core`** — framework-free entry (no React, TanStack or DOM) that runs in browsers, Tauri webviews and Node.
+- **Pivot core** — `buildPivotModel(spec, rows)` turns a JSON `PivotSpec` into a serializable `PivotModel`: multi-level collapsible groups with subtotals, Excel-style "show values as", heat levels by scope, header chart series, group/grand KPIs with deltas, row spans and formatted text. Plus `validatePivotSpec` / `assertPivotSpec`, `togglePivotGroup`, `setPivotExpandedAll`, `computePivotRowSpans`, `aggregatePivotRows` (incl. weighted average, ratio and named custom aggregators).
+- **Deterministic formatting** — `formatPivotNumber` (compact `$302k` / `$4.76M`, percent, sign display, separators) without `Intl`, and `toExcelNumFmt` for matching XLSX number formats.
+- **Sheet export shape** — `pivotModelToSheet` / `pivotSheetToMatrix` (cells, merges, frozen panes, numFmt) for XLSX/CSV writers in Node or Python.
+- **Contract** — `contract/pivot/v1/pivot-spec.schema.json` (also `PIVOT_SPEC_JSON_SCHEMA`) and golden example spec/rows/model/sheet files.
+- **Fixtures** — `planningPivotSpec`, `generatePlanningPivotRows`, `PLANNING_FISCAL_MONTHS`.
+- **Configurator** — `core.pivot` feature.
+
+### Changed
+
+- Pure helpers (`pinned-layout`, `col-span-frozen`, `row-reorder`, `paging`, `clipboard-tsv`, `group-by-tree`, rich value formatting and format option types) moved to `src/core`; `engine`, `advanced` and the main barrel re-export them, so existing imports keep working.
+- `buildGroupedFlatRows` key type no longer depends on React's `Key` (`GroupRowKey = string | number | bigint`, structurally identical).
+
 ## [0.1.0] - 2026-05-15
 
 ### Added

@@ -22,7 +22,7 @@ import {
   normalizePeopleList,
   normalizePercentToHundred,
   resolveStatusEntry,
-} from "./rich-value-format";
+} from "../core/rich-value-format";
 
 function joinClasses(...parts: Array<string | undefined>): string {
   return parts.filter(Boolean).join(" ");

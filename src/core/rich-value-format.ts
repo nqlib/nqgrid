@@ -1,12 +1,31 @@
-import { effectiveNumberStyle } from "./normalize-rich-schema";
 import type {
   FormulaPresentation,
   RichDateFormatOptions,
   RichNumberFormatOptions,
+  RichNumberStyle,
   RichPercentFormatOptions,
   RichPerson,
   RichStatusMapEntry,
-} from "./rich-schema";
+} from "./format-types";
+
+export function effectiveNumberStyle(opts?: RichNumberFormatOptions): RichNumberStyle {
+  return opts?.style ?? "decimal";
+}
+
+/** Map legacy percent options into unified number format. */
+export function percentFormatToNumberFormat(fmt?: RichPercentFormatOptions): RichNumberFormatOptions | undefined {
+  if (!fmt) return undefined;
+  return {
+    style: "percent",
+    locale: fmt.locale,
+    valueScale: fmt.valueScale,
+    percentDisplay: fmt.display,
+    suffix: fmt.suffix,
+    minimumFractionDigits: fmt.minimumFractionDigits,
+    maximumFractionDigits: fmt.maximumFractionDigits,
+    roundWhole: fmt.roundWhole,
+  };
+}
 
 /** Map unified or legacy percent options for Intl / battery helpers. */
 export function percentOptsFromNumberOrLegacy(

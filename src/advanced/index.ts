@@ -58,4 +58,4 @@ export {
   normalizePercentToHundred,
   reconcileRichPeopleWithRoster,
   resolveStatusEntry,
-} from "./rich-value-format";
+} from "../core/rich-value-format";

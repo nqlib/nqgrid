@@ -8,7 +8,7 @@ import {
   normalizePercentToHundred,
   richPersonOptionKey,
   formatPercentPlain,
-} from "./rich-value-format";
+} from "../core/rich-value-format";
 
 describe("getByPath", () => {
   it("reads nested keys", () => {

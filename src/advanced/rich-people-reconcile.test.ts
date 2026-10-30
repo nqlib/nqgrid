@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { reconcileRichPeopleWithRoster, richPersonOptionKey } from "./rich-value-format";
+import { reconcileRichPeopleWithRoster, richPersonOptionKey } from "../core/rich-value-format";
 
 describe("reconcileRichPeopleWithRoster", () => {
   it("aligns row value to roster when only name matches", () => {

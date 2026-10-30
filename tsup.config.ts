@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     styles: "src/styles/index.ts",
     fixtures: "src/fixtures/index.ts",
+    core: "src/core/index.ts",
     engine: "src/engine/index.ts",
     sheet: "src/sheet/index.ts",
     spreadsheet: "src/spreadsheet/index.ts",
