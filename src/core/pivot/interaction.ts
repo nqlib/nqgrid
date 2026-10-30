@@ -1,5 +1,5 @@
 import { pivotPathId } from "./build-model";
-import type { PivotModel, PivotSpec } from "./types";
+import type { PivotHeatScope, PivotModel, PivotSpec } from "./types";
 
 /**
  * View state lives in the spec, so "export what I see" is just sending the spec.
@@ -22,4 +22,9 @@ export function togglePivotGroup(spec: PivotSpec, model: PivotModel, path: reado
 
 export function setPivotExpandedAll(spec: PivotSpec, expanded: boolean): PivotSpec {
   return { ...spec, expanded: expanded ? "all" : "none" };
+}
+
+/** Change the heat color domain (`all`, `column`, `row`, `group`); adds a default heat spec when absent. */
+export function setPivotHeatScope(spec: PivotSpec, scope: PivotHeatScope): PivotSpec {
+  return { ...spec, heat: { ...(spec.heat ?? {}), scope } };
 }

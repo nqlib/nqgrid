@@ -12,7 +12,11 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 - **Sheet export shape** — `pivotModelToSheet` / `pivotSheetToMatrix` (cells, merges, frozen panes, numFmt) for XLSX/CSV writers in Node or Python.
 - **Contract** — `contract/pivot/v1/pivot-spec.schema.json` (also `PIVOT_SPEC_JSON_SCHEMA`) and golden example spec/rows/model/sheet files.
 - **Fixtures** — `planningPivotSpec`, `generatePlanningPivotRows`, `PLANNING_FISCAL_MONTHS`.
-- **Configurator** — `core.pivot` feature.
+- **Configurator** — `core.pivot` and `pivot.react` features.
+- **`@nqlib/nqgrid/pivot`** — React renderer for pivot models (also re-exported from the main barrel): `usePivotGrid(spec, rows, { onSpecChange })` (controlled / uncontrolled spec state, memoized model, `toggleGroup` / `expandAll` / `collapseAll` / `setHeatScope`), pure `reducePivotGridSpec`; `PivotTable` with CSS-sticky pinned dimension columns, real `rowSpan` department cells hosting `PivotKpiPanel`, heat cells and a stacked inline-SVG `PivotHeaderChartBand`; `mode="static"` for `renderToStaticMarkup` (no handlers, effects or measurement); `pivotModelToTanstack` adapter; `pivotHeatCellProps` and pure layout helpers.
+- **Pivot core** — `setPivotHeatScope(spec, scope)`; `PivotKpiValue.compareLabel` (e.g. `Plan`, for "vs Plan" deltas; golden `planning.model.json` updated additively).
+- **Styles** — `pivot*Class` tokens, `pivotHeatColorVar` / `pivotSeriesColorVar` / `pivotThemeVars`, and the `--nqg-heat-0 … --nqg-heat-8` / `--nqg-series-0 … --nqg-series-7` CSS variables.
+- **Playground** — "Planning pivot" demo.
 
 ### Changed
 

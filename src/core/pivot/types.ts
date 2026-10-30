@@ -236,6 +236,8 @@ export interface PivotKpiValue {
   readonly text: string;
   readonly delta?: number | null;
   readonly deltaText?: string;
+  /** Label of the `compareTo` measure (e.g. `Plan`), so renderers can print "vs Plan". */
+  readonly compareLabel?: string;
 }
 
 export interface PivotBodyRow {

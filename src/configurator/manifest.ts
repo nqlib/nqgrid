@@ -3,6 +3,7 @@ export type NqgridFeatureId =
   | "styles.tokens"
   | "fixtures.dashboard"
   | "core.pivot"
+  | "pivot.react"
   | "engine.headless"
   | "sheet.virtual"
   | "spreadsheet.chrome"
@@ -19,6 +20,7 @@ export interface NqgridFeatureDescriptor {
     | "@nqlib/nqgrid/styles"
     | "@nqlib/nqgrid/fixtures"
     | "@nqlib/nqgrid/core"
+    | "@nqlib/nqgrid/pivot"
     | "@nqlib/nqgrid/engine"
     | "@nqlib/nqgrid/sheet"
     | "@nqlib/nqgrid/spreadsheet"
@@ -104,6 +106,26 @@ export const NQGRID_FEATURES = [
       { key: "PivotSpec", hint: "Same JSON from the app or a backend (schema: `contract/pivot/v1/pivot-spec.schema.json`)." },
       { key: "spec.expanded", hint: "View state lives in the spec — send it to the backend to export what the user sees." },
       { key: "aggregators", hint: "Register `{ type: \"custom\", name }` functions via `buildPivotModel(spec, rows, { aggregators })`." },
+    ],
+  },
+  {
+    id: "pivot.react",
+    label: "Pivot grid (React)",
+    summary: "usePivotGrid spec state + PivotTable: pinned dimensions, KPI side panel, heat cells, header chart band; static mode for HTML/PDF.",
+    entry: "@nqlib/nqgrid/pivot",
+    namedExports: [
+      "usePivotGrid",
+      "PivotTable",
+      "PivotHeaderChartBand",
+      "PivotKpiPanel",
+      "pivotHeatCellProps",
+      "pivotModelToTanstack",
+    ],
+    configure: [
+      { key: "usePivotGrid(spec, rows, { onSpecChange })", hint: "Uncontrolled by default; pass `onSpecChange` to own the spec. `grid.spec` is what Export sends." },
+      { key: "PivotTable.mode", hint: "`interactive` (toggles + CSS sticky pinning) or `static` for `renderToStaticMarkup` (PDF)." },
+      { key: "--nqg-heat-0 … --nqg-heat-8", hint: "Override heat colors (or just `--nqg-heat-color`); `--nqg-series-N` for header stacks (`pivotThemeVars`)." },
+      { key: "pivotModelToTanstack", hint: "`{ columns, data, columnPinning, getRowId }` for your own `useReactTable` grid." },
     ],
   },
   {

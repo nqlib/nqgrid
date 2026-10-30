@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildPivotModel, pivotPathId } from "./build-model";
-import { setPivotExpandedAll, togglePivotGroup } from "./interaction";
+import { setPivotExpandedAll, setPivotHeatScope, togglePivotGroup } from "./interaction";
 import { computePivotRowSpans } from "./row-spans";
 import { pivotModelToSheet, pivotSheetToMatrix } from "./to-sheet";
 import type { PivotSpec } from "./types";
@@ -154,6 +154,15 @@ describe("buildPivotModel — expansion, spans, interaction", () => {
     expect(togglePivotGroup(setPivotExpandedAll(base, false), m2, ["Camp"]).expanded).toEqual([["Camp"]]);
   });
 
+  it("setPivotHeatScope keeps other heat options and adds heat when absent", () => {
+    expect(setPivotHeatScope({ ...base, heat: { levels: 5, applyTo: "all" } }, "row").heat).toEqual({
+      levels: 5,
+      applyTo: "all",
+      scope: "row",
+    });
+    expect(setPivotHeatScope({ ...base, heat: null }, "column").heat).toEqual({ scope: "column" });
+  });
+
   it("row ids are stable and unambiguous", () => {
     expect(pivotPathId(["a/b", "c"])).toBe("r:a%2Fb/c");
     expect(pivotPathId(["a", "b/c"])).toBe("r:a/b%2Fc");
@@ -222,7 +231,7 @@ describe("buildPivotModel — heat, series, KPIs", () => {
       data,
     );
     expect(m.rows[0]!.kpis).toEqual([
-      { id: "vsPlan", label: "Sales", value: 800, text: "$800", delta: 0, deltaText: "0.0%" },
+      { id: "vsPlan", label: "Sales", value: 800, text: "$800", delta: 0, deltaText: "0.0%", compareLabel: "plan" },
     ]);
     expect(m.rows[1]!.kpis).toBeUndefined();
     expect(m.kpis[0]).toMatchObject({ value: 1650, text: "$1,650", deltaText: "+6.5%" });

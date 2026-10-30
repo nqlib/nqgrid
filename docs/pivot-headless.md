@@ -12,7 +12,7 @@ so the grid a user sees and the PDF/XLSX a backend emails are computed identical
     to leaf grain)            buildPivotModel() ─────┤
                                      │ PivotModel (plain JSON)
                   ┌──────────────────┼────────────────────┐
-         React renderer (app)   static HTML → PDF   pivotModelToSheet() → XLSX / CSV
+  React renderer (app, /pivot)  static HTML → PDF   pivotModelToSheet() → XLSX / CSV
 ```
 
 **Division of labour**
@@ -91,15 +91,58 @@ any diff is a contract change and should bump the spec `version` if it is breaki
 `merges`, `frozenRows`, `frozenCols`), so a Python service can write `.xlsx` with openpyxl
 directly from the sheet JSON. PDF still goes through the Node renderer (below) so it matches the app.
 
+## React renderer (`@nqlib/nqgrid/pivot`)
+
+```tsx
+import { PivotTable, usePivotGrid } from "@nqlib/nqgrid/pivot";
+
+const grid = usePivotGrid(spec, rows);              // uncontrolled; pass { onSpecChange } to own the spec
+grid.toggleGroup(["Camp"]); grid.expandAll(); grid.collapseAll(); grid.setHeatScope("group");
+grid.spec;                                          // view state included → POST it for "export what I see"
+
+<div style={{ overflow: "auto", maxHeight: 640 }}>   {/* any scroll container (the playground uses nqui ScrollArea) */}
+  <PivotTable model={grid.model} onToggleGroup={grid.toggleGroup} />
+</div>
+
+renderToStaticMarkup(<PivotTable model={model} mode="static" />);   // same layout, no buttons / sticky
+```
+
+| Export | Purpose |
+|--------|---------|
+| `usePivotGrid(spec, rows, options)` | Spec state (controlled via `onSpecChange`, otherwise uncontrolled) + memoized `buildPivotModel`; actions `toggleGroup`, `expandAll`, `collapseAll`, `setHeatScope`, `setSpec`, `dispatch`. The pure transition is `reducePivotGridSpec(spec, model, action)`. |
+| `PivotTable` | Semantic `<table>`: header chart band, row-dimension columns, outer-dimension span cell with `PivotKpiPanel`, heat cells. Props: `mode`, widths, `headerChart`, `headerSummary`, `kpiHeadlineId`, `kpiCaptionAttribute`, `renderSpanCell` (KPI side-panel slot). |
+| `PivotHeaderChartBand`, `PivotHeaderBar`, `PivotHeaderSummary` | Inline-SVG header bars (stacked by top-level group when `headerCharts.breakdown`), as a `<thead>` row so bars align with their columns. |
+| `PivotKpiPanel`, `PivotKpiDelta` | Group KPIs: signed headline, label/value rows, "vs Plan" deltas (`PivotKpiValue.compareLabel`), owner caption. |
+| `pivotHeatCellProps(cell, levels)` | `nqg-heat-N` class, `data-heat` and `var(--nqg-heat-N, …)` background for your own cells. |
+| `pivotModelToTanstack(model)` | `{ columns, data, columnPinning, getRowId }` for `useReactTable` (`meta.pivot` on each column). |
+| `pivotDimensionSlots`, `pivotBarSegments`, `pivotTableGeometry`, … | The pure render math, reusable by the static renderer. |
+
+**Design choices**
+
+- **Spans are real `rowSpan`s.** Each outer-dimension span from `model.spans[0]` is one `<th rowSpan>`.
+  It is pinned with `position: sticky; left` like the other dimension cells (verified in Chromium;
+  sticky table cells are also supported by current WebKit and Gecko), and in interactive mode its content is
+  `position: sticky; top: <header height>` so the KPI panel stays under the header while that
+  group's rows scroll by. The same markup prints correctly (static mode drops the sticky styles),
+  so the PDF path needs no overlay layer.
+- **No effects, no measurement.** Components are plain functions of the model: fixed column widths
+  (`table-layout: fixed`) give the sticky offsets and header-bar geometry, so there is no
+  `useLayoutEffect` / `ResizeObserver`. `mode="static"` additionally drops buttons and sticky classes.
+- **Inline geometry, tokenized chrome.** Widths, offsets, bar paths and data colors are inline styles;
+  surfaces and typography are class tokens in `@nqlib/nqgrid/styles` (`pivot*Class`). Colors resolve via
+  `--nqg-heat-0 … --nqg-heat-8` (default: `--nqg-heat-color` mixed over the surface, so one ramp works in
+  light and dark) and `--nqg-series-0 … --nqg-series-7` (`pivotThemeVars("dark")` for dark steps).
+- No `@nqlib/nqui` dependency — the playground's "Planning pivot" demo adds nqui controls (Select, Button, ScrollArea) around it.
+
 ## Roadmap
 
 1. **Phase 0 — done.** Framework-free modules moved to `src/core` (re-exported from `engine` /
    `advanced`, no import changes for consumers). Guarded by ESLint `no-restricted-imports` and
    `src/core/purity.test.ts`.
 2. **Phase 1 — done.** Pivot core, JSON Schema, golden contract fixtures, sheet export shape.
-3. **Phase 2 — React renderer.** `usePivotGrid(spec, rows)` + TanStack adapter; sticky pinned
-   dimension columns with span overlays; heat CSS variables; header chart band; KPI side-panel slot;
-   playground "Planning pivot" demo.
+3. **Phase 2 — done.** `@nqlib/nqgrid/pivot`: `usePivotGrid(spec, rows)` + TanStack adapter; CSS-sticky
+   pinned dimension columns with real `rowSpan` span cells; heat CSS variables; header chart band;
+   KPI side-panel slot; static render mode; playground "Planning pivot" demo.
 4. **Phase 3 — static render + export CLI.** `@nqlib/nqgrid/render-static`
    (`renderPivotHtml(model, { theme, page })`, inline SVG charts, print CSS: landscape, repeated
    headers, `break-inside: avoid` per group, column paging for wide pivots) and an `nqgrid-export`

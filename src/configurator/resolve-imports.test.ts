@@ -26,6 +26,12 @@ describe("formatEsmImportBlocks", () => {
     expect(s).toContain(`from "@nqlib/nqgrid/styles"`);
   });
 
+  it("plans the pivot React entry", () => {
+    const plan = resolveNqgridImportPlan(["core.pivot", "pivot.react"]);
+    expect(plan.map((m) => m.entry)).toEqual(["@nqlib/nqgrid/core", "@nqlib/nqgrid/pivot"]);
+    expect(plan[1]?.names).toContain("usePivotGrid");
+  });
+
   it("includes root package entry for component features", () => {
     const plan = resolveNqgridImportPlan(["components.tablePercentBattery"]);
     expect(plan.some((m) => m.entry === "@nqlib/nqgrid" && m.names.includes("TablePercentBattery"))).toBe(true);

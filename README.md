@@ -15,6 +15,7 @@ pnpm add @nqlib/nqgrid @tanstack/react-table react react-dom
 | `@nqlib/nqgrid` | Main barrel (engine + components used by demos) |
 | `@nqlib/nqgrid/styles` | Tailwind class tokens for table shells and scroll |
 | `@nqlib/nqgrid/core` | Framework-free engine (no React/DOM): pivot model, formatting, layout math — runs in Node for exports |
+| `@nqlib/nqgrid/pivot` | React pivot renderer: `usePivotGrid`, `PivotTable` (pinned dimensions, KPI panel, heat, header chart band; static mode for HTML/PDF), TanStack adapter |
 | `@nqlib/nqgrid/engine` | Table engine utilities (TanStack / React hooks; re-exports the pure helpers from `core`) |
 | `@nqlib/nqgrid/sheet` | Virtual sheet / viewport |
 | `@nqlib/nqgrid/spreadsheet` | Spreadsheet-style commands / formats |

@@ -6,3 +6,4 @@ export * from "./engine";
 export * from "./sheet";
 export * from "./spreadsheet";
 export * from "./advanced";
+export * from "./pivot";

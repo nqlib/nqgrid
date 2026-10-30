@@ -314,9 +314,15 @@ export function buildPivotModel(
         text: formatPivotNumber(value, k.format ?? m.format ?? {}),
       };
       if (!k.compareTo) return kpi;
-      const delta = divide(value, valueOf(node, measureOf(k.compareTo), null));
+      const compare = measureOf(k.compareTo);
+      const delta = divide(value, valueOf(node, compare, null));
       const d = delta === null ? null : delta - 1;
-      return { ...kpi, delta: d, deltaText: formatPivotNumber(d, k.deltaFormat ?? DEFAULT_PIVOT_DELTA_FORMAT) };
+      return {
+        ...kpi,
+        delta: d,
+        deltaText: formatPivotNumber(d, k.deltaFormat ?? DEFAULT_PIVOT_DELTA_FORMAT),
+        compareLabel: measureLabel(compare),
+      };
     });
 
   // ---- Rows ----------------------------------------------------------------

@@ -494,7 +494,8 @@
           "value": 16756941,
           "text": "$16.8M",
           "delta": -0.0019514933733800754,
-          "deltaText": "-0.2%"
+          "deltaText": "-0.2%",
+          "compareLabel": "Plan"
         },
         {
           "id": "plan",
@@ -612,7 +613,8 @@
           "value": 24006309,
           "text": "$24M",
           "delta": 0.002471319316454057,
-          "deltaText": "+0.2%"
+          "deltaText": "+0.2%",
+          "compareLabel": "Plan"
         },
         {
           "id": "plan",
@@ -730,7 +732,8 @@
           "value": 13196690,
           "text": "$13.2M",
           "delta": 0.0036062838469359537,
-          "deltaText": "+0.4%"
+          "deltaText": "+0.4%",
+          "compareLabel": "Plan"
         },
         {
           "id": "plan",
@@ -1288,7 +1291,8 @@
           "value": 12340800,
           "text": "$12.3M",
           "delta": -0.0005669026061322358,
-          "deltaText": "-0.1%"
+          "deltaText": "-0.1%",
+          "compareLabel": "Plan"
         },
         {
           "id": "plan",
@@ -1929,7 +1933,8 @@
           "value": 66300740,
           "text": "$66.3M",
           "delta": 0.0010090904501114384,
-          "deltaText": "+0.1%"
+          "deltaText": "+0.1%",
+          "compareLabel": "Plan"
         },
         {
           "id": "plan",
@@ -2043,7 +2048,8 @@
         "value": 66300740,
         "text": "$66.3M",
         "delta": 0.0010090904501114384,
-        "deltaText": "+0.1%"
+        "deltaText": "+0.1%",
+        "compareLabel": "Plan"
       },
       {
         "id": "plan",
@@ -2543,7 +2549,8 @@
       "value": 66300740,
       "text": "$66.3M",
       "delta": 0.0010090904501114384,
-      "deltaText": "+0.1%"
+      "deltaText": "+0.1%",
+      "compareLabel": "Plan"
     },
     {
       "id": "plan",
