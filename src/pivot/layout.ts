@@ -278,3 +278,75 @@ export function pivotRowCaption(row: PivotBodyRow, attribute?: string): string |
   const value = attribute !== undefined ? attrs[attribute] : Object.values(attrs).find((v) => v !== null && v !== undefined);
   return value === null || value === undefined || value === "" ? null : String(value);
 }
+
+/**
+ * Box metrics of `PivotKpiPanel` in px (default tokens and the `render-static` stylesheet use the
+ * same type scale): used to estimate the panel height without measuring the DOM.
+ */
+export const PIVOT_KPI_PANEL_METRICS = {
+  /** Span cell vertical padding (top + bottom) plus its bottom rule. */
+  cellPaddingY: 17,
+  /** Gap between panel blocks. */
+  gap: 8,
+  title: 20,
+  headlineLabel: 16,
+  headline: 28,
+  listRow: 16,
+  listRowGap: 2,
+  /** Rule + top padding + avatar. */
+  caption: 27,
+} as const;
+
+export interface PivotKpiPanelHeightOptions {
+  readonly headlineId?: string;
+  /** Panel shows a title row (default true). */
+  readonly title?: boolean;
+  /** Panel shows a caption (owner) row (default false). */
+  readonly caption?: boolean;
+}
+
+/** Estimated height in px of a span cell hosting `PivotKpiPanel` (including the cell padding). */
+export function pivotKpiPanelHeight(kpis: readonly PivotKpiValue[], options: PivotKpiPanelHeightOptions = {}): number {
+  const m = PIVOT_KPI_PANEL_METRICS;
+  const { headline, values, deltas } = pivotKpiPanelParts(kpis, options.headlineId);
+  const blocks: number[] = [];
+  if (options.title ?? true) blocks.push(m.title);
+  if (headline) blocks.push(m.headlineLabel + m.headline);
+  const listRows = values.length + deltas.length;
+  if (listRows) blocks.push(listRows * m.listRow + (listRows - 1) * m.listRowGap);
+  if (options.caption) blocks.push(m.caption);
+  const content = blocks.reduce((a, b) => a + b, 0) + Math.max(0, blocks.length - 1) * m.gap;
+  return m.cellPaddingY + content;
+}
+
+// ---------------------------------------------------------------------------
+// Body groups (static / print output)
+// ---------------------------------------------------------------------------
+
+export interface PivotBodyGroup {
+  /** Stable key: the top-level group's row id (or the grand-total row id). */
+  readonly id: string;
+  /** First row index (inclusive) in `model.rows`. */
+  readonly start: number;
+  /** Last row index (exclusive). */
+  readonly end: number;
+  readonly kind: "group" | "leaf" | "grandTotal";
+}
+
+/**
+ * Consecutive `model.rows` ranges per top-level group (plus one per grand total or top-level leaf),
+ * so static output can wrap each in its own `<tbody>` with `break-inside: avoid`.
+ */
+export function pivotBodyGroups(model: PivotModel): PivotBodyGroup[] {
+  const groups: PivotBodyGroup[] = [];
+  model.rows.forEach((row, i) => {
+    const startsGroup = row.kind === "grandTotal" || row.depth <= 0 || groups.length === 0 || groups[groups.length - 1]!.kind === "grandTotal";
+    if (startsGroup) {
+      groups.push({ id: row.id, start: i, end: i + 1, kind: row.kind });
+    } else {
+      const last = groups[groups.length - 1]!;
+      groups[groups.length - 1] = { ...last, end: i + 1 };
+    }
+  });
+  return groups;
+}

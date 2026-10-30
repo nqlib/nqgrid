@@ -1,12 +1,15 @@
 import eslint from "@eslint/js";
+import globals from "globals";
 import tseslint from "typescript-eslint";
 
-/** Library `src/` only — playground lives under `apps/` and uses its own Vite/tsconfig. */
+/** Library `src/` and Node packages under `packages/` — the playground (`apps/`) uses its own Vite/tsconfig. */
 export default tseslint.config(
   {
     ignores: [
       "dist/**",
       "node_modules/**",
+      "packages/*/dist/**",
+      "packages/*/*.config.ts",
       "apps/**",
       "**/*.test.ts",
       "eslint.config.mjs",
@@ -24,6 +27,11 @@ export default tseslint.config(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+  {
+    // `packages/*` are Node tools (e.g. the `nqgrid-export` CLI).
+    files: ["packages/**/*.ts"],
+    languageOptions: { globals: globals.node },
   },
   {
     // `@nqlib/nqgrid/core` runs in Node (PDF/XLSX export) and any webview: keep it framework-free.

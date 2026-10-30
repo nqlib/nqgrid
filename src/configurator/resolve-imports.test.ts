@@ -32,6 +32,12 @@ describe("formatEsmImportBlocks", () => {
     expect(plan[1]?.names).toContain("usePivotGrid");
   });
 
+  it("plans the static pivot renderer entry", () => {
+    const plan = resolveNqgridImportPlan(["pivot.renderStatic"]);
+    expect(plan.map((m) => m.entry)).toEqual(["@nqlib/nqgrid/render-static"]);
+    expect(plan[0]?.names).toContain("renderPivotHtml");
+  });
+
   it("includes root package entry for component features", () => {
     const plan = resolveNqgridImportPlan(["components.tablePercentBattery"]);
     expect(plan.some((m) => m.entry === "@nqlib/nqgrid" && m.names.includes("TablePercentBattery"))).toBe(true);

@@ -16,6 +16,7 @@ pnpm add @nqlib/nqgrid @tanstack/react-table react react-dom
 | `@nqlib/nqgrid/styles` | Tailwind class tokens for table shells and scroll |
 | `@nqlib/nqgrid/core` | Framework-free engine (no React/DOM): pivot model, formatting, layout math — runs in Node for exports |
 | `@nqlib/nqgrid/pivot` | React pivot renderer: `usePivotGrid`, `PivotTable` (pinned dimensions, KPI panel, heat, header chart band; static mode for HTML/PDF), TanStack adapter |
+| `@nqlib/nqgrid/render-static` | Standalone print-ready HTML for pivot models (`renderPivotHtml`, inline CSS, light/dark, paging) — feeds the `nqgrid-export` PDF/XLSX CLI |
 | `@nqlib/nqgrid/engine` | Table engine utilities (TanStack / React hooks; re-exports the pure helpers from `core`) |
 | `@nqlib/nqgrid/sheet` | Virtual sheet / viewport |
 | `@nqlib/nqgrid/spreadsheet` | Spreadsheet-style commands / formats |
@@ -28,7 +29,8 @@ pnpm add @nqlib/nqgrid @tanstack/react-table react react-dom
 - **[CHANGELOG.md](./CHANGELOG.md)** — release history (start at **0.1.0**).
 - **[docs/RELEASE-0.1.0.md](./docs/RELEASE-0.1.0.md)** — v0.1.0 release notes + GitHub release snippet.
 - **`docs/configurator.md`** — configurator usage (in `docs/`).
-- **[docs/pivot-headless.md](./docs/pivot-headless.md)** — pivot core, cross-language contract (`contract/pivot/v1`), export roadmap.
+- **[docs/pivot-headless.md](./docs/pivot-headless.md)** — pivot core, cross-language contract (`contract/pivot/v1`), static HTML, export roadmap.
+- **[packages/nqgrid-export](./packages/nqgrid-export/README.md)** — `nqgrid-export` CLI / HTTP service: pivot → PDF, XLSX, HTML (Docker image).
 
 ## Playground & Cursor skills
 
@@ -43,7 +45,8 @@ Copy those skill folders to `~/.cursor/skills/` if you want them globally.
 
 ```bash
 pnpm run build    # tsup → dist/
-pnpm test         # vitest
+pnpm test         # vitest (library)
+pnpm -r test      # workspace packages (nqgrid-export); `pnpm test:all` runs both
 pnpm run lint     # eslint
 ```
 

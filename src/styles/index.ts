@@ -132,129 +132,133 @@ export const tableNestedHeaderClass =
 // CSS variables with built-in fallbacks:
 //   --nqg-heat-0 … --nqg-heat-8   heat cell backgrounds (default: `--nqg-heat-color` mixed over the surface)
 //   --nqg-series-0 … --nqg-series-7   header chart stacks (one per top-level group, fixed order)
+//
+// Every token starts with a stable semantic class (`nqg-pivot`, `nqg-pivot-cell`, `nqg-pivot-kpi`, …)
+// followed by the Tailwind utilities. Apps get the Tailwind look; `@nqlib/nqgrid/render-static`
+// keeps only the `nqg-*` classes and styles them with its own self-contained stylesheet.
 // ---------------------------------------------------------------------------
 
 /** `<table>`: fixed layout so pinned offsets match the declared column widths. */
 export const pivotTableClass =
-  "table-fixed border-separate border-spacing-0 bg-card text-sm text-foreground";
+  "nqg-pivot table-fixed border-separate border-spacing-0 bg-card text-sm text-foreground";
 
 /** Header cell (dimension + value columns). */
 const pivotHeadCellBaseClass =
-  "whitespace-nowrap border-b border-border bg-card px-3 align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground";
+  "nqg-pivot-head whitespace-nowrap border-b border-border bg-card px-3 align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground";
 
 export const pivotHeadCellClass = `${pivotHeadCellBaseClass} text-left`;
 
 /** Value-column header cell. */
-export const pivotHeadValueCellClass = `${pivotHeadCellBaseClass} text-right`;
+export const pivotHeadValueCellClass = `nqg-pivot-head-value ${pivotHeadCellBaseClass} text-right`;
 
 /** Header chart band cell (one per column key). */
-export const pivotBandCellClass = "border-b border-border/60 bg-card px-0 pb-0 pt-2 align-bottom";
+export const pivotBandCellClass = "nqg-pivot-band border-b border-border/60 bg-card px-0 pb-0 pt-2 align-bottom";
 
 /** Left-most band cell holding the summary KPI + legend. */
-export const pivotBandSummaryCellClass = "border-b border-border/60 bg-card px-3 py-2 text-left align-top font-normal";
+export const pivotBandSummaryCellClass = "nqg-pivot-band-summary border-b border-border/60 bg-card px-3 py-2 text-left align-top font-normal";
 
 /** Tiny value label above each header bar. */
 export const pivotBandValueClass =
-  "block text-center text-[10px] font-medium leading-3 tabular-nums text-muted-foreground";
+  "nqg-pivot-band-value block text-center text-[10px] font-medium leading-3 tabular-nums text-muted-foreground";
 
-export const pivotSummaryLabelClass = "text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
+export const pivotSummaryLabelClass = "nqg-pivot-summary-label text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
 
-export const pivotSummaryValueClass = "flex items-baseline gap-1.5 text-lg font-semibold leading-6 tabular-nums text-foreground";
+export const pivotSummaryValueClass = "nqg-pivot-summary-value flex items-baseline gap-1.5 text-lg font-semibold leading-6 tabular-nums text-foreground";
 
-export const pivotSummaryNoteClass = "text-[11px] font-normal text-muted-foreground";
+export const pivotSummaryNoteClass = "nqg-pivot-summary-note text-[11px] font-normal text-muted-foreground";
 
-export const pivotLegendClass = "mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground";
+export const pivotLegendClass = "nqg-pivot-legend mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground";
 
-export const pivotLegendSwatchClass = "mr-1 inline-block size-2 rounded-[2px] align-middle";
+export const pivotLegendSwatchClass = "nqg-pivot-legend-swatch mr-1 inline-block size-2 rounded-[2px] align-middle";
 
 /** Every body cell. */
-export const pivotCellClass = "border-b border-border/40 px-3 align-middle";
+export const pivotCellClass = "nqg-pivot-cell border-b border-border/40 px-3 align-middle";
 
 /** Row-dimension cell surface (opaque so pinned cells hide scrolled content). */
 export const pivotDimensionCellClass = `${pivotCellClass} bg-card`;
 
 /** Department-style span cell: separated from the grid by a right rule. */
-export const pivotSpanCellClass = "border-b border-r border-border/60 bg-card px-3 py-2 align-top";
+export const pivotSpanCellClass = "nqg-pivot-span border-b border-r border-border/60 bg-card px-3 py-2 align-top";
 
 /** Group-row cells (subtotals). */
-export const pivotGroupCellClass = `${pivotCellClass} bg-muted font-medium`;
+export const pivotGroupCellClass = `nqg-pivot-group ${pivotCellClass} bg-muted font-medium`;
 
 /** Leaf-row cells. */
-export const pivotLeafCellClass = `${pivotCellClass} bg-card`;
+export const pivotLeafCellClass = `nqg-pivot-leaf ${pivotCellClass} bg-card`;
 
 /** Grand-total cells. */
 export const pivotGrandTotalCellClass =
-  "border-t border-border bg-muted px-3 align-middle font-semibold";
+  "nqg-pivot-total border-t border-border bg-muted px-3 align-middle font-semibold";
 
 /** Grand-total label cell (spans the row-dimension columns). */
-export const pivotGrandTotalLabelClass = "text-left";
+export const pivotGrandTotalLabelClass = "nqg-pivot-total-label text-left";
 
 /** Numeric alignment for value cells. */
-export const pivotValueClass = "text-right tabular-nums whitespace-nowrap";
+export const pivotValueClass = "nqg-pivot-value text-right tabular-nums whitespace-nowrap";
 
 /** Group (percent-of-total) value text. */
-export const pivotGroupValueClass = "text-muted-foreground";
+export const pivotGroupValueClass = "nqg-pivot-group-value text-muted-foreground";
 
 /** Base class on heat cells (level classes `nqg-heat-0 … nqg-heat-8` are added alongside). */
-export const pivotHeatCellClass = "text-foreground";
+export const pivotHeatCellClass = "nqg-pivot-heat text-foreground";
 
 /** Right rule on the last row-dimension column. */
-export const pivotPinnedEdgeClass = "border-r border-border/60";
+export const pivotPinnedEdgeClass = "nqg-pivot-edge border-r border-border/60";
 
 /** Row-header cells (`<th scope="row">`) read like body cells. */
-export const pivotRowHeaderClass = "text-left font-normal";
+export const pivotRowHeaderClass = "nqg-pivot-row-header text-left font-normal";
 
 /** Pinned column (interactive mode): left offset is set inline. */
-export const pivotPinnedClass = "sticky z-10";
+export const pivotPinnedClass = "nqg-pivot-pinned sticky z-10";
 
 /** Pinned header cell sits above pinned body cells and the scrolling header. */
-export const pivotPinnedHeadClass = "sticky z-30";
+export const pivotPinnedHeadClass = "nqg-pivot-pinned-head sticky z-30";
 
 /** Scrolling header cell (interactive mode): top offset is set inline. */
-export const pivotStickyHeadClass = "sticky z-20";
+export const pivotStickyHeadClass = "nqg-pivot-sticky-head sticky z-20";
 
 /** Expand / collapse toggle. */
 export const pivotToggleClass =
-  "inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "nqg-pivot-toggle inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Child-count chip next to a group label. */
 export const pivotCountClass =
-  "inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-border/70 bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground";
+  "nqg-pivot-count inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-border/70 bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground";
 
 /** Group label inside a dimension cell. */
-export const pivotGroupLabelClass = "flex min-w-0 items-center gap-1.5";
+export const pivotGroupLabelClass = "nqg-pivot-group-label flex min-w-0 items-center gap-1.5";
 
-export const pivotLabelTextClass = "min-w-0 truncate";
+export const pivotLabelTextClass = "nqg-pivot-label min-w-0 truncate";
 
 /** KPI side panel inside the tall span cell. */
-export const pivotKpiPanelClass = "flex flex-col gap-2";
+export const pivotKpiPanelClass = "nqg-pivot-kpi flex flex-col gap-2";
 
-export const pivotKpiTitleClass = "flex items-center justify-between gap-2 text-sm font-semibold text-foreground";
+export const pivotKpiTitleClass = "nqg-pivot-kpi-title flex items-center justify-between gap-2 text-sm font-semibold text-foreground";
 
-export const pivotKpiHeadlineLabelClass = "text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
+export const pivotKpiHeadlineLabelClass = "nqg-pivot-kpi-headline-label text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
 
-export const pivotKpiHeadlineValueClass = "text-xl font-semibold leading-7 tabular-nums";
+export const pivotKpiHeadlineValueClass = "nqg-pivot-kpi-headline text-xl font-semibold leading-7 tabular-nums";
 
-export const pivotKpiListClass = "m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs";
+export const pivotKpiListClass = "nqg-pivot-kpi-list m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs";
 
-export const pivotKpiTermClass = "text-muted-foreground";
+export const pivotKpiTermClass = "nqg-pivot-kpi-term text-muted-foreground";
 
-export const pivotKpiValueClass = "m-0 text-right font-medium tabular-nums text-foreground";
+export const pivotKpiValueClass = "nqg-pivot-kpi-value m-0 text-right font-medium tabular-nums text-foreground";
 
 export const pivotKpiCaptionClass =
-  "flex items-center gap-1.5 border-t border-border/50 pt-1.5 text-xs text-muted-foreground";
+  "nqg-pivot-kpi-caption flex items-center gap-1.5 border-t border-border/50 pt-1.5 text-xs text-muted-foreground";
 
 export const pivotKpiAvatarClass =
-  "inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground";
+  "nqg-pivot-kpi-avatar inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[9px] font-semibold text-secondary-foreground";
 
 /** Compact (collapsed) delta under a group label. */
-export const pivotDeltaClass = "text-xs font-medium tabular-nums";
+export const pivotDeltaClass = "nqg-pivot-delta text-xs font-medium tabular-nums";
 
-export const pivotDeltaPositiveClass = "text-emerald-600 dark:text-emerald-400";
+export const pivotDeltaPositiveClass = "nqg-pivot-up text-emerald-600 dark:text-emerald-400";
 
-export const pivotDeltaNegativeClass = "text-red-600 dark:text-red-400";
+export const pivotDeltaNegativeClass = "nqg-pivot-down text-red-600 dark:text-red-400";
 
-export const pivotDeltaNeutralClass = "text-muted-foreground";
+export const pivotDeltaNeutralClass = "nqg-pivot-flat text-muted-foreground";
 
 /** Default heat hue; `--nqg-heat-color` overrides it, `--nqg-heat-N` overrides one level. */
 export const PIVOT_HEAT_BASE_COLOR = "#ef6a24";

@@ -17,9 +17,15 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 - **Pivot core** — `setPivotHeatScope(spec, scope)`; `PivotKpiValue.compareLabel` (e.g. `Plan`, for "vs Plan" deltas; golden `planning.model.json` updated additively).
 - **Styles** — `pivot*Class` tokens, `pivotHeatColorVar` / `pivotSeriesColorVar` / `pivotThemeVars`, and the `--nqg-heat-0 … --nqg-heat-8` / `--nqg-series-0 … --nqg-series-7` CSS variables.
 - **Playground** — "Planning pivot" demo.
+- **`@nqlib/nqgrid/render-static`** — `renderPivotHtml(model, options)` / `renderPivotHtmlFromSpec(spec, rows, options)`: standalone, deterministic HTML (no scripts, fonts or URLs) from the pivot components in static mode plus the inlined `PIVOT_STATIC_CSS` (light, dark via `data-theme` / `.dark` with dark series steps). Options: `theme`, `page` (`size`, `orientation`, `margins` in mm), `title`, `subtitle`, `generatedAt`, `maxColumnsPerPage`, `minScale`, `locale` labels, `kpiPanel`, `table`. Print: landscape A4 default, repeated header band + column headers, one `<tbody>` per top-level group with `break-inside: avoid`, zoom-to-fit, balanced column chunks with "(cont.)" titles, filler rows for KPI panels taller than their group. Helpers `pivotStaticLayout`, `resolvePivotStaticPage`, `pivotColumnChunks`, `slicePivotModelColumns`, `pivotHeatFillHex`.
+- **`@nqlib/nqgrid-export`** (`packages/nqgrid-export`, bin `nqgrid-export`) — `{ spec, rows, options? }` → PDF (Playwright Chromium, title header + "Page X of Y" footer), XLSX (exceljs: numFmt, merges, frozen panes, heat fills, `KPIs` and hidden `Spec` sheets), HTML, model or sheet JSON. CLI (`--input` / `--spec --rows`, exit 2 = invalid input, 1 = internal, JSON errors on stderr), `exportPivot` / `createPivotExporter` API, `serve` mode (`GET /healthz`, `POST /export?format=…`, warm Chromium, 127.0.0.1, body cap) and a Dockerfile.
+- **Contract** — golden `contract/pivot/v1/examples/planning.html`.
+- **Pivot** — `PivotTable` `kpiPanel` and `fillSpanHeight` props; static mode renders one `<tbody>` per top-level group; `pivotBodyGroups`, `pivotKpiPanelHeight`, `PIVOT_KPI_PANEL_METRICS`.
+- **Configurator** — `pivot.renderStatic` feature.
 
 ### Changed
 
+- Pivot style tokens (`pivot*Class`) now start with a semantic `nqg-pivot-*` class; the Tailwind utilities are unchanged.
 - Pure helpers (`pinned-layout`, `col-span-frozen`, `row-reorder`, `paging`, `clipboard-tsv`, `group-by-tree`, rich value formatting and format option types) moved to `src/core`; `engine`, `advanced` and the main barrel re-export them, so existing imports keep working.
 - `buildGroupedFlatRows` key type no longer depends on React's `Key` (`GroupRowKey = string | number | bigint`, structurally identical).
 

@@ -25,7 +25,14 @@ import {
 import { cx, pivotHeatCellProps, type PivotRenderMode } from "./heat";
 import { PivotHeaderChartBand } from "./pivot-header-chart";
 import { PivotKpiDelta, PivotKpiPanel } from "./pivot-kpi-panel";
-import { pivotDimensionSlots, pivotRowCaption, pivotTableGeometry, type PivotTableGeometry } from "./layout";
+import {
+  pivotBodyGroups,
+  pivotDimensionSlots,
+  pivotKpiPanelHeight,
+  pivotRowCaption,
+  pivotTableGeometry,
+  type PivotTableGeometry,
+} from "./layout";
 
 export interface PivotSpanCellContext {
   readonly model: PivotModel;
@@ -60,6 +67,13 @@ export interface PivotTableProps {
   readonly kpiHeadlineId?: string;
   /** Row attribute printed as the KPI panel caption (default: first attribute, e.g. `owner`). */
   readonly kpiCaptionAttribute?: string;
+  /** Show `PivotKpiPanel` in expanded span cells (default true); `false` prints the compact label + headline delta. */
+  readonly kpiPanel?: boolean;
+  /**
+   * When a KPI panel is taller than its group's rows, add a blank filler row under the group so the
+   * panel fits without stretching the data rows (default: static mode only).
+   */
+  readonly fillSpanHeight?: boolean;
   /** Replace the outer span cell content (the KPI side-panel slot). */
   readonly renderSpanCell?: (row: PivotBodyRow, context: PivotSpanCellContext) => ReactNode;
   readonly className?: string;
@@ -104,6 +118,8 @@ export function PivotTable({
   headerSummary,
   kpiHeadlineId,
   kpiCaptionAttribute,
+  kpiPanel = true,
+  fillSpanHeight,
   renderSpanCell,
   className,
   style,
@@ -119,6 +135,27 @@ export function PivotTable({
   const lastDim = geometry.dimensionColumns - 1;
   const compact = model.layout === "compact";
   const slots = compact ? null : pivotDimensionSlots(model);
+  const showsKpiPanel = (row: PivotBodyRow) => !renderSpanCell && kpiPanel && Boolean(row.kpis?.length) && row.expanded;
+
+  // Top-level spans whose KPI panel needs more height than their rows: row index of the group's
+  // last row → filler height in px (the span cell then covers the filler row as well).
+  const fillers = new Map<number, number>();
+  const extendedSpans = new Set<number>();
+  if (slots && (fillSpanHeight ?? !interactive)) {
+    for (const s of model.spans[0] ?? []) {
+      const row = model.rows[s.rowIndex];
+      if (!row || row.depth !== 0 || !showsKpiPanel(row)) continue;
+      const need = pivotKpiPanelHeight(row.kpis!, {
+        headlineId: kpiHeadlineId,
+        caption: pivotRowCaption(row, kpiCaptionAttribute) !== null,
+      });
+      const deficit = Math.ceil(need - s.span * rowHeight);
+      if (deficit > 0) {
+        fillers.set(s.rowIndex + s.span - 1, deficit);
+        extendedSpans.add(s.rowIndex);
+      }
+    }
+  }
 
   const pinned = (col: number, extra?: CSSProperties): { className?: string; style?: CSSProperties } =>
     interactive ? { className: pivotPinnedClass, style: { left: geometry.dimensionOffsets[col], ...extra } } : { style: extra };
@@ -151,10 +188,10 @@ export function PivotTable({
   const spanContent = (row: PivotBodyRow, level: number, rowSpan: number): ReactNode => {
     const toggle = toggleFor(row);
     if (renderSpanCell) return renderSpanCell(row, { model, mode, level, rowSpan, toggle });
-    if (row.kpis?.length && row.expanded) {
+    if (showsKpiPanel(row)) {
       return (
         <PivotKpiPanel
-          kpis={row.kpis}
+          kpis={row.kpis!}
           title={row.label}
           titleAddon={toggle}
           caption={pivotRowCaption(row, kpiCaptionAttribute) ?? undefined}
@@ -204,11 +241,12 @@ export function PivotTable({
       if (slot.type === "span") {
         // Interactive: the panel sticks under the header while its rows scroll past.
         const inner: CSSProperties | undefined = interactive && slot.rowSpan > 1 ? { position: "sticky", top: headerHeight + 8 } : undefined;
+        const rowSpan = slot.rowSpan + (slot.level === 0 && extendedSpans.has(rowIndex) ? 1 : 0);
         return [
           <th
             key={`d${slot.level}`}
             scope="rowgroup"
-            rowSpan={slot.rowSpan}
+            rowSpan={rowSpan}
             className={cx(pivotSpanCellClass, pivotRowHeaderClass, edge(slot.level), p.className)}
             style={p.style}
             data-nqg-span={slot.rowSpan}
@@ -248,6 +286,28 @@ export function PivotTable({
     return pinnedCol === undefined
       ? { className: pivotStickyHeadClass, style: { top, height } }
       : { className: pivotPinnedHeadClass, style: { top, left: geometry.dimensionOffsets[pinnedCol], height } };
+  };
+
+  const bodyRows = (row: PivotBodyRow, rowIndex: number): ReactNode => {
+    const filler = fillers.get(rowIndex);
+    const tr = (
+      <tr key={row.id} data-kind={row.kind} data-depth={row.depth} style={{ height: rowHeight }}>
+        {dimensionCells(row, rowIndex)}
+        {valueCells(row)}
+      </tr>
+    );
+    if (filler === undefined) return tr;
+    return [
+      tr,
+      <tr key={`${row.id}:filler`} data-nqg-filler="" aria-hidden style={{ height: filler }}>
+        {Array.from({ length: geometry.dimensionColumns - 1 }, (_, i) => (
+          <td key={`d${i + 1}`} className={cx(pivotLeafCellClass, i + 1 === lastDim && pivotPinnedEdgeClass)} />
+        ))}
+        {model.columns.map((c) => (
+          <td key={c.id} className={pivotLeafCellClass} />
+        ))}
+      </tr>,
+    ];
   };
 
   const dimensionHeaders = compact ? [model.rowDimensions.map((d) => d.label).join(" / ")] : model.rowDimensions.map((d) => d.label);
@@ -301,14 +361,16 @@ export function PivotTable({
           </tr>
         ))}
       </thead>
-      <tbody>
-        {model.rows.map((row, rowIndex) => (
-          <tr key={row.id} data-kind={row.kind} data-depth={row.depth} style={{ height: rowHeight }}>
-            {dimensionCells(row, rowIndex)}
-            {valueCells(row)}
-          </tr>
-        ))}
-      </tbody>
+      {interactive ? (
+        <tbody>{model.rows.map((row, rowIndex) => bodyRows(row, rowIndex))}</tbody>
+      ) : (
+        // Static: one <tbody> per top-level group, so print CSS can keep each group on one page.
+        pivotBodyGroups(model).map((g) => (
+          <tbody key={g.id} data-nqg-group={g.kind}>
+            {model.rows.slice(g.start, g.end).map((row, i) => bodyRows(row, g.start + i))}
+          </tbody>
+        ))
+      )}
     </table>
   );
 }

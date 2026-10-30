@@ -4,6 +4,7 @@ export type NqgridFeatureId =
   | "fixtures.dashboard"
   | "core.pivot"
   | "pivot.react"
+  | "pivot.renderStatic"
   | "engine.headless"
   | "sheet.virtual"
   | "spreadsheet.chrome"
@@ -21,6 +22,7 @@ export interface NqgridFeatureDescriptor {
     | "@nqlib/nqgrid/fixtures"
     | "@nqlib/nqgrid/core"
     | "@nqlib/nqgrid/pivot"
+    | "@nqlib/nqgrid/render-static"
     | "@nqlib/nqgrid/engine"
     | "@nqlib/nqgrid/sheet"
     | "@nqlib/nqgrid/spreadsheet"
@@ -126,6 +128,25 @@ export const NQGRID_FEATURES = [
       { key: "PivotTable.mode", hint: "`interactive` (toggles + CSS sticky pinning) or `static` for `renderToStaticMarkup` (PDF)." },
       { key: "--nqg-heat-0 … --nqg-heat-8", hint: "Override heat colors (or just `--nqg-heat-color`); `--nqg-series-N` for header stacks (`pivotThemeVars`)." },
       { key: "pivotModelToTanstack", hint: "`{ columns, data, columnPinning, getRowId }` for your own `useReactTable` grid." },
+    ],
+  },
+  {
+    id: "pivot.renderStatic",
+    label: "Pivot static HTML (print / PDF)",
+    summary: "renderPivotHtml(model, options): standalone HTML with inline CSS — light/dark, landscape pages, repeated headers, column chunks.",
+    entry: "@nqlib/nqgrid/render-static",
+    namedExports: [
+      "renderPivotHtml",
+      "renderPivotHtmlFromSpec",
+      "PIVOT_STATIC_CSS",
+      "pivotStaticLayout",
+      "pivotHeatFillHex",
+    ],
+    configure: [
+      { key: "options.generatedAt", hint: "Pass the timestamp in (string or Date) — output stays deterministic." },
+      { key: "options.page", hint: "`{ size: \"A4\" | \"Letter\" | …, orientation, margins (mm) }`; default A4 landscape." },
+      { key: "options.maxColumnsPerPage", hint: "Default: fit the page at `minScale` (0.7), else balanced column chunks with \"(cont.)\" labels." },
+      { key: "nqgrid-export", hint: "CLI / HTTP service (`packages/nqgrid-export`) turns the HTML into PDF (Chromium) and the sheet into XLSX." },
     ],
   },
   {

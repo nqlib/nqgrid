@@ -32,6 +32,11 @@
       "import": "./dist/pivot.js",
       "require": "./dist/pivot.cjs"
     },
+    "./render-static": {
+      "types": "./dist/render-static.d.ts",
+      "import": "./dist/render-static.js",
+      "require": "./dist/render-static.cjs"
+    },
     "./contract/pivot/v1/pivot-spec.schema.json": "./contract/pivot/v1/pivot-spec.schema.json",
     "./engine": {
       "types": "./dist/engine.d.ts",
@@ -90,6 +95,7 @@
     "dev": "pnpm --filter nqgrid-playground dev",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:all": "vitest run && pnpm -r test",
     "prepublishOnly": "pnpm run build"
   },
   "peerDependencies": {
