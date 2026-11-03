@@ -8,7 +8,9 @@ import {
   type PivotFieldInfo,
   type PivotFieldMove,
 } from "../core/pivot/fields";
+import type { PivotDrillThroughOptions, PivotDrillThroughResult, PivotDrillThroughTarget } from "../core/pivot/cube";
 import type { PivotSortRequest } from "../core/pivot/interaction";
+import type { PivotCalculatedMeasureInput } from "../core/pivot/measures";
 import type {
   PivotBuiltInAggregate,
   PivotDataRow,
@@ -18,6 +20,8 @@ import type {
   PivotFilter,
   PivotHeatScope,
   PivotModel,
+  PivotShowAs,
+  PivotShowAsBase,
   PivotSpec,
   PivotTopNSpec,
 } from "../core/pivot/types";
@@ -85,6 +89,19 @@ export interface PivotGridState {
   readonly swapRowsColumns: () => void;
   /** "Group by…" for a date field (`setPivotDateGrouping`); `[]` ungroups. */
   readonly setDateGrouping: (field: string, groups: readonly PivotDateGroup[], area?: "rows" | "columns" | "filters") => void;
+  /** Add or update a calculated measure (`setPivotCalculatedMeasure`; invalid expressions are ignored, check with `checkPivotCalculatedMeasure`). */
+  readonly setCalculatedMeasure: (measure: PivotCalculatedMeasureInput) => void;
+  /** Delete a measure (`removePivotMeasure`; refused while a calculated measure references it). */
+  readonly removeMeasure: (measureId: string) => void;
+  /** "Show values as" (`setPivotMeasureShowAs`). */
+  readonly setMeasureShowAs: (measureId: string, showAs: PivotShowAs, base?: PivotShowAsBase | null, scope?: "all" | "leaf" | "group") => void;
+  /** Subtotal position of a row / column field's groups (`setPivotSubtotal`). */
+  readonly setSubtotal: (field: string, position: "start" | "end" | "none") => void;
+  /**
+   * Source records behind a cell of the current spec (`pivotDrillThrough` on the cached encoding),
+   * e.g. from `PivotTable`'s `onDrillThrough`.
+   */
+  readonly drillThrough: (target: PivotDrillThroughTarget, options?: PivotDrillThroughOptions) => PivotDrillThroughResult;
 }
 
 /**
@@ -163,7 +180,12 @@ export function usePivotGrid(
       setValuesPosition: (index) => dispatch({ type: "setValuesPosition", index }),
       swapRowsColumns: () => dispatch({ type: "swapRowsColumns" }),
       setDateGrouping: (field, groups, area) => dispatch({ type: "setDateGrouping", field, groups, area, fields }),
+      setCalculatedMeasure: (measure) => dispatch({ type: "setCalculatedMeasure", measure }),
+      removeMeasure: (measureId) => dispatch({ type: "removeMeasure", measureId }),
+      setMeasureShowAs: (measureId, showAs, base, scope) => dispatch({ type: "setMeasureShowAs", measureId, showAs, base, scope }),
+      setSubtotal: (field, position) => dispatch({ type: "setSubtotal", field, position }),
+      drillThrough: (target, drillOptions) => builder.drillThrough(current, rows, target, { aggregators, ...drillOptions }),
     }),
-    [current, rows, model, dispatch, fields, builder],
+    [current, rows, model, dispatch, fields, builder, aggregators],
   );
 }

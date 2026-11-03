@@ -104,6 +104,7 @@ export function pivotColumnHeaderRole(model: PivotModel, row: number, cell: Pivo
  * - `span` — the group's own cell, covering `rowSpan` rows (department + KPI panel);
  * - `group` — the group summary next to its span (label, child count, toggle);
  * - `leaf` — a leaf label;
+ * - `subtotal` — the label of a group's `subtotal: "end"` row ("Camp Total"), next to the group's span;
  * - `grandTotal` — the grand-total label, covering every dimension column;
  * - `empty` — nothing to show;
  * - `covered` — inside an earlier `span` cell; render no `<td>`.
@@ -112,6 +113,7 @@ export type PivotDimensionSlot =
   | { readonly type: "span"; readonly level: number; readonly rowSpan: number }
   | { readonly type: "group"; readonly level: number }
   | { readonly type: "leaf"; readonly level: number }
+  | { readonly type: "subtotal"; readonly level: number }
   | { readonly type: "grandTotal"; readonly colSpan: number }
   | { readonly type: "empty"; readonly level: number }
   | { readonly type: "covered"; readonly level: number };
@@ -137,6 +139,8 @@ export function pivotDimensionSlots(model: PivotModel): PivotDimensionSlot[][] {
         slots.push({ type: "leaf", level });
       } else if (row.kind === "group" && level === row.depth + 1) {
         slots.push({ type: "group", level });
+      } else if (row.kind === "subtotal" && level === row.depth + 1) {
+        slots.push({ type: "subtotal", level });
       } else {
         slots.push({ type: "empty", level });
       }
@@ -377,7 +381,7 @@ export interface PivotBodyGroup {
   readonly start: number;
   /** Last row index (exclusive). */
   readonly end: number;
-  readonly kind: "group" | "leaf" | "grandTotal";
+  readonly kind: "group" | "leaf" | "grandTotal" | "subtotal";
 }
 
 /**
@@ -387,7 +391,9 @@ export interface PivotBodyGroup {
 export function pivotBodyGroups(model: PivotModel): PivotBodyGroup[] {
   const groups: PivotBodyGroup[] = [];
   model.rows.forEach((row, i) => {
-    const startsGroup = row.kind === "grandTotal" || row.depth <= 0 || groups.length === 0 || groups[groups.length - 1]!.kind === "grandTotal";
+    // A group's `subtotal: "end"` row closes its group instead of starting one.
+    const startsGroup =
+      row.kind === "grandTotal" || (row.depth <= 0 && row.kind !== "subtotal") || groups.length === 0 || groups[groups.length - 1]!.kind === "grandTotal";
     if (startsGroup) {
       groups.push({ id: row.id, start: i, end: i + 1, kind: row.kind });
     } else {

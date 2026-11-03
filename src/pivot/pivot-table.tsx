@@ -1,6 +1,8 @@
 import { memo, type CSSProperties, type ReactNode } from "react";
 
-import type { PivotBodyRow, PivotHeaderCell, PivotModel, PivotModelDimension } from "../core/pivot/types";
+import { pivotCellDrillTarget } from "../core/pivot/build-model";
+import type { PivotDrillThroughTarget } from "../core/pivot/cube";
+import type { PivotBodyRow, PivotCell, PivotHeaderCell, PivotModel, PivotModelDimension, PivotValueColumn } from "../core/pivot/types";
 import {
   pivotCountClass,
   pivotGrandTotalCellClass,
@@ -78,6 +80,18 @@ export interface PivotColumnHeaderContext extends PivotColumnHeaderRole {
   readonly toggle: ReactNode;
 }
 
+/** A value cell of `PivotTable` (passed to `onDrillThrough`). */
+export interface PivotCellContext {
+  readonly model: PivotModel;
+  readonly row: PivotBodyRow;
+  /** Index in `model.rows`. */
+  readonly rowIndex: number;
+  readonly column: PivotValueColumn;
+  /** Index in `model.columns`. */
+  readonly columnIndex: number;
+  readonly cell: PivotCell;
+}
+
 export interface PivotTableProps {
   readonly model: PivotModel;
   /** `interactive` (default): toggles + CSS sticky pinning. `static`: plain markup for HTML/PDF. */
@@ -127,6 +141,12 @@ export interface PivotTableProps {
   readonly renderColumnHeader?: (context: PivotColumnHeaderContext) => ReactNode;
   /** Replace the outer span cell content (the KPI side-panel slot). */
   readonly renderSpanCell?: (row: PivotBodyRow, context: PivotSpanCellContext) => ReactNode;
+  /**
+   * Excel's "Show details": called on double-click of a value cell (interactive mode) with its
+   * drill-through target (`pivotCellDrillTarget`). Pass it to `grid.drillThrough(target)` /
+   * `pivotDrillThrough(spec, rows, target)` and show the records, e.g. in `PivotDrillThroughPanel`.
+   */
+  readonly onDrillThrough?: (target: PivotDrillThroughTarget, context: PivotCellContext) => void;
   readonly className?: string;
   readonly style?: CSSProperties;
   readonly "aria-label"?: string;
@@ -179,6 +199,7 @@ export const PivotTable = memo(function PivotTable({
   renderSpanCell,
   renderDimensionHeader,
   renderColumnHeader,
+  onDrillThrough,
   className,
   style,
   "aria-label": ariaLabel,
@@ -272,7 +293,7 @@ export const PivotTable = memo(function PivotTable({
   };
 
   const rowCellClass = (row: PivotBodyRow) =>
-    row.kind === "grandTotal" ? pivotGrandTotalCellClass : row.kind === "group" ? pivotGroupCellClass : pivotLeafCellClass;
+    row.kind === "grandTotal" ? pivotGrandTotalCellClass : row.kind === "group" || row.kind === "subtotal" ? pivotGroupCellClass : pivotLeafCellClass;
 
   const dimensionCells = (row: PivotBodyRow, rowIndex: number): ReactNode[] => {
     const base = rowCellClass(row);
@@ -289,7 +310,13 @@ export const PivotTable = memo(function PivotTable({
       const p = pinned(0);
       return [
         <th key="c" scope="row" className={cx(base, pivotRowHeaderClass, edge(0), p.className)} style={p.style}>
-          {row.kind === "group" ? groupLabel(row, row.depth * 16) : <span style={{ paddingLeft: row.depth * 16 }}>{row.label}</span>}
+          {row.kind === "group" ? (
+            groupLabel(row, row.depth * 16)
+          ) : (
+            <span className={row.kind === "subtotal" ? pivotLabelTextClass : undefined} style={{ paddingLeft: row.depth * 16 }}>
+              {row.label}
+            </span>
+          )}
         </th>,
       ];
     }
@@ -313,7 +340,8 @@ export const PivotTable = memo(function PivotTable({
           </th>,
         ];
       }
-      const content = slot.type === "group" ? groupLabel(row) : slot.type === "leaf" ? <span className={pivotLabelTextClass}>{row.label}</span> : null;
+      const content =
+        slot.type === "group" ? groupLabel(row) : slot.type === "leaf" || slot.type === "subtotal" ? <span className={pivotLabelTextClass}>{row.label}</span> : null;
       return [
         <td key={`d${slot.level}`} className={cx(base, edge(slot.level), p.className)} style={p.style}>
           {content}
@@ -322,15 +350,20 @@ export const PivotTable = memo(function PivotTable({
     });
   };
 
-  const valueCells = (row: PivotBodyRow): ReactNode[] =>
+  const drill = interactive ? onDrillThrough : undefined;
+  const valueCells = (row: PivotBodyRow, rowIndex: number): ReactNode[] =>
     row.cells.map((cell, i) => {
       const heat = pivotHeatCellProps(cell, heatLevels);
+      const column = model.columns[i]!;
       return (
         <td
-          key={model.columns[i]!.id}
-          className={cx(rowCellClass(row), pivotValueClass, row.kind === "group" && pivotGroupValueClass, heat.className)}
+          key={column.id}
+          className={cx(rowCellClass(row), pivotValueClass, (row.kind === "group" || row.kind === "subtotal") && pivotGroupValueClass, heat.className)}
           style={heat.style}
           data-heat={heat["data-heat"]}
+          onDoubleClick={drill ? () => drill(pivotCellDrillTarget(model, row, i), { model, row, rowIndex, column, columnIndex: i, cell }) : undefined}
+          // Keep a double-click from selecting the cell text.
+          onMouseDown={drill ? (e) => e.detail > 1 && e.preventDefault() : undefined}
         >
           {cell.text}
         </td>
@@ -351,7 +384,7 @@ export const PivotTable = memo(function PivotTable({
     const tr = (
       <tr key={row.id} data-kind={row.kind} data-depth={row.depth} style={{ height: rowHeight }}>
         {dimensionCells(row, rowIndex)}
-        {valueCells(row)}
+        {valueCells(row, rowIndex)}
       </tr>
     );
     if (filler === undefined) return tr;

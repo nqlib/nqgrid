@@ -18,6 +18,7 @@ from nqgrid_export import (
     NqgridUnavailable,
     PivotSpec,
     pdf_page_count,
+    validate_pivot_spec,
 )
 
 from .conftest import EXAMPLES, GOLDEN_GENERATED_AT, ExportService, load_example
@@ -166,7 +167,11 @@ def test_filtered_spec_matches_the_golden_files(
 @pytest.mark.e2e
 @pytest.mark.parametrize(
     ("name", "rows_name"),
-    [("planning-multicol", "planning-fields.rows.json"), ("planning-dates", "planning-dates.rows.json")],
+    [
+        ("planning-multicol", "planning-fields.rows.json"),
+        ("planning-dates", "planning-dates.rows.json"),
+        ("planning-calc", "planning-dates.rows.json"),
+    ],
 )
 def test_column_hierarchy_and_date_grouping_match_the_golden_files(
     client: NqgridExportClient, name: str, rows_name: str
@@ -194,6 +199,39 @@ def test_date_grouping_changes_from_python(client: NqgridExportClient) -> None:
     filtered = client.export(fy26, rows, format="model")
     assert filtered["filters"][0]["text"] == "Year (Order date) = FY26"
     assert filtered["recordCount"]["matched"] == len(rows) // 2
+
+
+@pytest.mark.e2e
+def test_calculated_measures_from_python(client: NqgridExportClient) -> None:
+    """An agent adds a calculated measure and a running total; nqgrid evaluates them over aggregated values."""
+    spec = load_example("planning-calc.spec.json")
+    rows = load_example("planning-dates.rows.json")
+    spec = {
+        **spec,
+        "measures": [
+            *spec["measures"],
+            {"id": "gap", "label": "Gap", "calculate": "round(actual - plan, -3)"},
+            {"id": "run", "field": "actual", "showAs": "runningTotal", "showAsBase": {"field": "orderDate:year"}},
+        ],
+        "values": ["actual", "gap", "run"],
+        "heat": None,
+        "rows": [{**spec["rows"][0], "subtotal": "none"}, {"field": "line"}],
+        "expanded": "none",
+    }
+    assert validate_pivot_spec(spec) == []
+    model = client.export(spec, rows, format="model")
+    plan = sum(r["plan"] for r in rows)
+    actual = sum(r["actual"] for r in rows)
+    gap = model["grandTotal"]["cells"][7]["value"]  # FY25, FY26, Total × (actual, gap, run)
+    assert gap == round((actual - plan) / 1000) * 1000
+    fy25, fy26 = model["grandTotal"]["cells"][2]["value"], model["grandTotal"]["cells"][5]["value"]
+    assert fy26 == pytest.approx(actual)  # running total over both fiscal years
+    assert fy25 < fy26
+    bad = {**spec, "measures": [*spec["measures"], {"id": "loop", "calculate": "loop * 2"}]}
+    assert validate_pivot_spec(bad) == ["measures[8].calculate: reference cycle loop → loop"]
+    with pytest.raises(NqgridInvalidInput) as err:
+        client.export(bad, rows, format="model")
+    assert any("reference cycle" in d for d in err.value.details)
 
 
 @pytest.mark.e2e

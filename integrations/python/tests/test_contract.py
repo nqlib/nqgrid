@@ -24,6 +24,8 @@ from nqgrid_export import (
 from nqgrid_export.models import Options, RatioAggregate
 from nqgrid_export.request import dumps_request
 from nqgrid_export.validation import (
+    calc_example_spec,
+    check_calculated_measure,
     date_field_source,
     dates_example_spec,
     example_spec,
@@ -78,6 +80,17 @@ INVALID_SPECS: dict[str, dict[str, Any]] = {
     "bad subtotal": {**MINIMAL, "columns": [{"field": "b", "subtotal": "middle"}, {"field": "c"}]},
     "bad columnsExpanded": {**MINIMAL, "columnsExpanded": [[1]]},
     "bad dateGroup": {**MINIMAL, "fields": [{"field": "x", "source": "d", "dateGroup": "decade"}]},
+    "bad row subtotal": {**MINIMAL, "rows": [{"field": "a", "subtotal": "bottom"}]},
+    "empty calculate": {**MINIMAL, "measures": [{"id": "m", "calculate": ""}]},
+    "calculate too long": {**MINIMAL, "measures": [{"id": "m", "calculate": "1+" * 500 + "1"}]},
+    "bad showAs base kind": {**MINIMAL, "measures": [{"id": "m", "field": "v", "showAs": "differenceFromPrevious"}]},
+    "bad showAsBase position": {
+        **MINIMAL,
+        "measures": [
+            {"id": "m", "field": "v", "showAs": "runningTotal", "showAsBase": {"field": "a", "position": "x"}}
+        ],
+    },
+    "showAsBase without field": {**MINIMAL, "measures": [{"id": "m", "field": "v", "showAsBase": {"item": "x"}}]},
     "bad fiscal month": {**MINIMAL, "fields": [{"field": "d", "fiscalYearStartMonth": 13}]},
     "bad time zone offset": {**MINIMAL, "fields": [{"field": "d", "timeZoneOffsetMinutes": 900}]},
     "short monthNames": {**MINIMAL, "fields": [{"field": "d", "monthNames": ["J"]}]},
@@ -100,6 +113,7 @@ def test_schema_copies_in_the_package_match_the_contract() -> None:
     assert fields_example_spec() == load_example("planning-fields.spec.json")
     assert dates_example_spec() == load_example("planning-dates.spec.json")
     assert multicol_example_spec() == load_example("planning-multicol.spec.json")
+    assert calc_example_spec() == load_example("planning-calc.spec.json")
 
 
 def test_schemas_are_valid_2020_12() -> None:
@@ -282,7 +296,12 @@ def test_examples_directory_is_complete() -> None:
         "planning-dates.model.json",
         "planning-dates.sheet.json",
         "planning-dates.html",
+        "planning-calc.spec.json",
+        "planning-calc.model.json",
+        "planning-calc.sheet.json",
+        "planning-calc.html",
     } <= names
+    assert (CONTRACT / "calc-expressions.json").is_file()
 
 
 def test_fields_spec_validates_everywhere() -> None:
@@ -334,6 +353,7 @@ def test_field_inference_matches_nqgrid() -> None:
     [
         ("planning-multicol.spec.json", "planning-fields.rows.json"),
         ("planning-dates.spec.json", "planning-dates.rows.json"),
+        ("planning-calc.spec.json", "planning-dates.rows.json"),
     ],
 )
 def test_column_hierarchy_and_date_specs_validate_everywhere(spec_name: str, rows_name: str) -> None:
@@ -352,9 +372,8 @@ def test_column_and_date_referential_checks() -> None:
         "columns[0].sortBy is only supported on row dimensions",
         "columns[1].field 'a' is already used by rows[0]",
     ]
-    assert validate_pivot_spec({**MINIMAL, "rows": [{"field": "a", "subtotal": "end"}]}) == [
-        "rows[0].subtotal is only supported on column dimensions"
-    ]
+    # Row subtotal positions are valid since step 4 (start / end / none).
+    assert validate_pivot_spec({**MINIMAL, "rows": [{"field": "a", "subtotal": "end"}]}) == []
     # The single-object shape keeps its old paths.
     assert validate_pivot_spec({**MINIMAL, "columns": {"field": "b", "topN": {"measure": "m", "count": 1}}}) == [
         "columns.topN is only supported on row dimensions"
@@ -389,3 +408,42 @@ def test_date_field_sources() -> None:
     assert [e.split(":")[0] for e in check_fields({**dated, "rows": [{"field": "shipDate:month"}]}, rows)] == [
         "spec.rows[0].field"
     ]
+
+
+def test_calc_spec_round_trips_and_mirrors_ts_validation() -> None:
+    """Calculated measures, show-as bases and distinct count: same checks and messages as validatePivotSpec."""
+    spec = load_example("planning-calc.spec.json")
+    model = PivotSpec.model_validate(spec)
+    assert model.measures[2].calculate == "actual / plan - 1"
+    assert model.measures[3].showAsBase is not None and model.measures[3].showAsBase.position == "previous"
+    assert model.measures[5].aggregate == "distinctCount"
+    assert model.rows[0].subtotal == "end"
+
+    base = {**MINIMAL, "measures": [{"id": "m", "field": "v"}, {"id": "p", "field": "w"}]}
+
+    def errors(*measures: dict[str, Any]) -> list[str]:
+        return validate_pivot_spec({**base, "measures": [*measures, *base["measures"]]})
+
+    assert errors({"id": "x", "calculate": "m +"}) == ["measures[0].calculate: unexpected end of expression (at 3)"]
+    assert errors({"id": "x", "calculate": "mm * 2"}) == ['measures[0].calculate: unknown measure "mm" (at 0)']
+    assert errors({"id": "x", "calculate": "y + 1"}, {"id": "y", "calculate": "x * 2"}) == [
+        "measures[0].calculate: reference cycle x → y → x"
+    ]
+    assert errors({"id": "x", "calculate": "m", "field": "v"}) == [
+        "measures[0]: calculate cannot be combined with field or aggregate"
+    ]
+    assert "reserved" in errors({"id": "x", "calculate": "__proto__"})[0]
+    assert 'unknown function "eval"' in errors({"id": "x", "calculate": "eval(m)"})[0]
+    assert errors({"id": "x", "field": "v", "showAs": "runningTotal"}) == [
+        "measures[0].showAsBase is required by its showAs / groupShowAs"
+    ]
+    assert errors({"id": "x", "field": "v", "showAs": "runningTotal", "showAsBase": {"field": "zz"}}) == [
+        'measures[0].showAsBase.field "zz" is not a row or column field'
+    ]
+    assert errors({"id": "x", "field": "v", "showAs": "rankDescending", "showAsBase": {"field": "a"}}) == []
+    assert errors({"id": "x", "field": "v", "aggregate": "distinctCount"}) == []
+    # Inline check for a formula editor (mirrors checkPivotCalculatedMeasure).
+    assert check_calculated_measure(base, "m / p - 1") is None
+    assert check_calculated_measure(base, "m / pp") == 'unknown measure "pp" at 4'
+    loop = {**base, "measures": [*base["measures"], {"id": "c", "calculate": "m * 2"}]}
+    assert check_calculated_measure(loop, "c + 1", "m") == "reference cycle c → m → c"

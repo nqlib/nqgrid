@@ -1,3 +1,4 @@
+import { findPivotCalcCycles, parsePivotCalc } from "./calc";
 import { PIVOT_SPEC_VERSION, type PivotSpec } from "./types";
 
 const isPathList = (v: unknown): boolean =>
@@ -7,7 +8,16 @@ export type PivotSpecValidation =
   | { readonly ok: true; readonly spec: PivotSpec }
   | { readonly ok: false; readonly errors: readonly string[] };
 
-const BUILT_IN_AGGREGATES = new Set(["sum", "avg", "min", "max", "count", "first", "last"]);
+const BUILT_IN_AGGREGATES = new Set(["sum", "avg", "min", "max", "count", "first", "last", "distinctCount"]);
+/** `showAs` kinds that need `showAsBase`. */
+export const PIVOT_SHOW_AS_WITH_BASE: ReadonlySet<string> = new Set([
+  "differenceFrom",
+  "percentDifferenceFrom",
+  "runningTotal",
+  "percentRunningTotal",
+  "rankAscending",
+  "rankDescending",
+]);
 const SHOW_AS = new Set([
   "value",
   "percentOfColumnTotal",
@@ -15,6 +25,7 @@ const SHOW_AS = new Set([
   "percentOfParentColumn",
   "percentOfRowTotal",
   "percentOfGrandTotal",
+  ...PIVOT_SHOW_AS_WITH_BASE,
 ]);
 const DATE_GROUPS = new Set(["year", "quarter", "month", "week", "day", "yearMonth", "yearQuarter"]);
 const SUBTOTALS = new Set(["end", "start", "none"]);
@@ -32,9 +43,10 @@ const isNonEmptyString = (v: unknown): v is string => typeof v === "string" && v
  * Structural + referential validation for specs arriving over the wire (e.g. from Python).
  * The JSON Schema in `contract/pivot/v1` covers structure; this also checks that measure ids
  * referenced by `values`, `heat`, `headerCharts`, `kpis`, `sortBy` and `topN` exist, that
- * `sortBy` / `topN` sit on row dimensions and `subtotal` on column dimensions, that a field is not
- * used twice across rows and columns, that filters / facets are well-formed, and that the field
- * catalogue (`fields`, `fieldLabels`, date grouping) and `valuesIndex` are well-formed.
+ * `sortBy` / `topN` sit on row dimensions, that a field is not used twice across rows and columns,
+ * that calculated measures parse (`parsePivotCalc`), reference existing measures and form no
+ * cycle, that `showAsBase` names a row / column field, that filters / facets are well-formed, and
+ * that the field catalogue (`fields`, `fieldLabels`, date grouping) and `valuesIndex` are well-formed.
  */
 export function validatePivotSpec(input: unknown): PivotSpecValidation {
   const errors: string[] = [];
@@ -82,10 +94,7 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     if (d.sort !== undefined && !["asc", "desc", "none"].includes(d.sort as string)) {
       errors.push(`${where}.sort must be "asc" | "desc" | "none"`);
     }
-    if (d.subtotal !== undefined) {
-      if (isRow) errors.push(`${where}.subtotal is only supported on column dimensions`);
-      else if (!SUBTOTALS.has(d.subtotal as string)) errors.push(`${where}.subtotal must be "end" | "start" | "none"`);
-    }
+    if (d.subtotal !== undefined && !SUBTOTALS.has(d.subtotal as string)) errors.push(`${where}.subtotal must be "end" | "start" | "none"`);
   };
 
   const dimensionFields: [string, string][] = [];
@@ -120,6 +129,10 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
   }
 
   const measureIds = new Set<string>();
+  /** Calculated measures, checked once every measure id is known. */
+  const calcs: { readonly id: string; readonly where: string; readonly expr: unknown }[] = [];
+  /** `showAsBase` fields, checked against the row / column fields. */
+  const showAsBases: { readonly where: string; readonly base: unknown; readonly needed: boolean }[] = [];
   if (!Array.isArray(input.measures) || input.measures.length === 0) {
     errors.push("measures must be a non-empty array");
   } else {
@@ -131,6 +144,20 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
       }
       if (measureIds.has(m.id)) errors.push(`${where}.id "${m.id}" is duplicated`);
       measureIds.add(m.id);
+
+      for (const key of ["showAs", "groupShowAs"] as const) {
+        if (m[key] !== undefined && !SHOW_AS.has(m[key] as string)) {
+          errors.push(`${where}.${key} ${JSON.stringify(m[key])} is not supported`);
+        }
+      }
+      const needsBase = PIVOT_SHOW_AS_WITH_BASE.has(m.showAs as string) || PIVOT_SHOW_AS_WITH_BASE.has(m.groupShowAs as string);
+      if (m.showAsBase !== undefined || needsBase) showAsBases.push({ where, base: m.showAsBase, needed: needsBase });
+
+      if (m.calculate !== undefined) {
+        if (m.field !== undefined || m.aggregate !== undefined) errors.push(`${where}: calculate cannot be combined with field or aggregate`);
+        calcs.push({ id: m.id, where, expr: m.calculate });
+        return;
+      }
 
       const agg = m.aggregate ?? "sum";
       let needsField = true;
@@ -155,13 +182,40 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
         errors.push(`${where}.aggregate must be a string or object`);
       }
       if (needsField && !isNonEmptyString(m.field)) errors.push(`${where}.field is required`);
-
-      for (const key of ["showAs", "groupShowAs"] as const) {
-        if (m[key] !== undefined && !SHOW_AS.has(m[key] as string)) {
-          errors.push(`${where}.${key} ${JSON.stringify(m[key])} is not supported`);
-        }
-      }
     });
+  }
+
+  // Calculated measures: grammar, references (other measure ids), cycles.
+  const calcRefs = new Map<string, readonly string[]>();
+  for (const c of calcs) {
+    const parsed = parsePivotCalc(c.expr, { references: measureIds });
+    if (!parsed.ok) {
+      errors.push(`${c.where}.calculate: ${parsed.error.message} (at ${parsed.error.position})`);
+      continue;
+    }
+    calcRefs.set(c.id, parsed.references);
+  }
+  for (const cycle of findPivotCalcCycles(calcRefs)) {
+    const where = calcs.find((c) => c.id === cycle[0])?.where ?? "measures";
+    errors.push(`${where}.calculate: reference cycle ${cycle.join(" → ")}`);
+  }
+
+  // showAsBase: required by the difference / running-total / rank kinds, names a row or column field.
+  const layoutFields = new Set(dimensionFields.map(([field]) => field));
+  for (const { where, base, needed } of showAsBases) {
+    if (base === undefined) {
+      if (needed) errors.push(`${where}.showAsBase is required by its showAs / groupShowAs`);
+      continue;
+    }
+    if (!isObject(base) || !isNonEmptyString(base.field)) {
+      errors.push(`${where}.showAsBase.field must be a non-empty string`);
+      continue;
+    }
+    if (!layoutFields.has(base.field)) errors.push(`${where}.showAsBase.field "${base.field}" is not a row or column field`);
+    if (base.item !== undefined && typeof base.item !== "string") errors.push(`${where}.showAsBase.item must be a string`);
+    if (base.position !== undefined && base.position !== "previous" && base.position !== "next") {
+      errors.push(`${where}.showAsBase.position must be "previous" | "next"`);
+    }
   }
 
   const checkRef = (id: unknown, where: string) => {

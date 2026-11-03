@@ -19,3 +19,5 @@ export * from "./pivot-slicer";
 export * from "./pivot-filter-menu";
 export * from "./field-drag";
 export * from "./pivot-field-list";
+export * from "./pivot-measure-menus";
+export * from "./pivot-drill-through";

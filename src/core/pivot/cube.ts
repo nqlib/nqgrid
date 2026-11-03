@@ -1,4 +1,5 @@
 import { aggregatePivotRows, type PivotAggregatorRegistry } from "./aggregate";
+import { compilePivotCalc, parsePivotCalc, type PivotCalcProgram } from "./calc";
 import { pivotColumnFields, pivotColumnKeyOf, pivotDimensionOf } from "./columns";
 import {
   pivotDateFillKeys,
@@ -21,7 +22,9 @@ export const PIVOT_OTHER_KEY = "\u0000other";
 /**
  * Aggregation kinds, each with a fixed number of accumulator slots per bucket:
  * sum / avg `[sum, n]`, min / max `[value, n]`, first / last `[value, n, recordIndex]`, count with a
- * field `[n]`, weighted average `[Σ v·w, Σ w]`, ratio `[Σ num, n num, Σ den, n den]`.
+ * field `[n]`, weighted average `[Σ v·w, Σ w]`, ratio `[Σ num, n num, Σ den, n den]`, distinct count
+ * `[distinct keys]` (computed per node and bucket after the tree is built, never merged), and
+ * calculated measures none (evaluated from their references when read).
  */
 const enum Kind {
   Sum,
@@ -35,6 +38,8 @@ const enum Kind {
   WeightedAvg,
   Ratio,
   Custom,
+  DistinctCount,
+  Calc,
 }
 
 const SLOTS: Readonly<Record<Kind, number>> = {
@@ -49,6 +54,8 @@ const SLOTS: Readonly<Record<Kind, number>> = {
   [Kind.WeightedAvg]: 2,
   [Kind.Ratio]: 4,
   [Kind.Custom]: 0,
+  [Kind.DistinctCount]: 1,
+  [Kind.Calc]: 0,
 };
 
 interface CompiledMeasure {
@@ -60,6 +67,10 @@ interface CompiledMeasure {
   readonly b: Float64Array | null;
   readonly p: Uint8Array | null;
   readonly offset: number;
+  /** Distinct count: key codes of the field, number of keys and the blank key's code (`-1`: none). */
+  readonly distinct?: { readonly codes: Int32Array; readonly keyCount: number; readonly blank: number };
+  /** Calculated measure: compiled expression, its references (same set) and a scratch buffer. */
+  readonly calc?: { readonly program: PivotCalcProgram; readonly refs: readonly CompiledMeasure[]; readonly scratch: Float64Array };
 }
 
 /** One group / leaf (or the root) of the aggregated tree. */
@@ -223,11 +234,54 @@ export function pivotSpecDataKey(spec: PivotSpec): string {
   return JSON.stringify([
     spec.rows.map((d) => [d.field, d.order, d.sort, d.sortBy, d.topN && { ...d.topN, otherLabel: undefined }, d.attributes]),
     columns.length ? columns.map((c) => [c.field, c.order, c.sort, c.keepEmpty]) : null,
-    spec.measures.map((m) => [m.id, m.field, m.aggregate]),
+    spec.measures.map((m) => (m.calculate !== undefined ? [m.id, m.calculate] : [m.id, m.field, m.aggregate])),
     (spec.filters ?? []).map((f) => [f.field, f.include, f.exclude, f.match]),
     (spec.facets ?? []).map(pivotFacetField),
     ...(dates.length ? [dates] : []),
   ]);
+}
+
+/**
+ * Compile `ids` (default: every measure) plus the measures their calculated measures reference,
+ * references first, with consecutive accumulator offsets from 1. Throws on an invalid expression or
+ * a reference cycle (`validatePivotSpec` reports both before a build).
+ */
+function compileMeasureSet(
+  all: readonly PivotMeasure[],
+  enc: PivotRowEncoding,
+  ids?: readonly string[],
+): { readonly list: CompiledMeasure[]; readonly byId: Map<string, CompiledMeasure>; readonly slots: number } {
+  const byIdSpec = new Map(all.map((m) => [m.id, m] as const));
+  const byId = new Map<string, CompiledMeasure>();
+  const list: CompiledMeasure[] = [];
+  const visiting = new Set<string>();
+  let off = 1;
+  const compile = (id: string): CompiledMeasure => {
+    const done = byId.get(id);
+    if (done) return done;
+    const m = byIdSpec.get(id);
+    if (!m) throw new Error(`nqgrid pivot: unknown measure "${id}"`);
+    let cm: CompiledMeasure;
+    if (m.calculate !== undefined) {
+      if (visiting.has(id)) throw new Error(`nqgrid pivot: calculated measure "${id}" references itself (cycle)`);
+      visiting.add(id);
+      const parsed = parsePivotCalc(m.calculate, { references: byIdSpec.keys() });
+      if (!parsed.ok) throw new Error(`nqgrid pivot: measure "${id}": ${parsed.error.message} at ${parsed.error.position}`);
+      const refs = parsed.references.map(compile);
+      visiting.delete(id);
+      const names = parsed.references;
+      const program = compilePivotCalc(parsed.ast, (name) => names.indexOf(name));
+      cm = { measure: m, kind: Kind.Calc, off: 0, a: null, b: null, p: null, offset: 0, calc: { program, refs, scratch: new Float64Array(refs.length) } };
+    } else {
+      cm = compileMeasure(m, off, enc);
+      off += SLOTS[cm.kind];
+    }
+    byId.set(id, cm);
+    list.push(cm);
+    return cm;
+  };
+  for (const id of ids ?? all.map((m) => m.id)) compile(id);
+  return { list, byId, slots: off };
 }
 
 function compileMeasure(m: PivotMeasure, off: number, enc: PivotRowEncoding): CompiledMeasure {
@@ -235,6 +289,20 @@ function compileMeasure(m: PivotMeasure, off: number, enc: PivotRowEncoding): Co
   const num = (f: string | undefined) => (f ? enc.numbers(f) : null);
   if (typeof agg === "string") {
     switch (agg) {
+      case "distinctCount": {
+        if (!m.field) return { measure: m, kind: Kind.CountRows, off, a: null, b: null, p: null, offset: 0 };
+        const codes = enc.codes(m.field);
+        return {
+          measure: m,
+          kind: Kind.DistinctCount,
+          off,
+          a: null,
+          b: null,
+          p: null,
+          offset: 0,
+          distinct: { codes: codes.codes, keyCount: codes.keys.length, blank: codes.index.get("") ?? -1 },
+        };
+      }
       case "count":
         return m.field
           ? { measure: m, kind: Kind.CountField, off, a: null, b: null, p: enc.present(m.field), offset: 0 }
@@ -345,6 +413,8 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
   };
   const root = make([], "", -1, null, -1);
   const nm = measures.length;
+  // Distinct counts need each record's leaf (filled by the record pass below).
+  const distinctLeaf = measures.some((m) => m.kind === Kind.DistinctCount) ? (t.nodeAtMaxDepth ?? new Int32Array(n)) : null;
 
   // Composite key radix per level (+1 leaves room for the Top-N "Other" code).
   const radix = levelCodes.slice(0, maxDepth + 1).map((_, d) => levelKeys[d]!.length + 1);
@@ -372,7 +442,8 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
 
   for (let i = 0; i < n; i++) {
     if (mask !== null && mask[i] === 0) {
-      if (t.nodeAtMaxDepth) t.nodeAtMaxDepth[i] = -1;
+      if (distinctLeaf) distinctLeaf[i] = -1;
+      else if (t.nodeAtMaxDepth) t.nodeAtMaxDepth[i] = -1;
       continue;
     }
     let leaf: MutableNode | undefined;
@@ -384,7 +455,8 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
     } else {
       leaf = descend(i);
     }
-    if (t.nodeAtMaxDepth) t.nodeAtMaxDepth[i] = leaf.id;
+    if (distinctLeaf) distinctLeaf[i] = leaf.id;
+    else if (t.nodeAtMaxDepth) t.nodeAtMaxDepth[i] = leaf.id;
 
     if (pendingAttributes > 0) {
       const chain = leaf.chain!;
@@ -519,7 +591,58 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
     }
   }
   for (const node of nodes) node.rowCount = node.acc[totalBase]!;
+  if (distinctLeaf) countDistinct(t, nodes, distinctLeaf);
   return { root, nodes };
+}
+
+/**
+ * Distinct counts for every node × bucket, in one pass per measure over the records sorted by key
+ * code (counting sort): each record visits its leaf and ancestors, and the leaf column bucket and
+ * its column groups; a per-(node, bucket) stamp of the last key counted makes each key count once.
+ * Memory: one `Int32Array` of nodes × buckets plus two of records — no per-bucket sets.
+ */
+function countDistinct(t: TreeInput, nodes: readonly MutableNode[], leafOf: Int32Array): void {
+  const { n, colCodes, buckets, slots: S } = t;
+  const B1 = buckets + 1;
+  const parentBucket = new Int32Array(Math.max(1, buckets)).fill(-1);
+  for (const g of t.colGroups) for (const c of g.children) parentBucket[c] = g.bucket;
+  const stamp = new Int32Array(nodes.length * B1);
+  for (const m of t.measures) {
+    if (m.kind !== Kind.DistinctCount) continue;
+    const { codes, keyCount: K, blank } = m.distinct!;
+    stamp.fill(0);
+    const start = new Int32Array(K + 1);
+    for (let i = 0; i < n; i++) if (leafOf[i]! >= 0) start[codes[i]! + 1]!++;
+    for (let k = 0; k < K; k++) start[k + 1] += start[k]!;
+    const order = new Int32Array(start[K]!);
+    const fill = start.slice(0, K);
+    for (let i = 0; i < n; i++) if (leafOf[i]! >= 0) order[fill[codes[i]!]!++] = i;
+    const off = m.off;
+    for (let k = 0; k < K; k++) {
+      if (k === blank) continue;
+      const tag = k + 1;
+      for (let q = start[k]!; q < start[k + 1]!; q++) {
+        const i = order[q]!;
+        const cb = colCodes === null ? -1 : colCodes[i]!;
+        for (let node: MutableNode | null = nodes[leafOf[i]!]!; node !== null; node = node.parent) {
+          const base = node.id * B1;
+          const acc = node.acc;
+          let idx = base + buckets;
+          if (stamp[idx] !== tag) {
+            stamp[idx] = tag;
+            acc[buckets * S + off]!++;
+          }
+          for (let b = cb; b >= 0; b = parentBucket[b]!) {
+            idx = base + b;
+            if (stamp[idx] !== tag) {
+              stamp[idx] = tag;
+              acc[b * S + off]!++;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 /** Merge one node's accumulators into its parent's (per aggregation kind). */
@@ -609,7 +732,18 @@ function readValue(
     case Kind.CountRows:
       return acc[o]!;
     case Kind.CountField:
+    case Kind.DistinctCount:
       return acc[x]!;
+    case Kind.Calc: {
+      const c = m.calc!;
+      const s = c.scratch;
+      for (let k = 0; k < c.refs.length; k++) {
+        const v = readValue(node, c.refs[k]!, bucket, S, rows, registry);
+        s[k] = v === null ? NaN : v;
+      }
+      const out = c.program(s);
+      return out === out ? out : null;
+    }
     case Kind.WeightedAvg:
       return acc[x + 1] === 0 ? null : acc[x]! / acc[x + 1]!;
     case Kind.Ratio:
@@ -873,14 +1007,33 @@ function columnTree(
   return { root, keys };
 }
 
+/** Filtered records after Top N: what `buildPivotCube` aggregates and `pivotDrillThrough` lists. */
+interface PivotRecordSelection {
+  readonly enc: PivotRowEncoding;
+  readonly n: number;
+  readonly registry: PivotAggregatorRegistry;
+  readonly pass: ReturnType<typeof runPivotFilterPass>;
+  /** `0` for records dropped by a filter or by Top N (`null`: every record passes). */
+  readonly mask: Uint8Array | null;
+  /** Row-level key codes / keys (Top N "Other" folded in as an extra key). */
+  readonly levelCodes: readonly Int32Array[];
+  readonly levelKeys: readonly (readonly string[])[];
+  readonly rowDefs: readonly (PivotDateFieldDef | null)[];
+  readonly plan: ColumnPlan;
+  readonly otherCounts: ReadonlyMap<string, number>;
+  readonly bucketOf: (columnKey: string | null) => number;
+}
+
 /**
- * Filter, rank and aggregate `rows` for `spec` (see `PivotCube`). The spec is not validated here;
- * `buildPivotModel` / `createPivotModelBuilder` validate first.
- *
- * Order of operations: report / label filters (records) → Top N per row level, outermost first,
- * each ranked on what the levels above kept → aggregation → sibling ordering.
+ * Filters (+ facet counts for `facetFields`) and Top N, outermost level first, each ranked on what
+ * the levels above kept. Shared by the cube and drill-through, so both see the same records.
  */
-export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], options: BuildPivotCubeOptions = {}): PivotCube {
+function selectPivotRecords(
+  spec: PivotSpec,
+  rows: readonly PivotDataRow[],
+  options: BuildPivotCubeOptions,
+  facetFields: readonly string[],
+): PivotRecordSelection {
   const base = options.encoding && options.encoding.rows === rows ? options.encoding : createPivotRowEncoding(rows);
   const enc = pivotSpecEncoding(base, spec);
   const registry = options.aggregators ?? {};
@@ -891,7 +1044,6 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
 
   // ---- Filters + facets (one pass) ----------------------------------------
   const compiled = compilePivotFilters(spec.filters, enc);
-  const facetFields = (spec.facets ?? []).map(pivotFacetField);
   const pass = runPivotFilterPass(compiled, facetFields, enc);
   let mask = pass.mask;
 
@@ -900,21 +1052,9 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   const levelCodes: Int32Array[] = levelEnc.map((e) => e.codes);
   const levelKeys: (readonly string[])[] = levelEnc.map((e) => e.keys);
   const rowDefs = dims.map((d) => resolvePivotDateField(spec, d.field));
-  const colDefs = colDims.map((d) => resolvePivotDateField(spec, d.field));
   const plan = planColumns(colDims.map((d) => enc.codes(d.field)), n);
   const colCodes = plan.codes;
   const buckets = plan.buckets;
-  const attributeFields = dims.map((d) => d.attributes);
-
-  // ---- Measures ---------------------------------------------------------------
-  let off = 1;
-  const compiledMeasures = new Map<string, CompiledMeasure>();
-  for (const m of spec.measures) {
-    const cm = compileMeasure(m, off, enc);
-    off += SLOTS[cm.kind];
-    compiledMeasures.set(m.id, cm);
-  }
-  const custom = [...compiledMeasures.values()].some((m) => m.kind === Kind.Custom);
   // Only the key → bucket map outlives the build (the per-record combination arrays are released).
   const columnLevels = plan.levels;
   const bucketOfKey = plan.bucketOfKey;
@@ -923,20 +1063,15 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     const c = bucketOfKey.get(columnKey);
     return c === undefined ? -1 : c;
   };
-  const valueFor =
-    (S: number, measures: ReadonlyMap<string, CompiledMeasure>) =>
-    (node: MutableNode, measureId: string, columnKey: string | null): number | null => {
-      const b = bucketOf(columnKey);
-      return b < 0 ? null : readValue(node, measures.get(measureId)!, b, S, rows, registry);
-    };
 
   // ---- Top N, outermost level first -------------------------------------------
   const otherCounts = new Map<string, number>();
   for (let d = 0; d <= leafDepth; d++) {
     const top = dims[d]!.topN;
     if (!top) continue;
-    const rankMeasure = { ...compiledMeasures.get(top.measure)!, off: 1 };
-    const S = 1 + SLOTS[rankMeasure.kind];
+    // The rank measure alone (plus what a calculated rank measure references), offsets from 1.
+    const rankSet = compileMeasureSet(spec.measures, enc, [top.measure]);
+    const S = rankSet.slots;
     const nodeAt = new Int32Array(n);
     const { root, nodes } = buildTree({
       n,
@@ -946,15 +1081,18 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
       colCodes,
       buckets,
       colGroups: top.columnKey !== undefined ? plan.groups : [],
-      measures: [rankMeasure],
+      measures: rankSet.list,
       slots: S,
       maxDepth: d,
       attributeFields: [],
       rows,
-      custom: rankMeasure.kind === Kind.Custom,
+      custom: rankSet.list.some((m) => m.kind === Kind.Custom),
       nodeAtMaxDepth: nodeAt,
     });
-    const value = valueFor(S, new Map([[top.measure, rankMeasure]]));
+    const value = (node: MutableNode, measureId: string, columnKey: string | null): number | null => {
+      const b = bucketOf(columnKey);
+      return b < 0 ? null : readValue(node, rankSet.byId.get(measureId)!, b, S, rows, registry);
+    };
     const excluded = new Uint8Array(nodes.length);
     let any = false;
     const visit = (parent: MutableNode) => {
@@ -984,9 +1122,41 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
       mask = next;
     }
   }
+  return { enc, n, registry, pass, mask, levelCodes, levelKeys, rowDefs, plan, otherCounts, bucketOf };
+}
+
+/**
+ * Filter, rank and aggregate `rows` for `spec` (see `PivotCube`). The spec is not validated here;
+ * `buildPivotModel` / `createPivotModelBuilder` validate first.
+ *
+ * Order of operations: report / label filters (records) → Top N per row level, outermost first,
+ * each ranked on what the levels above kept → aggregation → sibling ordering.
+ */
+export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], options: BuildPivotCubeOptions = {}): PivotCube {
+  const facetFields = (spec.facets ?? []).map(pivotFacetField);
+  const sel = selectPivotRecords(spec, rows, options, facetFields);
+  const { enc, n, registry, pass, mask, levelCodes, levelKeys, rowDefs, plan, otherCounts, bucketOf } = sel;
+  const dims = spec.rows;
+  const leafDepth = dims.length - 1;
+  const colDims = pivotColumnFields(spec);
+  const colDefs = colDims.map((d) => resolvePivotDateField(spec, d.field));
+  const colCodes = plan.codes;
+  const buckets = plan.buckets;
+  const attributeFields = dims.map((d) => d.attributes);
+
+  // ---- Measures ---------------------------------------------------------------
+  const measureSet = compileMeasureSet(spec.measures, enc);
+  const compiledMeasures = measureSet.byId;
+  const custom = measureSet.list.some((m) => m.kind === Kind.Custom);
+  const valueFor =
+    (S: number, measures: ReadonlyMap<string, CompiledMeasure>) =>
+    (node: MutableNode, measureId: string, columnKey: string | null): number | null => {
+      const b = bucketOf(columnKey);
+      return b < 0 ? null : readValue(node, measures.get(measureId)!, b, S, rows, registry);
+    };
 
   // ---- Final tree -------------------------------------------------------------
-  const S = off;
+  const S = measureSet.slots;
   const { root } = buildTree({
     n,
     mask,
@@ -995,7 +1165,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     colCodes,
     buckets,
     colGroups: plan.groups,
-    measures: [...compiledMeasures.values()],
+    measures: measureSet.list,
     slots: S,
     maxDepth: leafDepth,
     attributeFields,
@@ -1064,4 +1234,134 @@ function facetOf(field: string, counts: PivotFacetCounts, spec: PivotSpec): Pivo
     totals: ordered.map((k) => counts.codes.counts[codeOf.get(k)!]!),
     selected: counts.allowed ? ordered.map((k) => counts.allowed![codeOf.get(k)!] === 1) : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Drill-through
+// ---------------------------------------------------------------------------
+
+/** The cell to drill into: a body row's `path` and a value column's column key path. */
+export interface PivotDrillThroughTarget {
+  /** Row key path (`PivotBodyRow.path`): `[]` for the grand total, a group's path for its group / subtotal row. */
+  readonly path: readonly string[];
+  /**
+   * Column key path, outermost first (`PivotValueColumn.columnPath`, or `[columnKey]` with one
+   * column field); `[]` / `null` / absent for row-total and measure-only columns. A group path
+   * (subtotal / collapsed column) covers every column under it.
+   */
+  readonly columnPath?: readonly string[] | null;
+  /** Measure of the cell: picks the source fields reported in `fields` (records are not filtered by it). */
+  readonly measureId?: string;
+}
+
+export interface PivotDrillThroughOptions {
+  /** Most records returned (default 1000; `Infinity` for all). `total` always counts every match. */
+  readonly limit?: number;
+  /** Skip this many matching records first (paging; default 0). */
+  readonly offset?: number;
+  /** Custom aggregators (needed when a Top-N rank measure is `custom`). */
+  readonly aggregators?: PivotAggregatorRegistry;
+  /** Reuse a column encoding of the same `rows` (see `createPivotRowEncoding`). */
+  readonly encoding?: PivotRowEncoding;
+}
+
+export interface PivotDrillThroughResult {
+  /** Matching source records in data order (`offset` … `offset + limit`). */
+  readonly records: readonly PivotDataRow[];
+  /** Index of each record in `rows`. */
+  readonly indices: readonly number[];
+  /** Every matching record (also beyond `limit`): equals the cell's `sourceRowCount` for whole rows. */
+  readonly total: number;
+  /** More records match than were returned. */
+  readonly truncated: boolean;
+  /**
+   * Suggested columns for a records table: row and column fields (the source field of date-derived
+   * ones), then the source fields of `measureId` (calculated measures: of the measures they reference),
+   * else of every value measure.
+   */
+  readonly fields: readonly string[];
+}
+
+/** Record fields a measure reads (calculated measures: the fields of the measures they reference). */
+function measureSourceFields(spec: PivotSpec, id: string, out: string[], seen = new Set<string>()): void {
+  if (seen.has(id)) return;
+  seen.add(id);
+  const m = spec.measures.find((x) => x.id === id);
+  if (!m) return;
+  const add = (f: string | undefined) => {
+    if (f && !out.includes(f)) out.push(f);
+  };
+  if (m.calculate !== undefined) {
+    const parsed = parsePivotCalc(m.calculate);
+    if (parsed.ok) for (const ref of parsed.references) measureSourceFields(spec, ref, out, seen);
+    return;
+  }
+  add(m.field);
+  const agg = m.aggregate;
+  if (agg && typeof agg === "object") {
+    if (agg.type === "weightedAvg") add(agg.weightField);
+    if (agg.type === "ratio") {
+      add(agg.numeratorField);
+      add(agg.denominatorField);
+    }
+  }
+}
+
+/**
+ * Source records behind a pivot cell (Excel's "Show details"): records that pass the report /
+ * label filters and Top N (an "Other" row lists the keys it folds; keys cut by Top N without
+ * "Other" never match), whose row keys start with `target.path` and column keys with
+ * `target.columnPath`. Date-grouped fields match by their derived keys (`orderDate:year` = `"2026"`).
+ * Group, subtotal and total cells pass shorter paths and get the broader record set.
+ *
+ * Does not aggregate, so it costs one filter pass (plus one partial aggregation per Top-N level);
+ * pass the builder's `encoding` (`createPivotModelBuilder().drillThrough`) to skip re-encoding.
+ */
+export function pivotDrillThrough(
+  spec: PivotSpec,
+  rows: readonly PivotDataRow[],
+  target: PivotDrillThroughTarget,
+  options: PivotDrillThroughOptions = {},
+): PivotDrillThroughResult {
+  const limit = Math.max(0, options.limit ?? 1000);
+  const offset = Math.max(0, Math.floor(options.offset ?? 0));
+  const colDims = pivotColumnFields(spec);
+  const path = target.path;
+  const columnPath = target.columnPath ?? [];
+
+  const fields: string[] = [];
+  const addField = (field: string) => {
+    const source = resolvePivotDateField(spec, field)?.source ?? field;
+    if (!fields.includes(source)) fields.push(source);
+  };
+  for (const d of spec.rows) addField(d.field);
+  for (const d of colDims) addField(d.field);
+  const measureIds = target.measureId !== undefined ? [target.measureId] : (spec.values ?? spec.measures.map((m) => m.id));
+  const measureFields: string[] = [];
+  for (const id of measureIds) measureSourceFields(spec, id, measureFields);
+  for (const f of measureFields) if (!fields.includes(f)) fields.push(f);
+
+  const none: PivotDrillThroughResult = { records: [], indices: [], total: 0, truncated: false, fields };
+  if (path.length > spec.rows.length || columnPath.length > colDims.length) return none;
+
+  const sel = selectPivotRecords(spec, rows, { aggregators: options.aggregators, encoding: options.encoding }, []);
+  const { enc, n, mask, levelCodes, levelKeys } = sel;
+  // Target key code per level (-1: the key has no records).
+  const rowTargets = path.map((key, d) => levelKeys[d]!.indexOf(key));
+  const colCodes = columnPath.map((key, j) => {
+    const c = enc.codes(colDims[j]!.field);
+    return { codes: c.codes, code: c.index.get(key) ?? -1 };
+  });
+  if (rowTargets.some((c) => c < 0) || colCodes.some((c) => c.code < 0)) return none;
+
+  const indices: number[] = [];
+  let total = 0;
+  outer: for (let i = 0; i < n; i++) {
+    if (mask !== null && mask[i] === 0) continue;
+    for (let d = 0; d < rowTargets.length; d++) if (levelCodes[d]![i] !== rowTargets[d]) continue outer;
+    for (let j = 0; j < colCodes.length; j++) if (colCodes[j]!.codes[i] !== colCodes[j]!.code) continue outer;
+    if (total >= offset && indices.length < limit) indices.push(i);
+    total++;
+  }
+  return { records: indices.map((i) => rows[i]!), indices, total, truncated: offset + indices.length < total, fields };
 }

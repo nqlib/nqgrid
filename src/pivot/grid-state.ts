@@ -25,6 +25,13 @@ import {
   togglePivotField,
   type PivotFieldMove,
 } from "../core/pivot/fields";
+import {
+  removePivotMeasure,
+  setPivotCalculatedMeasure,
+  setPivotMeasureShowAs,
+  setPivotSubtotal,
+  type PivotCalculatedMeasureInput,
+} from "../core/pivot/measures";
 import type {
   PivotBuiltInAggregate,
   PivotDateGroup,
@@ -33,6 +40,8 @@ import type {
   PivotFilter,
   PivotHeatScope,
   PivotModel,
+  PivotShowAs,
+  PivotShowAsBase,
   PivotSpec,
   PivotTopNSpec,
 } from "../core/pivot/types";
@@ -75,7 +84,18 @@ export type PivotGridAction =
       readonly groups: readonly PivotDateGroup[];
       readonly area?: "rows" | "columns" | "filters";
       readonly fields?: readonly PivotFieldSpec[];
-    };
+    }
+  // Excel parity step 4: calculated measures, "show values as", subtotal positions.
+  | { readonly type: "setCalculatedMeasure"; readonly measure: PivotCalculatedMeasureInput }
+  | { readonly type: "removeMeasure"; readonly measureId: string }
+  | {
+      readonly type: "setMeasureShowAs";
+      readonly measureId: string;
+      readonly showAs: PivotShowAs;
+      readonly base?: PivotShowAsBase | null;
+      readonly scope?: "all" | "leaf" | "group";
+    }
+  | { readonly type: "setSubtotal"; readonly field: string; readonly position: "start" | "end" | "none" };
 
 /**
  * Pure spec transition behind `usePivotGrid`. `model` must be built from `spec`
@@ -131,5 +151,13 @@ export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: 
       return swapPivotRowsColumns(spec);
     case "setDateGrouping":
       return setPivotDateGrouping(spec, action.field, action.groups, { fields: action.fields, area: action.area });
+    case "setCalculatedMeasure":
+      return setPivotCalculatedMeasure(spec, action.measure);
+    case "removeMeasure":
+      return removePivotMeasure(spec, action.measureId);
+    case "setMeasureShowAs":
+      return setPivotMeasureShowAs(spec, action.measureId, action.showAs, action.base, { scope: action.scope });
+    case "setSubtotal":
+      return setPivotSubtotal(spec, action.field, action.position);
   }
 }

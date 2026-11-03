@@ -297,9 +297,9 @@ describe("movePivotField", () => {
     const oneRow: PivotSpec = { ...base, rows: [base.rows[0]!], columns: undefined };
     expect(swapPivotRowsColumns(oneRow)).toBe(oneRow);
     expectValid(swapPivotRowsColumns({ ...planningFilteredPivotSpec, fields: planningFieldCatalog }));
-    // Column subtotal placement does not travel into Rows.
+    // Subtotal placement travels with the field (since step 4 it is valid on rows too).
     const sub: PivotSpec = { ...base, columns: [{ field: "region", subtotal: "start" }, planningPivotSpec.columns as PivotDimension] };
-    expect(swapPivotRowsColumns(sub).rows).toEqual([{ field: "region" }, planningPivotSpec.columns]);
+    expect(swapPivotRowsColumns(sub).rows).toEqual([{ field: "region", subtotal: "start" }, planningPivotSpec.columns]);
   });
 
   it("checkbox toggling uses default areas and removes from every area", () => {

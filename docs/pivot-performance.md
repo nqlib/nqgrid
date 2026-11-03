@@ -2,8 +2,8 @@
 
 `buildPivotModel` benchmarks before and after the filters / Top N / sort-by-value work (Excel parity, step 1), plus the
 field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)) and the column-hierarchy /
-date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)).
-The harness is `bench/pivot.bench.ts` plus `bench/pivot-columns.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
+date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)) and the calculated-measure / distinct-count / drill-through scenarios of step 4 ([below](#step-4-calculated-measures-distinct-count-show-values-as-drill-through-excel-parity-step-4)).
+The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts` and `bench/pivot-step4.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
 
 ## Setup
 
@@ -157,6 +157,63 @@ i.e. equal within noise. Notes:
   rose 10–15 % at 500k from GC alone, which is why the step-3 scenarios moved to their own bench file.
 - The engine paths of single-column specs changed in three places: the column bucket per record may be `-1`, cells read
   accumulators by bucket index (no key lookup per cell), and the model builds headers generically. None is measurable.
+
+## Step 4: calculated measures, distinct count, show values as, drill-through (Excel parity, step 4)
+
+`bench/pivot-step4.bench.ts` (own file and rows: `generateBenchCustomerRows(n)` adds a `customer` id with 20,000
+distinct values; the other fields are identical) repeats the base spec as its reference. Means in ms, same machine:
+
+| Scenario | 100k | 500k |
+|---|---:|---:|
+| Reference: base spec, cold | 44.5 | 186.0 |
+| Calculated measure `actual / plan - 1` as a 4th value, cold | 51.1 | 170.4 |
+| Calculated measure as `sortBy` + Top 3 (Other) + heat + KPI, cold | 57.6 | 208.9 |
+| Distinct count of 20k customers as a 4th value, cold | 62.6 | 269.8 |
+| Distinct count of 6 regions (department → line), cold | 34.0 | 182.1 |
+| Running total along month, cold | 59.8 | 211.2 |
+| View-only: running total / difference from / subtotal rows (builder, cube reused) | 13.0 | 12.9 |
+| Drill-through: one leaf cell (encoding reused) | 0.7 | 7.2 |
+| Drill-through: grand total of filters + Top 5 (Other), first 1,000 records (encoding reused) | 12.2 | 46.7 |
+
+- **Calculated measures** cost nothing in the record pass (no accumulator slots): the expression is compiled once per
+  build into closures and evaluated per read from the referenced measures' accumulators. A 4th value adds the cells
+  it formats (within noise of the reference). As a Top-N rank measure, the rank tree accumulates its references.
+- **Distinct count** is one extra pass per distinct-count measure after the tree is built: a counting sort of the
+  matching records by key code, then each record visits (row levels + 1) × (column levels + 1) buckets against a
+  stamp array. About +85 ms at 500k for a 3-level row hierarchy × 12 months with 20k keys; with 6 keys and 2 row
+  levels it is no slower than the reference. Memory: the stamp array (nodes × buckets × 4 bytes; 343 × 13 × 4 = 18 KB
+  here), two record-sized `Int32Array`s (4 MB at 500k, released after the build) and one accumulator slot per bucket.
+  Per-bucket `Set`s would hold one entry per (node, bucket, key), i.e. millions of entries for 20k customers at 500k.
+- **Show values as along a field and subtotal rows** are view-only: the cube is reused, and the view stage reads
+  sibling values per cell (running totals: up to the item; differences: one base). 13 ms for 3 expanded row levels
+  × 39 value columns, every view in the rotation re-rendering all visible rows.
+- **Drill-through** shares the filter + Top-N selection stage with the cube (moved, not changed), then scans the
+  mask and level codes. A leaf cell is a few milliseconds even at 500k; the filtered spec pays its Top-N rank tree.
+  None of this runs unless a caller drills.
+
+**Regression check (existing scenarios).** Medians of the per-run means: 3 runs of HEAD `07e6703` (step 3, temporary
+worktree) and 2 of this tree for `pivot.bench.ts`, 2 and 1 for `pivot-columns.bench.ts`, interleaved:
+
+| Scenario | 10k step 3 | 10k step 4 | 100k step 3 | 100k step 4 | 500k step 3 | 500k step 4 |
+|---|---:|---:|---:|---:|---:|---:|
+| Base spec, cold | 18.6 | 19.0 | 41.7 | 42.3 | 200.0 | 181.7 |
+| 3 filters, cold | 10.9 | 13.0 | 40.0 | 40.6 | 193.0 | 176.4 |
+| Filters + label filter + 4 facets + Top 5 + sortBy, cold | 13.7 | 14.3 | 48.8 | 50.5 | 226.2 | 206.7 |
+| View-only change | 2.9 | 2.6 | 2.4 | 2.3 | 2.5 | 2.0 |
+| Filter change: slicer click | 2.9 | 2.3 | 8.7 | 8.1 | 35.9 | 32.4 |
+| Move field: Line ↔ Columns | 21.3 | 21.1 | 34.6 | 33.5 | 85.2 | 79.2 |
+| Add measure: Units into Values | 13.4 | 13.4 | 25.0 | 24.1 | 64.9 | 64.2 |
+| 2 column fields: year → month, cold | | | 68.1 | 66.7 | 240.0 | 224.9 |
+| 3 column fields: year → quarter → month, cold | | | 78.9 | 63.1 | 262.6 | 245.3 |
+| Date grouping from ISO strings, cold | | | 80.7 | 72.2 | 340.9 | 340.0 |
+| Date grouping, encoding reused: slicer click | | | 7.5 | 6.0 | 21.9 | 21.5 |
+| Toggle a column group | | | 21.8 | 21.2 | 16.3 | 16.2 |
+
+Everything is within ±10 % except 10k "3 filters" (+19 %: 10.0 / 10.9 / 13.2 ms for step 3 against 11.8 / 14.2 ms, i.e.
+overlapping runs of a ~11 ms scenario; the code path only moved into the shared selection function). The engine paths
+of specs without the new features changed only by a `null` check per record (`distinctLeaf`), one more `switch` case in
+the accumulator merge and reads, and the measure compiler (now dependency-ordered). The view stage builds its show-as
+lookups only for measures that use them.
 
 ## What changed
 

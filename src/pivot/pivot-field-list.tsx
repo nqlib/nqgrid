@@ -33,6 +33,8 @@ import {
   type PivotFieldMoveRefusal,
 } from "../core/pivot/fields";
 import { clearPivotFilter, setPivotFilterValues, setPivotSort, setPivotTopN } from "../core/pivot/interaction";
+import { pivotColumnFields } from "../core/pivot/columns";
+import { removePivotMeasure, setPivotSubtotal } from "../core/pivot/measures";
 import { PIVOT_DATE_GROUPS } from "../core/pivot/dates";
 import type { PivotBuiltInAggregate, PivotDateGroup, PivotFacet, PivotFieldArea, PivotFieldSpec, PivotFieldType, PivotModel, PivotSpec } from "../core/pivot/types";
 import {
@@ -65,6 +67,7 @@ import { pivotDropZoneProps, startPivotFieldDrag, type PivotFieldDragSource, typ
 import { cx } from "./heat";
 import { PivotFilterMenu, type PivotFilterMenuProps } from "./pivot-filter-menu";
 import { PivotFilterIcon } from "./pivot-header-indicator";
+import { PivotCalculatedMeasureForm, PivotShowAsMenu, type PivotCalculatedMeasureLabels, type PivotShowAsLabels } from "./pivot-measure-menus";
 import type { PivotGridState } from "./use-pivot-grid";
 import type { PivotLayoutDraftState } from "./use-pivot-layout-draft";
 
@@ -95,6 +98,17 @@ export interface PivotFieldListLabels {
   readonly dateGroups: Readonly<Record<PivotDateGroup, string>>;
   /** Date fields: back to the raw date field. */
   readonly ungroup: string;
+  /** Rows / Columns chips of group levels: heading of the subtotal position buttons. */
+  readonly subtotals: string;
+  readonly rowSubtotals: Readonly<Record<"start" | "end" | "none", string>>;
+  readonly columnSubtotals: Readonly<Record<"start" | "end" | "none", string>>;
+  /** Catalog button opening `PivotCalculatedMeasureForm`. */
+  readonly addCalculated: string;
+  /** Values chip of a calculated measure: edit its formula. */
+  readonly editFormula: string;
+  /** Labels of the embedded `PivotCalculatedMeasureForm` / `PivotShowAsMenu`. */
+  readonly calculatedForm?: Partial<PivotCalculatedMeasureLabels>;
+  readonly showAs?: Partial<PivotShowAsLabels>;
   readonly fieldOptions: (label: string) => string;
   readonly close: string;
   readonly back: string;
@@ -127,10 +141,15 @@ export const PIVOT_FIELD_LIST_LABELS: PivotFieldListLabels = {
   remove: "Remove field",
   filter: "Filter…",
   summarizeBy: "Summarize values by",
-  aggregates: { sum: "Sum", count: "Count", avg: "Average", min: "Min", max: "Max", first: "First", last: "Last" },
+  aggregates: { sum: "Sum", count: "Count", avg: "Average", min: "Min", max: "Max", first: "First", last: "Last", distinctCount: "Distinct Count" },
   groupBy: "Group by",
   dateGroups: { year: "Years", yearQuarter: "Year-Quarter", quarter: "Quarters", yearMonth: "Year-Month", month: "Months", week: "Weeks", day: "Days" },
   ungroup: "Ungroup",
+  subtotals: "Subtotals",
+  rowSubtotals: { start: "At top", end: "At bottom", none: "Off" },
+  columnSubtotals: { start: "Before", end: "After", none: "Off" },
+  addCalculated: "Calculated measure…",
+  editFormula: "Edit formula…",
   fieldOptions: (label) => `${label} options`,
   close: "Close",
   back: "Back",
@@ -279,7 +298,7 @@ export interface PivotFieldListProps {
   readonly filterMenuProps?: Partial<PivotFilterMenuProps>;
 }
 
-const AGGREGATES: readonly PivotBuiltInAggregate[] = ["sum", "count", "avg", "min", "max"];
+const AGGREGATES: readonly PivotBuiltInAggregate[] = ["sum", "count", "distinctCount", "avg", "min", "max"];
 const VISUALLY_HIDDEN: CSSProperties = {
   position: "absolute",
   width: 1,
@@ -392,7 +411,7 @@ export function PivotFieldList({
   const [query, setQuery] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [kb, setKb] = useState<PivotKeyboardDrag | null>(null);
-  const [panel, setPanel] = useState<{ readonly key: string; readonly view: "menu" | "filter" } | null>(null);
+  const [panel, setPanel] = useState<{ readonly key: string; readonly view: PanelView } | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const focusKey = useRef<string | null>(null);
   const moveOptions = useMemo(() => ({ fields }), [fields]);
@@ -749,6 +768,36 @@ export function PivotFieldList({
         {visibleCalculated.map(calculatedRow)}
         {visibleFields.length + visibleCalculated.length === 0 ? <li className={pivotFieldListEmptyClass}>{labels.noFields}</li> : null}
       </ul>
+      <div style={{ display: "flex", justifyContent: "flex-start" }}>
+        <button
+          type="button"
+          className={button}
+          aria-expanded={panel?.key === NEW_CALC_KEY}
+          data-nqg-add-calculated=""
+          onClick={() => setPanel(panel?.key === NEW_CALC_KEY ? null : { key: NEW_CALC_KEY, view: "calc" })}
+        >
+          <span aria-hidden className={pivotFieldListFieldTypeClass}>
+            {labels.types.calculated}
+          </span>
+          {labels.addCalculated}
+        </button>
+      </div>
+      {panel?.key === NEW_CALC_KEY ? (
+        <div className={cx(pivotFieldListPanelClass, classNames.panel)} id={`${id}-panel`} data-nqg-field-panel={NEW_CALC_KEY}>
+          <PivotCalculatedMeasureForm
+            spec={latest()}
+            labels={labels.calculatedForm}
+            style={{ width: "100%" }}
+            onCancel={() => setPanel(null)}
+            onSubmit={(next, measureId) => {
+              apply(next);
+              setPanel(null);
+              const label = next.measures.find((m) => m.id === measureId)?.label ?? measureId;
+              setAnnouncement(labels.dropped(label, labels.areas.values, pivotFieldListState(next, fields).values.length, pivotFieldListState(next, fields).values.length));
+            }}
+          />
+        </div>
+      ) : null}
 
       <p className={pivotFieldListHintClass} style={{ margin: 0 }}>
         {labels.hint}
@@ -776,6 +825,7 @@ export function PivotFieldList({
           dateGroups={dateChoices(panelItem)}
           currentDateGroups={currentDateGroups(panelItem)}
           onDateGrouping={(groups) => regroup(panelItem, groups)}
+          getFacet={getFacet}
           onUpdate={update}
           onView={(view) => setPanel({ key: panel.key, view })}
           onClose={closePanel}
@@ -822,10 +872,13 @@ export function PivotFieldList({
   );
 }
 
+type PanelView = "menu" | "filter" | "calc";
+const NEW_CALC_KEY = "calc:new";
+
 interface FieldPanelProps {
   readonly id: string;
   readonly item: PivotFieldListItem;
-  readonly view: "menu" | "filter";
+  readonly view: PanelView;
   readonly state: PivotFieldListState;
   readonly spec: PivotSpec;
   readonly labels: PivotFieldListLabels;
@@ -842,8 +895,9 @@ interface FieldPanelProps {
   readonly dateGroups: readonly PivotDateGroup[];
   readonly currentDateGroups: readonly PivotDateGroup[];
   readonly onDateGrouping: (groups: readonly PivotDateGroup[]) => void;
+  readonly getFacet?: (field: string) => PivotFacet | undefined;
   readonly onUpdate: (fn: (s: PivotSpec) => PivotSpec) => void;
-  readonly onView: (view: "menu" | "filter") => void;
+  readonly onView: (view: PanelView) => void;
   readonly onClose: (refocus?: boolean) => void;
 }
 
@@ -867,6 +921,7 @@ function FieldPanel({
   dateGroups,
   currentDateGroups,
   onDateGrouping,
+  getFacet,
   onUpdate,
   onView,
   onClose,
@@ -891,7 +946,7 @@ function FieldPanel({
         {item.label} · {area}
       </span>
       <span style={row}>
-        {view === "filter" ? (
+        {view !== "menu" ? (
           <button type="button" className={buttonClassName} onClick={() => onView("menu")}>
             {labels.back}
           </button>
@@ -903,8 +958,34 @@ function FieldPanel({
     </div>
   );
 
+  // Group levels (every row / column field but the innermost) choose where their subtotals go.
+  const columnDims = pivotColumnFields(spec);
+  const groupLevel =
+    item.area === "rows" ? spec.rows.findIndex((d) => d.field === item.field) < spec.rows.length - 1 : item.area === "columns" && !item.isValues && columnDims.findIndex((d) => d.field === item.field) < columnDims.length - 1;
+  const dim = item.area === "rows" ? spec.rows.find((d) => d.field === item.field) : item.area === "columns" ? columnDims.find((d) => d.field === item.field) : undefined;
+  const subtotal = dim ? (dim.subtotal ?? (item.area === "rows" ? "start" : "end")) : null;
+  const subtotalLabels = item.area === "rows" ? labels.rowSubtotals : labels.columnSubtotals;
+
   let body: ReactNode;
-  if (view === "filter" && facet && field) {
+  if (view === "calc" && measure?.calculate !== undefined) {
+    body = (
+      <PivotCalculatedMeasureForm
+        spec={spec}
+        measureId={measure.id}
+        labels={labels.calculatedForm}
+        style={{ width: "100%" }}
+        onCancel={() => onView("menu")}
+        onRemove={() => {
+          onUpdate((s) => removePivotMeasure(s, measure.id));
+          onClose(false);
+        }}
+        onSubmit={(next) => {
+          onUpdate(() => next);
+          onView("menu");
+        }}
+      />
+    );
+  } else if (view === "filter" && facet && field) {
     const dimension = model?.rowDimensions.find((d) => d.field === field);
     const keep = (s: PivotSpec) => (inFilters ? ensurePivotFilterField(s, field, item.label) : s);
     body = (
@@ -951,7 +1032,44 @@ function FieldPanel({
             ))}
           </div>
         ) : null}
-        {item.area === "values" && aggregate !== null ? (
+        {measure?.calculate !== undefined ? (
+          <div style={row}>
+            <button type="button" className={buttonClassName} onClick={() => onView("calc")} data-nqg-edit-formula="">
+              {labels.editFormula}
+            </button>
+            <code style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{measure.calculate}</code>
+          </div>
+        ) : null}
+        {item.area === "values" && measure ? (
+          <PivotShowAsMenu
+            spec={spec}
+            measureId={measure.id}
+            getFacet={getFacet}
+            labels={labels.showAs}
+            onChange={(next) => onUpdate(() => next)}
+            style={{ width: "100%" }}
+          />
+        ) : null}
+        {groupLevel && subtotal !== null ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }} role="group" aria-label={labels.subtotals} data-nqg-subtotals="">
+            <span className={heading}>{labels.subtotals}</span>
+            <div style={row}>
+              {(["start", "end", "none"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={buttonClassName}
+                  aria-pressed={subtotal === p}
+                  data-nqg-subtotal={p}
+                  onClick={() => onUpdate((s) => setPivotSubtotal(s, item.field, p))}
+                >
+                  {subtotalLabels[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {item.area === "values" && aggregate !== null && measure?.calculate === undefined ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }} role="group" aria-label={labels.summarizeBy}>
             <span className={heading}>{labels.summarizeBy}</span>
             <div style={row}>

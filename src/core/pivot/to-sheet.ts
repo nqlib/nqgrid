@@ -1,3 +1,4 @@
+import { pivotShowAsFormatKind } from "./format";
 import type { PivotBodyRow, PivotModel } from "./types";
 
 export type PivotSheetCellRole = "corner" | "header" | "group" | "leaf" | "grandTotal";
@@ -44,7 +45,13 @@ export interface PivotModelToSheetOptions {
 }
 
 const roleOf = (row: PivotBodyRow): PivotSheetCellRole =>
-  row.kind === "grandTotal" ? "grandTotal" : row.kind === "group" ? "group" : "leaf";
+  row.kind === "grandTotal" ? "grandTotal" : row.kind === "group" || row.kind === "subtotal" ? "group" : "leaf";
+
+/** Excel number format of a value cell: the measure's, its percent format, or `0` for ranks. */
+function numFmtOf(showAs: string | undefined, numFmt: string, percentNumFmt: string): string {
+  const kind = pivotShowAsFormatKind(showAs);
+  return kind === "percent" ? percentNumFmt : kind === "rank" ? "0" : numFmt;
+}
 
 export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetOptions = {}): PivotSheet {
   const layout = options.layout ?? model.layout;
@@ -105,7 +112,7 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
       const col = model.columns[i]!;
       out.push({
         v: cell.value,
-        numFmt: cell.showAs ? col.excelPercentNumFmt : col.excelNumFmt,
+        numFmt: numFmtOf(cell.showAs, col.excelNumFmt, col.excelPercentNumFmt),
         role,
         bold,
         ...(cell.heat !== undefined ? { heat: cell.heat } : {}),
@@ -118,7 +125,10 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
   if (layout === "tabular") {
     model.spans.forEach((levelSpans, level) => {
       for (const s of levelSpans) {
-        if (s.span > 1) merges.push({ row: headerCount + s.rowIndex, col: level, rowSpan: s.span, colSpan: 1 });
+        // A group's `subtotal: "end"` row prints its label in the group's column (Excel), outside the merge.
+        const last = model.rows[s.rowIndex + s.span - 1];
+        const span = last?.kind === "subtotal" && last.depth === level ? s.span - 1 : s.span;
+        if (span > 1) merges.push({ row: headerCount + s.rowIndex, col: level, rowSpan: span, colSpan: 1 });
       }
     });
   }

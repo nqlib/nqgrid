@@ -39,6 +39,7 @@ from .exporter import PivotExporter
 from .formats import CONTENT_TYPES, EXTENSIONS, ReportFormat, pdf_page_count
 from .request import dumps_request
 from .validation import (
+    calc_example_spec,
     check_fields,
     dates_example_spec,
     example_spec,
@@ -199,7 +200,7 @@ only describe the layout. The PDF/XLSX matches what users see in the app.
   Every level but the last becomes a collapsible group with subtotals. `attributes: ["owner"]` copies
   a field onto that level's rows (shown as the KPI caption).
 - `measures`: `[{"id": "actual", "field": "actual", "label": "Actual", "format": {...}}]`.
-  `aggregate` defaults to `"sum"`; also `avg | min | max | count | first | last`,
+  `aggregate` defaults to `"sum"`; also `avg | min | max | count | distinctCount | first | last`,
   `{"type": "weightedAvg", "weightField": "units"}`, or
   `{"type": "ratio", "numeratorField": "actual", "denominatorField": "priorYear", "offset": -1}` (offset -1 = growth).
   `field` is required except for `count` and `ratio`. Custom aggregators are not available.
@@ -212,7 +213,7 @@ only describe the layout. The PDF/XLSX matches what users see in the app.
 - `format`: `{"style": "currency", "currency": "USD", "compact": true}`,
   `{"style": "percent", "signDisplay": "exceptZero"}`, `{"style": "decimal", "decimals": 1}`.
 - `showAs` / `groupShowAs`: `percentOfColumnTotal | percentOfParentRow | percentOfParentColumn | percentOfRowTotal |
-  percentOfGrandTotal`.
+  percentOfGrandTotal`, or the kinds along a base field (see "Calculated measures and show values as").
 - `totals`: `{"grandTotal": true, "grandTotalPosition": "bottom", "rowTotal": false}` (`rowTotal` = the grand total
   column; `subtotalLabel`, default `"{label} Total"`, names column subtotals).
 - `heat`: `{"measure": "actual", "scope": "all | column | row | group", "applyTo": "leaf | group | all"}`;
@@ -279,10 +280,32 @@ Filter in the spec instead of pre-filtering rows: the report header then prints 
 - Example: `dates_example_spec`:
   `"columns": [{"field": "orderDate:year"}, {"field": "orderDate:quarter"}], "columnsExpanded": [["2026"]]`.
 
+## Calculated measures, show values as, subtotals, distinct count
+- Calculated measure: `{"id": "vsPlan", "label": "vs Plan", "calculate": "actual / plan - 1", "format": {"style":
+  "percent", "decimals": 1}}` (no `field` / `aggregate`). The expression references **other measure ids** (add a
+  measure such as `{"id": "plan", "field": "plan"}` for a source field; it need not be in `values`), and ids with
+  spaces or dashes in brackets: `[prior year] * 1.05`. Operators `+ - * / % ^` (`%` = remainder, `-2^2` = -4),
+  comparisons `= != < <= > >=`, `and or not`, `null`; functions `abs sqrt floor ceil round(x, digits) min max
+  if(cond, a, b) coalesce ifnull`. It is evaluated per cell over the referenced measures' **aggregated** values, so
+  totals are `sum(actual) / sum(plan) - 1` (Excel calculated fields). Division by zero and null operands give an
+  empty cell. At most 1000 characters; unknown functions, unknown measures and reference cycles are rejected.
+  Calculated measures work in `values`, `heat`, `kpis`, `headerCharts`, `sortBy`, `topN` and `showAs`.
+- Show values as along a field: `"showAs": "differenceFrom" | "percentDifferenceFrom" | "runningTotal" |
+  "percentRunningTotal" | "rankAscending" | "rankDescending"` with `"showAsBase": {"field": "orderDate:year",
+  "position": "previous"}` (or `"next"`, or `"item": "2025"` for a fixed base). The base field must be a row or
+  column field. The first item (previous), the base item itself and missing bases are empty; rows / columns
+  outside the base field show the value itself for running totals and are empty for differences and ranks.
+- Row subtotals: `"subtotal": "start"` (default: the group row carries the totals), `"end"` (a "Camp Total" row
+  after the group's children) or `"none"` on a row dimension; `totals.subtotalLabel` names the subtotal rows.
+- Distinct count: `{"id": "customers", "field": "customer", "aggregate": "distinctCount"}` counts distinct non-blank
+  values; group and grand totals count distinct values of all their rows (not the sum of the children).
+- Example: `calc_example_spec` (vs Plan calculated measure, YoY % difference, % running total along Line,
+  distinct regions, department subtotals at the bottom).
+
 ## Rules
 - Every `field` must exist in the rows (see `datasets[].fields`), including filter fields (for `orderDate:year`
   the rows need `orderDate`); every measure id you reference (also in `sortBy` / `topN`) must be defined.
-  `sortBy` / `topN` go on `rows` dimensions only, `subtotal` on `columns` dimensions only.
+  `sortBy` / `topN` go on `rows` dimensions only.
 - Unknown keys are rejected. Never put HTML or CSS anywhere: styling is built in.
 - Render `options` (separate argument): `theme` (`light | dark`), `page` (`size` A4 | A3 | Letter | Legal | Tabloid,
   `orientation`), `title` / `subtitle`, `maxColumnsPerPage`, `kpiPanel`, `locale`.
@@ -373,6 +396,7 @@ class PivotReportService:
             "fields_example_spec": fields_example_spec(),
             "multicol_example_spec": multicol_example_spec(),
             "dates_example_spec": dates_example_spec(),
+            "calc_example_spec": calc_example_spec(),
             "formats": ["pdf", "xlsx"],
         }
         if isinstance(self.row_provider, DatasetCatalog):

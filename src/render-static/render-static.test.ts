@@ -4,6 +4,7 @@ import { buildPivotModel } from "../core/pivot/build-model";
 import type { PivotSpec } from "../core/pivot/types";
 import {
   generatePlanningPivotRows,
+  planningCalcPivotSpec,
   planningDatesPivotSpec,
   planningFieldsPivotSpec,
   planningFilteredPivotSpec,
@@ -66,6 +67,19 @@ describe("renderPivotHtml", () => {
     const out = renderPivotHtmlFromSpec(planningDatesPivotSpec, datesRows, { generatedAt });
     await expect(out).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-dates.html");
     expect(out).toContain(">FY26 Total<");
+  });
+
+  it("renders step-4 features (golden planning-calc.html: calculated measure, show-as differences, subtotal rows)", async () => {
+    const datesRows = generatePlanningPivotRows(7, { extraFields: true, orderDates: true });
+    const out = renderPivotHtmlFromSpec(planningCalcPivotSpec, datesRows, { generatedAt });
+    await expect(out).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-calc.html");
+    // Subtotal rows close their group's <tbody> and print their label next to the group's span.
+    expect(count(out, /data-kind="subtotal"/g)).toBe(2);
+    expect(out).toContain(">Camp Total<");
+    const model = buildPivotModel(planningCalcPivotSpec, datesRows);
+    const groups = pivotBodyGroups(model);
+    const camp = groups.find((g) => g.id === "r:Camp")!;
+    expect(model.rows[camp.end - 1]!.kind).toBe("subtotal");
   });
 
   it("renders a spec rearranged in the field list (golden planning-fields.html: Σ Values outermost, 3 row levels)", async () => {

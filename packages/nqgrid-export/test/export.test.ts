@@ -264,3 +264,39 @@ describe("several column fields and date grouping (planning-multicol / planning-
     expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(2);
   }, 60_000);
 });
+
+describe("calculated measures, show-as differences, subtotal rows and distinct count (planning-calc)", async () => {
+  const datesRows = JSON.parse(readExample("planning-dates.rows.json")) as PivotDataRow[];
+  const calc = JSON.parse(readExample("planning-calc.spec.json")) as PivotSpec;
+
+  it("model / sheet / html match the golden files", async () => {
+    expect(await exportPivot({ spec: calc, rows: datesRows, format: "model" })).toBe(readExample("planning-calc.model.json"));
+    expect(await exportPivot({ spec: calc, rows: datesRows, format: "sheet" })).toBe(readExample("planning-calc.sheet.json"));
+    expect(await exportPivot({ spec: calc, rows: datesRows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })).toBe(readExample("planning-calc.html"));
+  });
+
+  it("xlsx: numeric calc / show-as values with their formats, subtotal rows labelled in the group column", async () => {
+    const bytes = await exportPivot({ spec: calc, rows: datesRows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    const sheet = JSON.parse(readExample("planning-calc.sheet.json")) as PivotSheet;
+    sheet.cells.forEach((row, r) =>
+      row.forEach((src, c) => {
+        const cell = ws.getCell(r + 1, c + 1);
+        if (cell.isMerged && cell.master.address !== cell.address) return;
+        expect(cell.value ?? null).toBe(src.v);
+        if (typeof src.v === "number" && src.numFmt) expect(cell.numFmt).toBe(src.numFmt);
+      }),
+    );
+    const subtotalRow = sheet.cells.findIndex((row) => row[0]?.v === "Camp Total");
+    expect(subtotalRow).toBeGreaterThan(0);
+    expect(ws.getCell(subtotalRow + 1, 1).isMerged).toBe(false);
+    // A rejected calculated measure never reaches the renderer.
+    const bad = { ...calc, measures: [...calc.measures, { id: "loop", calculate: "loop + 1" }] };
+    await expect(exportPivot({ spec: bad, rows: datesRows, format: "model" })).rejects.toMatchObject({ code: "invalid_input" });
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec: calc, rows: datesRows, format: "pdf", options: { generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+});

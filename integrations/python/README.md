@@ -11,7 +11,8 @@ It is the reference integration for a Python backend whose MCP agents email repo
 | `nqgrid_export.subprocess_exporter` | `SubprocessExporter`: one-shot `nqgrid-export --input - --out -`, same interface |
 | `nqgrid_export.errors` | `NqgridExportError` and its subclasses, mapped from the error JSON / exit codes |
 | `nqgrid_export.models` | Pydantic v2 models **generated** from `contract/pivot/v1/*.schema.json` |
-| `nqgrid_export.validation` | JSON Schema + referential checks (`validate_pivot_spec`, `validate_export_request`, `check_fields`) |
+| `nqgrid_export.validation` | JSON Schema + referential checks (`validate_pivot_spec`, `validate_export_request`, `check_fields`, `check_calculated_measure`) |
+| `nqgrid_export.calc` | Calculated-measure expressions (`parse_calc`, `evaluate_calc`): a port of nqgrid's parser, same codes and messages |
 | `nqgrid_export.request` | `build_export_request` (mirrors the TS `buildPivotExportRequest`) and JSON encoding of DB types |
 | `nqgrid_export.xlsx` | `write_xlsx_from_sheet`: openpyxl workbook from `format="sheet"` JSON |
 | `nqgrid_export.email` | `build_report_email`, `SmtpEmailSender` (env-configured), `OutboxEmailSender` (`.eml` files) |
@@ -84,6 +85,18 @@ errors += check_fields(raw, rows)                            # fields the rows d
 validate_export_request({"spec": raw, "dataset": "sales"})   # the whole request, incl. options (css is rejected)
 ```
 
+Calculated measures (`{"id": "vsPlan", "calculate": "actual / plan - 1"}`) are checked with a line-by-line port of the
+nqgrid expression parser (same grammar, limits, error codes and UTF-16 positions; shared vectors in
+`contract/pivot/v1/calc-expressions.json`). nqgrid-export evaluates them; Python only validates:
+
+```python
+from nqgrid_export import parse_calc, evaluate_calc, check_calculated_measure
+
+parse_calc("actual / plann", references={"actual", "plan"}).error   # CalcError(code="unknownReference", position=9, ...)
+evaluate_calc("round(actual / plan - 1, 3)", {"actual": 110, "plan": 100})   # 0.1
+check_calculated_measure(spec, "vsPlan * 2", "vsPlan")               # "reference cycle vsPlan → vsPlan"
+```
+
 Field catalogues (what the app's field list shows) use the same inference as nqgrid core:
 
 ```python
@@ -144,7 +157,7 @@ Or, configured entirely from env: `nqgrid-export-mcp` / `python -m nqgrid_export
 | Tool | Signature | Returns |
 |------|-----------|---------|
 | `export_pivot_report` | `(spec: dict, rows: list[dict] \| None = None, dataset: str \| None = None, format: "pdf" \| "xlsx" = "pdf", email_to: list[str] \| None = None, subject: str \| None = None, options: dict \| None = None, body: str \| None = None)` | `{ok, format, path, filename, bytes, pages, rows, dataset, recipients, emailed, validation_errors, error}` |
-| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields and date grouping) |
+| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, calc_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields, date grouping, calculated measures, show values as, subtotal positions and distinct count) |
 
 Resources: `nqgrid://pivot-spec/v1/schema` (JSON) and `nqgrid://pivot-spec/v1/guide` (Markdown).
 

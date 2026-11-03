@@ -22,6 +22,19 @@ const DEFAULT_COMPACT_UNITS = ["k", "M", "B", "T"] as const;
 
 export const DEFAULT_PIVOT_PERCENT_FORMAT: PivotNumberFormat = { style: "percent" };
 
+/** Format of `rankAscending` / `rankDescending` cells (plain integers; Excel `0`). */
+export const PIVOT_RANK_FORMAT: PivotNumberFormat = { decimals: 0 };
+
+/**
+ * Which format a "show values as" result uses: the measure's `format` (`value`: plain values,
+ * differences and running totals), its `percentFormat` (`percent`) or `PIVOT_RANK_FORMAT` (`rank`).
+ */
+export function pivotShowAsFormatKind(showAs: string | undefined): "value" | "percent" | "rank" {
+  if (showAs === undefined || showAs === "value" || showAs === "differenceFrom" || showAs === "runningTotal") return "value";
+  if (showAs === "rankAscending" || showAs === "rankDescending") return "rank";
+  return "percent";
+}
+
 export const DEFAULT_PIVOT_DELTA_FORMAT: PivotNumberFormat = {
   style: "percent",
   decimals: 1,

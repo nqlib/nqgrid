@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   generatePlanningPivotRows,
+  planningCalcPivotSpec,
   planningDatesPivotSpec,
   planningFieldsPivotSpec,
   planningFilteredPivotSpec,
@@ -89,5 +90,18 @@ describe("pivot golden contract", () => {
     await expect(json(datesModel)).toMatchFileSnapshot(`${dir}/planning-dates.model.json`);
     await expect(json(pivotModelToSheet(datesModel))).toMatchFileSnapshot(`${dir}/planning-dates.sheet.json`);
     expect(JSON.parse(JSON.stringify(datesModel))).toEqual(datesModel);
+  });
+
+  // Excel parity step 4 (rows: the planning-dates rows): a calculated measure (also heat, KPI and
+  // sort key), % difference from the previous fiscal year, % running total along Line, a distinct
+  // count of regions and department subtotals at the bottom.
+  const calcModel = buildPivotModel(planningCalcPivotSpec, datesRows);
+
+  it("planning-calc example (calculated measure, show-as differences, running total, distinct count, subtotal rows)", async () => {
+    await expect(json(planningCalcPivotSpec)).toMatchFileSnapshot(`${dir}/planning-calc.spec.json`);
+    await expect(json(calcModel)).toMatchFileSnapshot(`${dir}/planning-calc.model.json`);
+    await expect(json(pivotModelToSheet(calcModel))).toMatchFileSnapshot(`${dir}/planning-calc.sheet.json`);
+    expect(JSON.parse(JSON.stringify(calcModel))).toEqual(calcModel);
+    expect(calcModel.rows.filter((r) => r.kind === "subtotal").map((r) => r.label)).toEqual(["Camp Total", "Packs Total"]);
   });
 });

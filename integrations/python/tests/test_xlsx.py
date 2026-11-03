@@ -138,3 +138,20 @@ def test_multi_row_headers_keep_their_row_spanning_merges() -> None:
         assert f"{first.coordinate}:{last.coordinate}" in merged
         assert first.value == sheet["cells"][m["row"]][m["col"]]["v"]
     assert ws.freeze_panes == "C4"
+
+
+def test_calc_sheet_numbers_formats_and_subtotal_rows() -> None:
+    """planning-calc: calculated / show-as values stay numeric with their formats; subtotal rows are not merged."""
+    sheet = load_example("planning-calc.sheet.json")
+    ws = openpyxl.load_workbook(io.BytesIO(write_xlsx_from_sheet(sheet))).worksheets[0]
+    for r, row in enumerate(sheet["cells"]):
+        for c, src in enumerate(row):
+            cell = ws.cell(row=r + 1, column=c + 1)
+            if isinstance(cell, MergedCell):
+                continue
+            if isinstance(src["v"], (int, float)):
+                assert cell.value == pytest.approx(src["v"])
+                assert cell.number_format == src["numFmt"]
+    total = next(r for r, row in enumerate(sheet["cells"]) if row[0]["v"] == "Camp Total")
+    assert ws.cell(row=total + 1, column=1).value == "Camp Total"
+    assert not isinstance(ws.cell(row=total + 1, column=1), MergedCell)

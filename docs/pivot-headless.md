@@ -53,11 +53,15 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
   [Several column fields](#several-column-fields-excel-parity-step-3). `order` + `keepEmpty` keep fiscal months stable.
 - Date fields group by naming a derived field (`orderDate:year`, `orderDate:quarter`, …): see
   [Date grouping](#date-grouping-excel-parity-step-3).
-- `measures` — `aggregate`: `sum | avg | min | max | count | first | last`,
+- `measures` — `aggregate`: `sum | avg | min | max | count | distinctCount | first | last`,
   `{ type: "weightedAvg", weightField }`, `{ type: "ratio", numeratorField, denominatorField, offset }`
-  (`offset: -1` = growth), or `{ type: "custom", name }` resolved from `options.aggregators`.
+  (`offset: -1` = growth), or `{ type: "custom", name }` resolved from `options.aggregators`. Calculated measures:
+  `calculate: "actual / plan - 1"` (see [step 4](#calculated-measures-show-values-as-subtotals-distinct-count-drill-through-excel-parity-step-4)).
 - `showAs` / `groupShowAs` — Excel-style `percentOfColumnTotal`, `percentOfParentRow`, `percentOfParentColumn`,
-  `percentOfRowTotal`, `percentOfGrandTotal`. Cells keep both `raw` and the displayed `value`.
+  `percentOfRowTotal`, `percentOfGrandTotal`, and along a field (`showAsBase`) `differenceFrom`, `percentDifferenceFrom`,
+  `runningTotal`, `percentRunningTotal`, `rankAscending`, `rankDescending`. Cells keep both `raw` and the displayed `value`.
+- `rows[i].subtotal` — subtotals at the top (default), bottom (`end`: subtotal rows) or off; `pivotDrillThrough` lists the
+  records behind a cell.
 - `values` — measure ids shown as grid columns; other measures can still feed KPIs/charts.
 - `heat` — discrete levels (default 9) by `scope`: `all`, `column` (each leaf column), `row`, or `group` (siblings).
   Levels — not colors — cross the wire; each renderer maps them to its palette
@@ -463,6 +467,162 @@ pivotDayOf("2026-01-15T23:30:00-02:00");               // UTC day number of 2026
 
 `usePivotGrid` adds `setDateGrouping(field, groups, area?)`.
 
+## Calculated measures, show values as, subtotals, distinct count, drill-through (Excel parity, step 4)
+
+The golden example is `contract/pivot/v1/examples/planning-calc.*` (rows of `planning-dates`): a calculated measure
+that is also the heat measure, a KPI and a sort key, % difference from the previous fiscal year, % running total along
+Line, a distinct count of regions, and department subtotals at the bottom.
+
+```jsonc
+{
+  "rows": [
+    { "field": "department", "subtotal": "end" },                       // "start" (default) | "end" | "none"
+    { "field": "line", "sortBy": { "measure": "vsPlan", "direction": "desc" } }
+  ],
+  "columns": { "field": "orderDate:year" },
+  "measures": [
+    { "id": "actual", "field": "actual" },
+    { "id": "plan", "field": "plan" },                                   // referenced, not shown
+    { "id": "vsPlan", "label": "vs Plan", "calculate": "actual / plan - 1", "format": { "style": "percent", "decimals": 1 } },
+    { "id": "yoy", "field": "actual", "showAs": "percentDifferenceFrom", "showAsBase": { "field": "orderDate:year", "position": "previous" } },
+    { "id": "cumShare", "field": "actual", "showAs": "percentRunningTotal", "showAsBase": { "field": "line" } },
+    { "id": "regions", "field": "region", "aggregate": "distinctCount" }
+  ],
+  "values": ["actual", "vsPlan", "yoy", "cumShare", "regions"],
+  "heat": { "measure": "vsPlan", "scope": "column" },
+  "kpis": [{ "id": "vsPlan", "measure": "vsPlan" }]
+}
+```
+
+### Calculated measures
+
+**Design.** A calculated measure is `{ id, label?, calculate, format? }` with no `field` / `aggregate`. Its expression
+references **other measure ids**, never raw record fields: Excel calculated fields compute over sums of fields, and an
+explicit measure (`{ "id": "plan", "field": "plan" }`, not necessarily in `values`) says how each operand aggregates,
+including `avg`, distinct counts or ratios. Each cell evaluates the expression over the referenced measures' values in
+the same bucket, so leaves, subtotals, the grand total and KPIs all use aggregated values (`sum(actual) / sum(plan) - 1`,
+never a sum of ratios). Calculated measures can reference other calculated measures (no cycles), and work everywhere a
+measure id goes: `values`, `showAs`, `heat`, `headerCharts`, `kpis`, `sortBy`, `topN`.
+
+**Grammar** (`parsePivotCalc`; keywords and function names are case-insensitive, ids are case-sensitive):
+
+| Element | Syntax |
+|---------|--------|
+| References | `actual`, `prior_year` (`[A-Za-z_][A-Za-z0-9_]*`), any other id in brackets: `[prior year]`, `[Plan-2026]` |
+| Literals | `12`, `1.5`, `.5`, `1e3`, `null` |
+| Operators (low → high) | `or` / `\|\|`, `and` / `&&`, `not` / `!`, `= == != <> < <= > >=` (do not chain), `+ -`, `* / %`, unary `- +`, `^` (right-associative; `-2^2` = -4, math convention, unlike Excel) |
+| Functions | `abs(x)`, `sqrt(x)`, `floor(x)`, `ceil(x)`, `round(x, digits = 0)` (half away from zero), `min(…)`, `max(…)`, `if(cond, a, b?)`, `coalesce(…)`, `ifnull(a, b)` |
+
+| Rule | Result |
+|------|--------|
+| A referenced measure has no value, or the bucket has no records | null (empty cell); null propagates through arithmetic, comparisons and `abs` / `round` / … |
+| Division or remainder by zero, overflow, `sqrt` of a negative | null |
+| `%` | remainder with the sign of the dividend (`-7 % 3` = -1, like JS / C) |
+| Comparisons, `and`, `or`, `not` | `1` / `0`; null and `0` are false (`not null` = 1); comparisons with null are null |
+| `if(c, a, b)` | `a` when `c` is true, else `b` (null when omitted) |
+| `min` / `max` | skip nulls; null when all are null. `coalesce` / `ifnull`: first non-null |
+
+**Safety** (specs may come from AI agents): no `eval` / `Function`; the parser never throws (errors are values with a
+stable `code` and a UTF-16 `position`); at most `PIVOT_CALC_MAX_LENGTH` (1000) code units, nesting depth
+`PIVOT_CALC_MAX_DEPTH` (64: parentheses, calls, unary operators and operator chains), `PIVOT_CALC_MAX_ARGS` (32)
+arguments; only the whitelisted functions; `__proto__`, `constructor` and `prototype` are reserved; references resolve
+through a `Map`, never object properties; only ASCII outside brackets; control, zero-width, bidi override / isolate
+characters and the BOM are rejected everywhere. Error codes: `notAString`, `empty`, `tooLong`, `tooDeep`,
+`invalidCharacter`, `invalidNumber`, `unterminatedReference`, `emptyReference`, `unexpectedToken`, `unexpectedEnd`,
+`unknownFunction`, `arity`, `reservedName`, `unknownReference`. The expression is compiled once per build into closures
+(`compilePivotCalc`); a cell reads its references and calls the closure.
+
+`validatePivotSpec` reports grammar errors (`measures[2].calculate: unknown measure "plann" (at 9)`), reference cycles
+(`reference cycle a → b → a`) and `calculate` combined with `field` / `aggregate`. The shared vectors in
+`contract/pivot/v1/calc-expressions.json` (valid expressions with values and results, invalid ones with codes and
+positions) run in both the TypeScript and the Python test suites.
+
+### Show values as along a field
+
+`showAs` / `groupShowAs` also take `differenceFrom`, `percentDifferenceFrom`, `runningTotal`, `percentRunningTotal`,
+`rankAscending` and `rankDescending`, with `showAsBase: { field, item?, position? }` naming a **row or column field**
+(validated). Differences use `item` (a key of that field) or `position` (`previous`, the default, or `next`); running
+totals and ranks use the field only.
+
+| Topic | Rule |
+|-------|------|
+| Siblings | Along a row field at level L, a cell's row maps to its ancestor at L; its siblings (same parent, display order: `sortBy`, `order`, …; "Other" last) are the items. Rows deeper than L compare with the descendant of the same relative key path under each sibling (`Footwear › Boots` vs `Camp › Boots`). Along a column field, the same over the column tree (leaves, subtotal and collapsed columns at or below the level, `keepEmpty` columns included). |
+| Differences | `value - base` / `(value - base) / base`. Empty for the first item with `previous`, the last with `next`, the base item itself (like Excel), a missing base (no such key, or no data), a base of 0 (percent), and cells without data. |
+| Running totals | Sum of the siblings' values up to and including the item (missing ones count as nothing); `percentRunningTotal` divides by the sum over all siblings. Cells without data stay empty. |
+| Ranks | Competition ranking (1, 2, 2, 4) among siblings with a value; integer format (`PIVOT_RANK_FORMAT`, Excel `0`). |
+| Outside the field | Rows above the base level (groups, grand total) and columns outside a column base (subtotals above it, the grand total column): running totals show the value itself (`percentRunningTotal` 100 %), differences and ranks are empty. |
+| Formats | Differences and running totals use the measure's `format`, the percent kinds its `percentFormat`, ranks `PIVOT_RANK_FORMAT` (`pivotShowAsFormatKind`); `pivotModelToSheet` picks the matching Excel `numFmt`. |
+| Layout changes | A base field that leaves Rows / Columns resets that measure to plain values (move helpers), like Excel. |
+
+### Row subtotal positions
+
+`rows[i].subtotal` sets where the subtotals of that field's groups go (every level but the innermost; ignored there):
+`start` (default; the group row carries them — Excel's "at top"), `end` (Excel's "at bottom": the expanded group row is
+blank, marked `subtotal: "end"`, and a row `{ kind: "subtotal", depth, path, label: "Camp Total" }` with id
+`pivotSubtotalRowId(path)` follows its last descendant) or `none` (the expanded group row is blank, `subtotal: "none"`).
+A collapsed group always shows its totals. Labels follow `totals.subtotalLabel` (shared with column subtotals).
+`totals.grandTotal` / `grandTotalPosition` still control the grand total row. Subtotal rows belong to their group:
+`model.spans` cover them, `pivotBodyGroups` ends the group's `<tbody>` with them, and `pivotModelToSheet` prints the label
+in the group's column outside the group's merge. View-only: the cube is reused. `setPivotSubtotal(spec, field, position)`
+works for row and column fields (the area's default removes the key), and `subtotal` travels between Rows and Columns in
+the move helpers.
+
+### Distinct count
+
+`aggregate: "distinctCount"` with a `field` counts distinct non-blank keys (compared as strings like dimension keys;
+date-derived fields such as `orderDate:month` work too). Group rows, subtotal columns and the grand total count the
+distinct keys of **all their records**, not the sum of their children's counts. Implementation: no per-bucket sets.
+After the record pass, records are counting-sorted by key code once per distinct-count measure; each record visits its
+leaf and ancestors and its column bucket and column groups, and a stamp array (nodes × buckets, `Int32Array`) counts
+each key once per bucket. Memory is that stamp array plus two record-sized arrays, independent of cardinality; specs
+without a distinct count allocate nothing.
+
+### Drill-through
+
+```ts
+import { pivotDrillThrough, pivotCellDrillTarget, createPivotModelBuilder } from "@nqlib/nqgrid/core";
+
+const target = pivotCellDrillTarget(model, model.rows[3], 6);   // { path, columnPath, measureId }
+const { records, indices, total, truncated, fields } = pivotDrillThrough(spec, rows, target, { limit: 500, offset: 0 });
+builder.drillThrough(spec, rows, target);                         // same, on the builder's cached encoding
+```
+
+Records are those that pass the report / label filters and Top N, whose row keys start with `target.path` and column keys
+with `target.columnPath` (date-grouped fields match their derived keys). Group rows, subtotal rows (same path as their
+group), subtotal / collapsed columns (group key paths) and totals (`path: []`, `columnPath: []`) get the broader sets;
+an "Other" row lists the records of the keys it folds, and keys cut by Top N without "Other" match nothing. `total`
+counts every match (equals the row's `sourceRowCount` for whole rows), `records` are in data order up to `limit`
+(default 1000). `fields` suggests display columns: row and column fields (the source of date-derived ones), then the
+source fields of `measureId` (calculated measures: of the measures they reference), else of every value. It costs one
+filter pass plus one partial aggregation per Top-N level, and nothing for specs that never drill.
+
+### React
+
+```tsx
+const grid = usePivotGrid(spec, rows);
+const [drill, setDrill] = useState<PivotDrillThroughTarget | null>(null);
+const result = useMemo(() => (drill ? grid.drillThrough(drill, { limit: 500 }) : null), [drill, grid]);
+
+<PivotTable model={grid.model} onDrillThrough={setDrill} />          {/* double-click a value cell */}
+{result ? (
+  <PivotDrillThroughPanel result={result} title={pivotDrillThroughTitle(grid.model, drill!)}
+    {...pivotDrillThroughFieldInfo(grid.spec, grid.fields)} onClose={() => setDrill(null)} />
+) : null}
+<PivotFieldList {...pivotFieldListProps(grid)} />                  {/* calc measures, show values as, subtotals */}
+```
+
+| Export | Purpose |
+|--------|---------|
+| `PivotTable.onDrillThrough(target, context)` | Double-click on a value cell (interactive mode; no handlers in static mode). `context`: row, column, indices, cell. |
+| `PivotDrillThroughPanel` | Records table with a sticky header, one column per field (`fields`, default `result.fields`), numbers right-aligned in `formats`, "Showing 500 of 4,210 records", close button; `renderCell`, `classNames`, `labels`. `pivotDrillThroughFieldInfo(spec, fields)` gives labels and formats, `pivotDrillThroughTitle(model, target)` a heading (`Camp › Tents · FY26 · Actual`). |
+| `PivotCalculatedMeasureForm` | Name, formula (validated as you type with `checkPivotCalculatedMeasure`: the message and position show inline, Add stays disabled), insert-measure picker (`pivotCalcReference` brackets ids when needed), format; edit / delete an existing one with `measureId` / `onRemove`. |
+| `PivotShowAsMenu` | The show-as kind, base field (row / column fields) and base item ((previous), (next) or a key from `getFacet`). |
+| `PivotFieldList` | "Calculated measure…" button under the checklist; on value chips "Show values as" (and "Edit formula…" for calculated measures, which skip "Summarize values by"); "Subtotals" At top / At bottom / Off on group-level row chips (Before / After / Off on column chips); Distinct Count in "Summarize values by". |
+| `usePivotGrid` / `reducePivotGridSpec` | `setCalculatedMeasure(input)`, `removeMeasure(id)`, `setMeasureShowAs(id, showAs, base?, scope?)`, `setSubtotal(field, position)`, `drillThrough(target, options?)`. |
+
+**Exports.** Static HTML / PDF and both XLSX writers render calculated measures and the new show-as kinds as numbers
+with their formats, and subtotal rows as bold group rows ("Camp Total" in the Department column of the sheet).
+
 ### Formatting is deterministic
 
 `formatPivotNumber` does not use `Intl`. WebKit (macOS Tauri), WebView2 (Windows Tauri) and Node
@@ -485,13 +645,16 @@ Everything a non-JS producer needs is in [`contract/pivot/v1`](../contract/pivot
 | `examples/planning-fields.catalog.json` | `inferPivotFields(rows)`, `resolvePivotFields(spec, rows)` and `pivotFieldListState` for that spec (Python checks its inference against it). |
 | `examples/planning-multicol.{spec,model,sheet}.json` + `.html` | Rows of `planning-fields`; Region → Channel in Columns with Σ Values between them, region subtotals, a grand total column, `percentOfParentColumn` and column-scoped heat (4 PDF chunks, one per region). |
 | `examples/planning-dates.{spec,rows,model,sheet}.json` + `.html` | Two fiscal years of rows with an ISO `orderDate`; `orderDate:year` → `orderDate:quarter` (fiscal year from November), FY25 collapsed, FY26 with a subtotal. |
+| `examples/planning-calc.{spec,model,sheet}.json` + `.html` | Rows of `planning-dates`; a calculated measure (`actual / plan - 1`, also heat, KPI and sort key), % difference from the previous fiscal year, % running total along Line, a distinct count of regions and department subtotals at the bottom. |
+| `calc-expressions.json` | Shared calculated-measure test vectors: valid expressions with values and expected results, invalid ones with error codes and positions (TypeScript and Python tests). |
 | `export-request.schema.json` + `examples/planning.request.json` | The export request `{ spec, rows \| dataset, format?, options? }` (CLI / `POST /export`, and app → backend with a `dataset` reference). TS: `buildPivotExportRequest`, `PIVOT_EXPORT_REQUEST_JSON_SCHEMA`; Python: [`integrations/python`](../integrations/python/README.md). |
 
 The golden files are regenerated by `src/core/pivot/contract.test.ts` and `src/render-static/render-static.test.ts` (`pnpm test -u`);
 any diff is a contract change and should bump the spec `version` if it is breaking.
 `validatePivotSpec` additionally checks references the schema cannot express
 (unknown measure ids in `values`, `heat`, `headerCharts`, `kpis`, `sortBy`, `topN`; duplicate measure ids, facets and
-catalogue fields; `sortBy` / `topN` only on row dimensions).
+catalogue fields; `sortBy` / `topN` only on row dimensions; calculated-measure grammar, references and cycles;
+`showAsBase` on a row or column field).
 
 ### XLSX without Node
 
@@ -655,5 +818,11 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
    XLSX, `renderColumnHeader` with draggable column headers, one shared deferred-layout draft
    (`usePivotLayoutDraft`), and Excel-style date grouping (`orderDate:year` …, UTC parsing, fiscal years, chronological
    keys, gap filling, "Group by…" in the field list, default Year → Quarter on drop).
-   Next (step 4): calculated fields with a safe expression parser, drill-through to source records, per-level row
-   subtotal options, "difference from" / running-total `showAs`, distinct count, Σ Values in Rows.
+9. **Excel parity, step 4 — done.** Calculated measures (`calculate`, a safe tokenizer + recursive-descent parser with
+   bounded length / depth, whitelisted functions and shared test vectors mirrored in Python), "show values as"
+   differences / running totals / ranks along a row or column field (`showAsBase`), row subtotals at top / bottom / off
+   (`subtotal` rows), distinct count without per-bucket sets, drill-through to source records (`pivotDrillThrough`,
+   `PivotTable.onDrillThrough`, `PivotDrillThroughPanel`), and their editors in the field list
+   (`PivotCalculatedMeasureForm`, `PivotShowAsMenu`, subtotal positions, Distinct Count).
+   Next: Σ Values in Rows, "% of parent" with a chosen base field, calculated items (formulas over keys), grouping of
+   numeric fields into ranges.

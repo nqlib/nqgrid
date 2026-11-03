@@ -24,7 +24,7 @@ class Totals(BaseModel):
     rowTotalLabel: str | None = None
     subtotalLabel: str | None = None
     """
-    Label of column subtotals; {label} is the group label (default "{label} Total").
+    Label of column subtotals and of subtotal: "end" rows; {label} is the group label (default "{label} Total").
     """
 
 
@@ -187,6 +187,22 @@ class FacetWithLabel(BaseModel):
     label: str | None = None
 
 
+class ShowAsBase(BaseModel):
+    """
+    Base of the difference / running-total / rank kinds of showAs: a row or column field, and for differences the base item — a key of that field (item) or the previous (default) / next sibling (position). Running totals and ranks use the field only.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    item: str | None = None
+    """
+    A key of field, e.g. "2025"; wins over position.
+    """
+    position: Literal["previous", "next"] | None = None
+
+
 class PositiveNumber(RootModel[float]):
     root: Annotated[float, Field(gt=0.0)]
 
@@ -247,7 +263,7 @@ class Dimension(BaseModel):
     topN: TopN | None = None
     subtotal: Literal["end", "start", "none"] | None = None
     """
-    Column dimensions with an inner column field: subtotal column per group at the end (default), the start, or none.
+    Groups of this field (every level but the innermost). Columns: subtotal column per group at the end (default), the start, or none. Rows: start (default; the group row carries the subtotals, Excel's "at top"), end (a subtotal row after the group's children) or none. Collapsed groups always show their totals.
     """
 
 
@@ -257,12 +273,16 @@ class Measure(BaseModel):
     )
     id: Annotated[str, Field(min_length=1)]
     field: Annotated[str | None, Field(min_length=1)] = None
+    calculate: Annotated[str | None, Field(max_length=1000, min_length=1)] = None
+    """
+    Calculated measure: an expression over other measure ids, evaluated per cell over their aggregated values, e.g. "actual / plan - 1" or "[prior year] * 1.05". Operators + - * / % ^, comparisons, and / or / not, null; functions abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull. Division by zero gives no value. Excludes field and aggregate. Grammar: docs/pivot-headless.md; test vectors: calc-expressions.json.
+    """
     label: str | None = None
     aggregate: (
         WeightedAvgAggregate
         | RatioAggregate
         | CustomAggregate
-        | Literal["sum", "avg", "min", "max", "count", "first", "last"]
+        | Literal["sum", "avg", "min", "max", "count", "first", "last", "distinctCount"]
         | None
     ) = None
     format: NumberFormat | None = None
@@ -275,9 +295,18 @@ class Measure(BaseModel):
             "percentOfParentColumn",
             "percentOfRowTotal",
             "percentOfGrandTotal",
+            "differenceFrom",
+            "percentDifferenceFrom",
+            "runningTotal",
+            "percentRunningTotal",
+            "rankAscending",
+            "rankDescending",
         ]
         | None
     ) = None
+    """
+    Excel "Show values as". Percent kinds are ratios. differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase.
+    """
     groupShowAs: (
         Literal[
             "value",
@@ -286,9 +315,19 @@ class Measure(BaseModel):
             "percentOfParentColumn",
             "percentOfRowTotal",
             "percentOfGrandTotal",
+            "differenceFrom",
+            "percentDifferenceFrom",
+            "runningTotal",
+            "percentRunningTotal",
+            "rankAscending",
+            "rankDescending",
         ]
         | None
     ) = None
+    """
+    Excel "Show values as". Percent kinds are ratios. differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase.
+    """
+    showAsBase: ShowAsBase | None = None
 
 
 class PivotFieldSpec(BaseModel):
@@ -309,7 +348,7 @@ class PivotFieldSpec(BaseModel):
     """
     Areas the field may be placed in (default: values for measures, every area otherwise).
     """
-    aggregate: Literal["sum", "avg", "min", "max", "count", "first", "last"] | None = None
+    aggregate: Literal["sum", "avg", "min", "max", "count", "first", "last", "distinctCount"] | None = None
     """
     Aggregate of a measure created by dropping the field into Values (default sum for numeric types, else count).
     """
@@ -408,7 +447,7 @@ class Columns(RootModel[list[Dimension]]):
 
 class PivotSpec(BaseModel):
     """
-    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, subtotal only on column dimensions, a field used at most once across rows and columns, unique facets and fields) are done by validatePivotSpec().
+    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field) are done by validatePivotSpec().
     """
 
     model_config = ConfigDict(

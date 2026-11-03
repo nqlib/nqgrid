@@ -306,7 +306,7 @@ export const pivotFilterMenuButtonClass =
   "nqg-pivot-menu-button inline-flex h-7 cursor-pointer items-center justify-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-pressed:border-primary/50 aria-pressed:bg-primary/10";
 
 export const pivotFilterMenuPrimaryButtonClass =
-  "nqg-pivot-menu-primary inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-primary bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "nqg-pivot-menu-primary inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-primary bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
 /** Search box, number and select inputs. */
 export const pivotFilterMenuInputClass =
@@ -392,6 +392,34 @@ export const pivotDragPreviewClass =
 
 /** Pointer-drag insertion indicator (appended to `document.body` during a drag). */
 export const pivotDropIndicatorClass = "nqg-pivot-drop-indicator rounded-full bg-primary";
+
+// ---------------------------------------------------------------------------
+// Calculated measures, "show values as" and drill-through (Excel parity, step 4)
+// ---------------------------------------------------------------------------
+
+/** Formula input of `PivotCalculatedMeasureForm` (monospace). */
+export const pivotCalcInputClass =
+  "nqg-pivot-calc-input min-h-14 w-full min-w-0 resize-y rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive/70";
+
+/** Inline validation message under the formula input. */
+export const pivotCalcErrorClass = "nqg-pivot-calc-error text-[11px] leading-4 text-destructive";
+
+/** `PivotDrillThroughPanel` root. */
+export const pivotDrillPanelClass = "nqg-pivot-drill flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card p-3 text-sm text-foreground";
+
+export const pivotDrillTitleClass = "nqg-pivot-drill-title min-w-0 truncate text-sm font-semibold";
+
+/** Scroll container of the records table. */
+export const pivotDrillScrollClass = "nqg-pivot-drill-scroll min-h-0 overflow-auto rounded-md border border-border/70";
+
+export const pivotDrillTableClass = "nqg-pivot-drill-table w-full border-separate border-spacing-0 text-xs";
+
+export const pivotDrillHeadCellClass =
+  "nqg-pivot-drill-head sticky top-0 z-10 whitespace-nowrap border-b border-border bg-muted px-2 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
+
+export const pivotDrillCellClass = "nqg-pivot-drill-cell whitespace-nowrap border-b border-border/40 px-2 py-1 align-middle";
+
+export const pivotDrillNumericClass = "nqg-pivot-drill-number text-right tabular-nums";
 
 /** Default heat hue; `--nqg-heat-color` overrides it, `--nqg-heat-N` overrides one level. */
 export const PIVOT_HEAT_BASE_COLOR = "#ef6a24";

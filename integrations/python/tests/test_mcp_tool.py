@@ -88,7 +88,16 @@ def test_describe_pivot_spec(tmp_path: Path, provider: DictRowProvider, planning
     assert info["fields_example_spec"]["valuesIndex"] == 0
     assert [c["field"] for c in info["multicol_example_spec"]["columns"]] == ["region", "channel"]
     assert info["dates_example_spec"]["columns"][0] == {"field": "orderDate:year"}
-    for topic in ("## Several column fields", "## Date grouping", "percentOfParentColumn", "fiscalYearStartMonth"):
+    assert info["calc_example_spec"]["measures"][2]["calculate"] == "actual / plan - 1"
+    for topic in (
+        "## Several column fields",
+        "## Date grouping",
+        "percentOfParentColumn",
+        "fiscalYearStartMonth",
+        "## Calculated measures, show values as, subtotals, distinct count",
+        "showAsBase",
+        "distinctCount",
+    ):
         assert topic in info["guide"]
 
 

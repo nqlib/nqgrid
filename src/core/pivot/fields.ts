@@ -1,5 +1,6 @@
 import { pivotColumnFields, withPivotColumnFields } from "./columns";
 import { parsePivotDateFieldName, pivotDateFieldName, pivotDateGroupLabel, pivotDayOf, PIVOT_DATE_GROUPS, PIVOT_INVALID_DAY } from "./dates";
+import { parsePivotCalc } from "./calc";
 import { isPivotFilterActive } from "./filter";
 import type {
   PivotAggregate,
@@ -15,6 +16,7 @@ import type {
   PivotNumberFormat,
   PivotSpec,
 } from "./types";
+import { PIVOT_SHOW_AS_WITH_BASE } from "./validate";
 
 /**
  * Field catalogue, field-list state and pure layout moves (Excel's PivotTable field list).
@@ -299,8 +301,10 @@ export interface PivotFieldListItem {
   readonly type?: PivotFieldType;
   /** Values: the measure's aggregate. */
   readonly aggregate?: PivotAggregate;
-  /** Values: a measure without a source field (ratio, custom, `count` of rows). */
+  /** Values: a measure without a source field (ratio, custom, `count` of rows, calculated). */
   readonly calculated?: boolean;
+  /** Values: the expression of a calculated measure (`calculate`). */
+  readonly calculate?: string;
   /** The Σ Values chip in Columns. */
   readonly isValues?: boolean;
   /**
@@ -330,6 +334,8 @@ export interface PivotFieldListMeasure {
   readonly id: string;
   readonly label: string;
   readonly inValues: boolean;
+  /** The expression of a calculated measure (`calculate`). */
+  readonly calculate?: string;
 }
 
 export interface PivotFieldListState {
@@ -429,7 +435,7 @@ export function pivotFieldListState(spec: PivotSpec, fields: readonly PivotField
         field: id,
         label: m.label ?? id,
         ...(m.field ? { sourceField: m.field, type: info(m.field).type } : { calculated: true }),
-        aggregate: m.aggregate ?? "sum",
+        ...(m.calculate !== undefined ? { calculate: m.calculate } : { aggregate: m.aggregate ?? "sum" }),
       },
     ];
   });
@@ -451,7 +457,7 @@ export function pivotFieldListState(spec: PivotSpec, fields: readonly PivotField
   });
   const calculated = spec.measures
     .filter((m) => !m.field)
-    .map((m) => ({ id: m.id, label: m.label ?? m.id, inValues: valueIds.includes(m.id) }));
+    .map((m) => ({ id: m.id, label: m.label ?? m.id, inValues: valueIds.includes(m.id), ...(m.calculate !== undefined ? { calculate: m.calculate } : {}) }));
   return { fields: list, calculated, filters, columns, rows, values, unused: list.filter((f) => !f.checked) };
 }
 
@@ -516,9 +522,11 @@ function omitKeys<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Om
   return out;
 }
 
-/** A dimension on its way into Columns (no `sortBy` / `topN`) or Rows (no `subtotal`). */
+/**
+ * A dimension on its way into Columns (no `sortBy` / `topN`). `subtotal` is valid in both areas
+ * (row groups: `start` / `end` / `none` rows, column groups: subtotal columns), so it travels.
+ */
 const stripColumnOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "sortBy", "topN");
-const stripRowOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "subtotal");
 const clamp = (i: number | undefined, max: number) => (i === undefined ? max : Math.max(0, Math.min(max, Math.floor(i))));
 
 /** Working copy of the layout parts a move touches. */
@@ -545,7 +553,11 @@ const AGG_LABEL: Readonly<Record<PivotBuiltInAggregate, string>> = {
   count: "Count",
   first: "First",
   last: "Last",
+  distinctCount: "Distinct Count",
 };
+
+/** Counts are plain integers: they never take a field's format. */
+const isCountAggregate = (agg: PivotAggregate): boolean => agg === "count" || agg === "distinctCount";
 
 /** Default measure label: the field label for `sum`, else `Average of Units`, `Count of Region`, … */
 export function pivotMeasureLabel(fieldLabel: string, aggregate: PivotBuiltInAggregate): string {
@@ -580,7 +592,7 @@ function ensureMeasure(
     field,
     label: pivotMeasureLabel(info.label, agg),
     ...(agg !== "sum" ? { aggregate: agg } : {}),
-    ...(info.format && agg !== "count" ? { format: info.format } : {}),
+    ...(info.format && !isCountAggregate(agg) ? { format: info.format } : {}),
   };
   layout.measures.push(measure);
   return id;
@@ -721,7 +733,7 @@ export function planPivotFieldMove(spec: PivotSpec, move: PivotFieldMove, option
       if (same && from === "rows") {
         layout.rows.splice(target(layout.rows.length), 0, carried!);
       } else {
-        layout.rows.splice(target(layout.rows.length), 0, stripRowOnly(newDim()));
+        layout.rows.splice(target(layout.rows.length), 0, newDim());
         if (from === "filters") layout.filters = layout.filters.filter((f) => f.field !== sourceField || isPivotFilterActive(f));
         if (from === "values") layout.filters = layout.filters.filter((f) => f.field !== sourceField || isPivotFilterActive(f));
       }
@@ -740,7 +752,7 @@ export function planPivotFieldMove(spec: PivotSpec, move: PivotFieldMove, option
         const dest: PivotFieldLocation = from === "rows" || from === "filters" ? from : "unused";
         displaced = { field: out.dim.field, to: dest };
         if (dest === "rows") {
-          layout.rows.splice(Math.min(fromIndex, layout.rows.length), 0, stripRowOnly(out.dim));
+          layout.rows.splice(Math.min(fromIndex, layout.rows.length), 0, out.dim);
         } else if (dest === "filters") {
           const areaFields = filterAreaBefore.filter((f) => f !== sourceField);
           const placeholder: PivotFilter = { field: out.dim.field, ...(out.dim.label ? { label: out.dim.label } : {}) };
@@ -823,7 +835,15 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   }
   if (heat?.measure) referenced.add(heat.measure);
   if (headerCharts?.measure) referenced.add(headerCharts.measure);
-  const measures = layout.measures.filter((m) => !removed.has(m.id) || referenced.has(m.id));
+  // Calculated measures stay (like Excel's calculated fields in the field list), and so does every
+  // measure a kept calculated measure references.
+  for (const m of layout.measures) if (m.calculate !== undefined) referenced.add(m.id);
+  addCalcDependencies(layout.measures, referenced);
+  // "Show values as" along a field that left Rows / Columns falls back to plain values (Excel).
+  const placed = new Set([...rows.map((d) => d.field), ...layout.columns.flatMap((c) => (c.kind === "dim" ? [c.dim.field] : []))]);
+  const measures = layout.measures
+    .filter((m) => !removed.has(m.id) || referenced.has(m.id))
+    .map((m) => (m.showAsBase && !placed.has(m.showAsBase.field) ? withoutShowAsBase(m) : m));
 
   // Columns: the list (with Σ Values) back to `columns` (one object for one field) + `valuesIndex`.
   const columnDims = layout.columns.flatMap((c) => (c.kind === "dim" ? [c.dim] : []));
@@ -840,6 +860,32 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   if (heat !== spec.heat) next = { ...next, heat };
   if (headerCharts !== spec.headerCharts) next = { ...next, headerCharts };
   return withCleanColumnsExpanded(spec, withCleanExpanded(spec, next));
+}
+
+/** Add to `ids` every measure the calculated measures among `ids` reference (transitively). */
+function addCalcDependencies(measures: readonly PivotMeasure[], ids: Set<string>): void {
+  const byId = new Map(measures.map((m) => [m.id, m] as const));
+  const queue = [...ids];
+  while (queue.length) {
+    const m = byId.get(queue.pop()!);
+    if (m?.calculate === undefined) continue;
+    const parsed = parsePivotCalc(m.calculate);
+    if (!parsed.ok) continue;
+    for (const ref of parsed.references) {
+      if (!ids.has(ref)) {
+        ids.add(ref);
+        queue.push(ref);
+      }
+    }
+  }
+}
+
+/** `m` without `showAsBase`, and without the `showAs` / `groupShowAs` kinds that need it. */
+function withoutShowAsBase(m: PivotMeasure): PivotMeasure {
+  let out: PivotMeasure = omitKeys(m, "showAsBase");
+  if (out.showAs && PIVOT_SHOW_AS_WITH_BASE.has(out.showAs)) out = omitKeys(out, "showAs");
+  if (out.groupShowAs && PIVOT_SHOW_AS_WITH_BASE.has(out.groupShowAs)) out = omitKeys(out, "groupShowAs");
+  return out;
 }
 
 /**
@@ -922,9 +968,9 @@ export function addPivotMeasure(
 
 /**
  * Change a measure's aggregate (Excel's "Summarize values by"). Auto labels (`Units`,
- * `Average of Units`) follow; custom labels stay. Switching to or from `count` drops the measure's
- * format (counts are plain integers), restoring the catalogue format when leaving `count`.
- * Measures without a source field only accept `count`.
+ * `Average of Units`) follow; custom labels stay. Switching to `count` / `distinctCount` drops the
+ * measure's format (counts are plain integers), restoring the catalogue format when leaving them.
+ * Measures without a source field only accept `count`; calculated measures none.
  */
 export function setPivotMeasureAggregate(
   spec: PivotSpec,
@@ -933,7 +979,7 @@ export function setPivotMeasureAggregate(
   options: PivotFieldMoveOptions = {},
 ): PivotSpec {
   const m = spec.measures.find((x) => x.id === measureId);
-  if (!m || (m.aggregate ?? "sum") === aggregate) return spec;
+  if (!m || m.calculate !== undefined || (m.aggregate ?? "sum") === aggregate) return spec;
   if (!m.field && aggregate !== "count") return spec;
   const prev = m.aggregate ?? "sum";
   const fields = options.fields ?? resolvePivotFields(spec);
@@ -941,8 +987,8 @@ export function setPivotMeasureAggregate(
   if (m.field && typeof prev === "string") {
     const info = fieldInfo(fields, m.field);
     if (m.label === undefined || m.label === pivotMeasureLabel(info.label, prev)) next = { ...next, label: pivotMeasureLabel(info.label, aggregate) };
-    if (aggregate === "count") next = omitKeys(next, "format");
-    else if (prev === "count" && info.format) next = { ...next, format: info.format };
+    if (isCountAggregate(aggregate)) next = omitKeys(next, "format");
+    else if (isCountAggregate(prev) && info.format) next = { ...next, format: info.format };
   } else if (aggregate === "count") {
     next = omitKeys(next, "format");
   }
@@ -964,13 +1010,13 @@ export function setPivotValuesPosition(spec: PivotSpec, index: number): PivotSpe
  * (`Department › Line × Month` → `Month × Department › Line`), with expanded paths and column-group
  * paths trading places. At most `PIVOT_MAX_COLUMN_FIELDS` row fields (the innermost) move; outer
  * ones stay in Rows, in front of the former column fields. Dimensions lose `sortBy` / `topN` on the
- * way into Columns and `subtotal` on the way into Rows. Refused (same spec) when Rows would end up empty.
+ * way into Columns; `subtotal` travels. Refused (same spec) when Rows would end up empty.
  */
 export function swapPivotRowsColumns(spec: PivotSpec): PivotSpec {
   const columns = pivotColumnFields(spec);
   const intoColumns = spec.rows.slice(Math.max(0, spec.rows.length - PIVOT_MAX_COLUMN_FIELDS));
   const stay = spec.rows.slice(0, spec.rows.length - intoColumns.length);
-  const rows = [...stay, ...columns.map(stripRowOnly)];
+  const rows = [...stay, ...columns];
   if (rows.length === 0) return spec;
   const layout = layoutOf(spec);
   layout.rows = rows;
@@ -1112,7 +1158,7 @@ export function setPivotDateGrouping(
     const at = layout.rows.findIndex((d) => family(d.field));
     const before = at < 0 ? layout.rows.length : layout.rows.slice(0, at).filter(keepDim).length;
     layout.rows = layout.rows.filter(keepDim);
-    layout.rows.splice(before, 0, ...wanted.map((f) => stripRowOnly(dimFor(f))));
+    layout.rows.splice(before, 0, ...wanted.map((f) => dimFor(f)));
     layout.columns = layout.columns.filter((c) => !isDim(c) || keepDim(c.dim));
   } else if (area === "columns") {
     const at = layout.columns.findIndex((c) => isDim(c) && family(c.dim.field));

@@ -372,7 +372,9 @@ describe("validation of the new shapes", () => {
   });
 
   it("referential rules the schema cannot express", () => {
-    expect(validatePivotSpec({ ...minimal, rows: [{ field: "a", subtotal: "end" }] })).toMatchObject({ ok: false });
+    // Row subtotal positions are valid since step 4.
+    expect(validatePivotSpec({ ...minimal, rows: [{ field: "a", subtotal: "end" }] })).toMatchObject({ ok: true });
+    expect(validatePivotSpec({ ...minimal, rows: [{ field: "a", subtotal: "bottom" }] })).toMatchObject({ ok: false });
     const dup = validatePivotSpec({ ...minimal, columns: [{ field: "b" }, { field: "a" }] });
     expect(dup.ok ? [] : dup.errors).toEqual(['columns[1].field "a" is already used by rows[0]']);
   });

@@ -3,8 +3,12 @@ import {
   buildPivotCube,
   computePivotFacet,
   PIVOT_OTHER_KEY,
+  pivotDrillThrough,
   pivotFacetField,
   pivotSpecDataKey,
+  type PivotDrillThroughOptions,
+  type PivotDrillThroughResult,
+  type PivotDrillThroughTarget,
   type PivotCube,
   type PivotCubeColumn,
   type PivotCubeFacet,
@@ -18,6 +22,8 @@ import {
   DEFAULT_PIVOT_DELTA_FORMAT,
   DEFAULT_PIVOT_PERCENT_FORMAT,
   formatPivotNumber,
+  PIVOT_RANK_FORMAT,
+  pivotShowAsFormatKind,
   toExcelNumFmt,
 } from "./format";
 import { pivotHeatLevel, type PivotHeatDomain } from "./heat";
@@ -43,7 +49,7 @@ import {
   type PivotSpec,
   type PivotValueColumn,
 } from "./types";
-import { assertPivotSpec } from "./validate";
+import { assertPivotSpec, PIVOT_SHOW_AS_WITH_BASE } from "./validate";
 
 export interface BuildPivotModelOptions {
   /** Named aggregators for `{ type: "custom", name }` measures. */
@@ -57,6 +63,11 @@ export const PIVOT_GRAND_TOTAL_ROW_ID = "__grandTotal__";
 /** Stable row id for a key path (also usable as a React key). */
 export function pivotPathId(path: readonly string[]): string {
   return `r:${path.map(encodeURIComponent).join("/")}`;
+}
+
+/** Row id of a group's `subtotal: "end"` row. */
+export function pivotSubtotalRowId(path: readonly string[]): string {
+  return `t:${path.map(encodeURIComponent).join("/")}`;
 }
 
 /** Stable value-column id. `columnKey === null` → row-total (or measure-only) column. */
@@ -106,6 +117,65 @@ const subtotalText = (template: string, label: string) => template.split("{label
 function divide(a: number | null, b: number | null): number | null {
   if (a === null || b === null || b === 0) return null;
   return a / b;
+}
+
+const BLANK_CELL: PivotCell = { value: null, raw: null, text: "" };
+
+/**
+ * A difference / running total / rank along a base field, for an item at `index` among `count`
+ * siblings (`valueOf(j)`: the corresponding value of sibling `j`, `null` without data).
+ * `baseIndex`: the difference base (`-1`: none). See "Show values as" in `docs/pivot-headless.md`.
+ */
+function showAsAlong(
+  kind: string,
+  raw: number | null,
+  index: number,
+  count: number,
+  valueOf: (j: number) => number | null,
+  baseIndex: number,
+): number | null {
+  if (raw === null) return null;
+  switch (kind) {
+    case "differenceFrom":
+    case "percentDifferenceFrom": {
+      if (baseIndex < 0 || baseIndex === index) return null;
+      const base = valueOf(baseIndex);
+      if (base === null) return null;
+      return kind === "differenceFrom" ? raw - base : divide(raw - base, base);
+    }
+    case "runningTotal":
+    case "percentRunningTotal": {
+      let run = 0;
+      for (let j = 0; j <= index; j++) run += valueOf(j) ?? 0;
+      if (kind === "runningTotal") return run;
+      let total = run;
+      for (let j = index + 1; j < count; j++) total += valueOf(j) ?? 0;
+      return divide(run, total);
+    }
+    default: {
+      // rankAscending / rankDescending: competition ranking (1, 2, 2, 4) among siblings with a value.
+      let rank = 1;
+      for (let j = 0; j < count; j++) {
+        const v = valueOf(j);
+        if (v !== null && (kind === "rankAscending" ? v < raw : v > raw)) rank++;
+      }
+      return rank;
+    }
+  }
+}
+
+/** Cells outside the base field's levels (above it, totals): running totals show the value itself, the rest blank. */
+function showAsOutside(kind: string, raw: number | null): number | null {
+  if (kind === "runningTotal") return raw;
+  if (kind === "percentRunningTotal") return raw === null || raw === 0 ? null : 1;
+  return null;
+}
+
+/** Difference base among sibling keys: the named item, else the previous / next sibling (`-1`: none). */
+function baseIndexOf(keys: readonly string[], index: number, item: string | undefined, position: "previous" | "next" | undefined): number {
+  if (item !== undefined) return keys.indexOf(item);
+  const j = position === "next" ? index + 1 : index - 1;
+  return j >= 0 && j < keys.length ? j : -1;
 }
 
 /**
@@ -330,6 +400,85 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     return parent !== null && parent.depth >= 0 ? parent.bucket : totalBucket;
   });
 
+  // "Show values as" along a field (differences, running totals, ranks): the base field's level on
+  // rows or columns, per measure; along a column field, each value column's sibling buckets.
+  const rowLevelOf = new Map(dims.map((d, i) => [d.field, i] as const));
+  const colLevelOf = new Map(colDims.map((d, i) => [d.field, i] as const));
+  const colChildCache = new Map<PivotCubeColumn, Map<string, PivotCubeColumn>>();
+  const colChild = (c: PivotCubeColumn, key: string): PivotCubeColumn | undefined => {
+    let map = colChildCache.get(c);
+    if (!map) colChildCache.set(c, (map = new Map(c.children.map((x) => [x.key, x] as const))));
+    return map.get(key);
+  };
+  /** Per value column with a column-field base: the corresponding bucket of every sibling, own index, keys. */
+  const columnAlong = descs.map((d) => {
+    const m = d.measure;
+    const base = m.showAsBase;
+    if (!base || !(PIVOT_SHOW_AS_WITH_BASE.has(m.showAs ?? "") || PIVOT_SHOW_AS_WITH_BASE.has(m.groupShowAs ?? ""))) return null;
+    const level = colLevelOf.get(base.field);
+    const c = d.slot.column;
+    if (level === undefined || c === null || c.depth < level) return null;
+    let a: PivotCubeColumn = c;
+    while (a.depth > level) a = a.parent!;
+    const siblings = a.parent!.children;
+    const rel = c.path.slice(level + 1);
+    const buckets = siblings.map((s) => {
+      let x: PivotCubeColumn | undefined = s;
+      for (const key of rel) {
+        x = colChild(x, key);
+        if (!x) return -1;
+      }
+      return x.bucket;
+    });
+    const keys = siblings.map((s) => s.key);
+    const index = siblings.indexOf(a);
+    return { buckets, index, baseIndex: baseIndexOf(keys, index, base.item, base.position) };
+  });
+  const childCache = new Map<PivotCubeNode, Map<string, PivotCubeNode>>();
+  const childOf = (n: PivotCubeNode, key: string): PivotCubeNode | undefined => {
+    let map = childCache.get(n);
+    if (!map) childCache.set(n, (map = new Map(n.children.map((x) => [x.key, x] as const))));
+    return map.get(key);
+  };
+  const siblingIndex = new Map<PivotCubeNode, number>();
+  const indexInParent = (n: PivotCubeNode): number => {
+    if (!siblingIndex.has(n)) n.parent!.children.forEach((c, j) => siblingIndex.set(c, j));
+    return siblingIndex.get(n)!;
+  };
+  /**
+   * Show-as value of `node` in column `i` along its measure's base field: along a column field via
+   * `columnAlong`, along a row field via the node's ancestor at that level and its siblings (the
+   * corresponding descendant of each sibling, same column). Cells above the base level, and columns
+   * outside a column base's levels, get `showAsOutside`.
+   */
+  const alongValue = (kind: string, node: PivotCubeNode, m: PivotMeasure, i: number, raw: number | null): number | null => {
+    const base = m.showAsBase;
+    if (!base) return null;
+    const colAlong = columnAlong[i];
+    if (colAlong) {
+      const { buckets, index, baseIndex } = colAlong;
+      return showAsAlong(kind, raw, index, buckets.length, (j) => valueAt(node, m, buckets[j]!), baseIndex);
+    }
+    const level = rowLevelOf.get(base.field);
+    if (level === undefined || node.depth < level) return showAsOutside(kind, raw);
+    let a = node;
+    while (a.depth > level) a = a.parent!;
+    const siblings = a.parent!.children;
+    const rel = node.path.slice(level + 1);
+    const index = indexInParent(a);
+    const bucket = columnBuckets[i]!;
+    const valueOf = (j: number): number | null => {
+      let x: PivotCubeNode | undefined = siblings[j];
+      for (const key of rel) {
+        x = childOf(x!, key);
+        if (!x) return null;
+      }
+      return valueAt(x!, m, bucket);
+    };
+    const baseIndex = kind === "differenceFrom" || kind === "percentDifferenceFrom" ? baseIndexOf(siblings.map((s) => s.key), index, base.item, base.position) : -1;
+    return showAsAlong(kind, raw, index, siblings.length, valueOf, baseIndex);
+  };
+
   // Header rows: one cell per run of adjacent columns sharing the same items down to that row.
   const headerRows: PivotHeaderCell[][] = [];
   for (let r = 0; r < headerCount; r++) {
@@ -403,9 +552,16 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const isExpanded = (n: PivotCubeNode) =>
     !isLeaf(n) && (expandedRows === "all" || (expandedIds !== null && expandedIds.has(pivotPathId(n.path))));
   const visible: PivotCubeNode[] = [];
+  /** Body entries in display order: a node's row, or (`subtotal`) its `subtotal: "end"` row. */
+  const entries: { readonly node: PivotCubeNode; readonly subtotal: boolean }[] = [];
+  /** Subtotal position of an expanded group (`start` = the group row carries the totals). */
+  const placementOf = (n: PivotCubeNode): "start" | "end" | "none" => (isExpanded(n) ? (dims[n.depth]!.subtotal ?? "start") : "start");
   const collect = (n: PivotCubeNode) => {
     visible.push(n);
-    if (isExpanded(n)) for (const c of n.children) collect(c);
+    entries.push({ node: n, subtotal: false });
+    if (!isExpanded(n)) return;
+    for (const c of n.children) collect(c);
+    if (placementOf(n) === "end") entries.push({ node: n, subtotal: true });
   };
   for (const c of root.children) collect(c);
 
@@ -480,6 +636,11 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       if (showAs === "value") {
         const text = formatPivotNumber(raw, col.format);
         return level === undefined ? { value: raw, raw, text } : { value: raw, raw, text, heat: level };
+      } else if (PIVOT_SHOW_AS_WITH_BASE.has(showAs)) {
+        const value = alongValue(showAs, node, m, i, raw);
+        const kind = pivotShowAsFormatKind(showAs);
+        const text = formatPivotNumber(value, kind === "percent" ? col.percentFormat : kind === "rank" ? PIVOT_RANK_FORMAT : col.format);
+        return level === undefined ? { value, raw, text, showAs } : { value, raw, text, showAs, heat: level };
       } else {
         const parent = node.parent ?? node;
         const denominator =
@@ -527,6 +688,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   // ---- Rows ----------------------------------------------------------------
   const toRow = (n: PivotCubeNode): PivotBodyRow => {
     const leaf = isLeaf(n);
+    const placement = leaf ? "start" : placementOf(n);
     const dim = dims[n.depth]!;
     let attributes: Record<string, unknown> | undefined;
     if (dim.attributes?.length) {
@@ -546,12 +708,26 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       expanded: isExpanded(n),
       childCount: n.children.length,
       sourceRowCount: n.rowCount,
-      cells: cellsOf(n),
+      cells: placement === "start" ? cellsOf(n) : columns.map(() => BLANK_CELL),
       ...(attributes ? { attributes } : {}),
       ...(!leaf && kpiSpecs.length && kpiLevels.has(n.depth) ? { kpis: kpisFor(n) } : {}),
       ...(n.otherCount !== undefined ? { otherCount: n.otherCount } : {}),
+      ...(placement !== "start" ? { subtotal: placement } : {}),
     };
   };
+  const toSubtotalRow = (n: PivotCubeNode): PivotBodyRow => ({
+    id: pivotSubtotalRowId(n.path),
+    kind: "subtotal",
+    depth: n.depth,
+    path: n.path,
+    label: subtotalText(subtotalTemplate, nodeLabel(n)),
+    expandable: false,
+    expanded: false,
+    childCount: n.children.length,
+    sourceRowCount: n.rowCount,
+    cells: cellsOf(n),
+    ...(n.otherCount !== undefined ? { otherCount: n.otherCount } : {}),
+  });
 
   const grandTotal: PivotBodyRow = {
     id: PIVOT_GRAND_TOTAL_ROW_ID,
@@ -567,7 +743,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(kpiSpecs.length ? { kpis: kpisFor(root) } : {}),
   };
 
-  const body = visible.map(toRow);
+  const body = entries.map((e) => (e.subtotal ? toSubtotalRow(e.node) : toRow(e.node)));
   const showGrand = totals.grandTotal ?? true;
   const rows = !showGrand ? body : totals.grandTotalPosition === "top" ? [grandTotal, ...body] : [...body, grandTotal];
 
@@ -675,6 +851,17 @@ export function buildPivotFacet(
   return toPivotFacet(spec, computePivotFacet(spec, rows, field, options), options.label ? { field, label: options.label } : field);
 }
 
+/**
+ * Drill-through target of a model cell: the row's key path and column `columnIndex`'s column key
+ * path (`[]` for row-total columns) and measure. Pass it to `pivotDrillThrough`.
+ */
+export function pivotCellDrillTarget(model: PivotModel, row: Pick<PivotBodyRow, "path">, columnIndex: number): PivotDrillThroughTarget {
+  const col = model.columns[columnIndex];
+  if (!col) return { path: row.path, columnPath: [] };
+  const columnPath = col.columnPath ?? (col.columnKey !== null ? [col.columnKey] : []);
+  return { path: row.path, columnPath, measureId: col.measureId };
+}
+
 /** Memoizing `buildPivotModel` (see `createPivotModelBuilder`). */
 export interface PivotModelBuilder {
   /** Same result as `buildPivotModel(spec, rows, options)`. */
@@ -684,6 +871,8 @@ export interface PivotModelBuilder {
    * encoding (memoized per spec object and field).
    */
   facet(spec: PivotSpec, rows: readonly PivotDataRow[], field: string): PivotFacet;
+  /** `pivotDrillThrough` on the cached encoding (no re-encoding of `rows`). */
+  drillThrough(spec: PivotSpec, rows: readonly PivotDataRow[], target: PivotDrillThroughTarget, options?: PivotDrillThroughOptions): PivotDrillThroughResult;
   /** Drop every cached encoding, cube and model. */
   clear(): void;
 }
@@ -749,6 +938,9 @@ export function createPivotModelBuilder(options: { readonly maxCubes?: number } 
       let facet = facetCache.byField.get(field);
       if (!facet) facetCache.byField.set(field, (facet = buildPivotFacet(spec, rows, field, { encoding: enc })));
       return facet;
+    },
+    drillThrough(spec, rows, target, drillOptions = {}) {
+      return pivotDrillThrough(spec, rows, target, { aggregators: cubeAggregators, ...drillOptions, encoding: encode(rows) });
     },
     clear() {
       encoding = null;

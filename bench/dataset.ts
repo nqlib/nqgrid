@@ -118,3 +118,18 @@ export const benchDateSpec: PivotSpec = {
   columns: [{ field: "orderDate:year" }, { field: "orderDate:quarter" }],
   fields: [{ field: "orderDate", type: "date", fiscalYearStartMonth: 11 }],
 };
+
+/**
+ * `generateBenchRows` plus `customer` (20,000 distinct ids, derived from the index so the other
+ * fields stay identical) for the distinct-count scenarios.
+ */
+export function generateBenchCustomerRows(count: number, seed = 11): PivotDataRow[] {
+  return generateBenchRows(count, seed).map((r, i) => ({ ...r, customer: `C${(i * 7919) % 20_000}` }));
+}
+
+/** `benchBaseSpec` + a calculated measure (`actual / plan - 1`) shown as a fourth value. */
+export const benchCalcSpec: PivotSpec = {
+  ...benchBaseSpec,
+  measures: [...benchBaseSpec.measures, { id: "vsPlan", calculate: "actual / plan - 1", format: { style: "percent", decimals: 1 } }],
+  values: ["actual", "plan", "units", "vsPlan"],
+};

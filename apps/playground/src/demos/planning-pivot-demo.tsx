@@ -17,6 +17,7 @@ import {
   clearPivotFilters,
   generatePlanningPivotRows,
   PIVOT_VALUES_FIELD,
+  planningCalcPivotSpec,
   planningDatesPivotSpec,
   planningFieldCatalog,
   planningPivotSpec,
@@ -27,17 +28,21 @@ import {
   tableScrollAreaRootClass,
   tableScrollViewportStyle,
   tableShellClass,
+  type PivotDrillThroughTarget,
   type PivotExportFormat,
   type PivotExportRequest,
   type PivotHeatScope,
   type PivotSpec,
 } from "@nqlib/nqgrid";
 import {
+  PivotDrillThroughPanel,
   PivotFieldList,
   PivotFilterIcon,
   PivotFilterMenu,
   PivotSlicer,
   PivotTable,
+  pivotDrillThroughFieldInfo,
+  pivotDrillThroughTitle,
   pivotDropZoneProps,
   pivotExportRequestFromGrid,
   pivotFieldDragHandleProps,
@@ -172,6 +177,11 @@ const PRESETS = {
   dates: {
     label: "Order date: Year → Quarter",
     spec: { ...planningDatesPivotSpec, facets: ["department", "line"] } as PivotSpec,
+    rows: () => generatePlanningPivotRows(7, { extraFields: true, orderDates: true }),
+  },
+  calc: {
+    label: "Calculated · show as · subtotals",
+    spec: { ...planningCalcPivotSpec, facets: ["department", "line"] } as PivotSpec,
     rows: () => generatePlanningPivotRows(7, { extraFields: true, orderDates: true }),
   },
 } as const;
@@ -322,7 +332,10 @@ function SlicerBar({ grid }: { grid: PivotGridState }) {
  * request a Tauri app sends to its backend, so the PDF/XLSX matches the screen (filters included).
  */
 export function PlanningPivotDemo() {
-  const [preset, setPreset] = useState<PresetId>(() => (new URLSearchParams(window.location.search).get("pivot") === "dates" ? "dates" : "planning"));
+  const [preset, setPreset] = useState<PresetId>(() => {
+    const p = new URLSearchParams(window.location.search).get("pivot");
+    return p === "dates" || p === "calc" ? p : "planning";
+  });
   // Remount per preset so the grid starts from the preset's spec and rows.
   return <PlanningPivotView key={preset} preset={preset} onPresetChange={setPreset} />;
 }
@@ -336,6 +349,11 @@ function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPre
   const { model, spec } = pivot;
   const [showExport, setShowExport] = useState(false);
   const [showFields, setShowFields] = useState(true);
+  // Drill-through ("Show details"): double-click a value cell.
+  const [drill, setDrill] = useState<PivotDrillThroughTarget | null>(null);
+  const onDrillThrough = useCallback((target: PivotDrillThroughTarget) => setDrill(target), []);
+  const drillResult = useMemo(() => (drill ? pivot.drillThrough(drill, { limit: 500 }) : null), [drill, pivot]);
+  const drillInfo = useMemo(() => pivotDrillThroughFieldInfo(spec, pivot.fields), [spec, pivot.fields]);
   const scope = spec.heat?.scope ?? "all";
   const renderDimensionHeader = useCallback(
     (context: PivotDimensionHeaderContext) => <DimensionHeaderMenu grid={pivot} layout={layout} context={context} />,
@@ -424,9 +442,24 @@ function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPre
               onToggleColumnGroup={pivot.toggleColumnGroup}
               renderDimensionHeader={renderDimensionHeader}
               renderColumnHeader={renderColumnHeader}
+              onDrillThrough={onDrillThrough}
               aria-label={`${model.title ?? "Sales"} pivot`}
             />
           </ScrollArea>
+
+          {drill && drillResult ? (
+            <div className="shrink-0 border-t border-border/70 p-3">
+              <PivotDrillThroughPanel
+                result={drillResult}
+                title={pivotDrillThroughTitle(model, drill)}
+                fieldLabels={drillInfo.fieldLabels}
+                formats={drillInfo.formats}
+                maxHeight={220}
+                onClose={() => setDrill(null)}
+                className="shadow-none"
+              />
+            </div>
+          ) : null}
 
           <div className={tableFooterClass}>
             <p className="text-sm text-muted-foreground">
@@ -434,7 +467,11 @@ function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPre
               <span className="font-medium text-foreground">{HEAT_SCOPES.find((s) => s.value === scope)?.label}</span>
             </p>
             <p className="text-xs text-muted-foreground">
-              {preset === "dates" ? "Order dates grouped by fiscal year (from November); click a year to collapse it." : "Group rows show % of month total; lines show actuals."}
+              {preset === "dates"
+                ? "Order dates grouped by fiscal year (from November); click a year to collapse it."
+                : preset === "calc"
+                  ? "vs Plan = actual / plan - 1 · YoY = % difference from the previous year · double-click a cell for its records."
+                  : "Group rows show % of month total; lines show actuals."}
             </p>
           </div>
         </div>

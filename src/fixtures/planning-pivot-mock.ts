@@ -305,3 +305,55 @@ export const planningMultiColumnPivotSpec: PivotSpec = {
   heat: { measure: "actual", scope: "column", applyTo: "leaf" },
   fields: planningFieldCatalog,
 };
+
+/**
+ * Excel parity step 4 (golden `planning-calc.*`, rows from
+ * `generatePlanningPivotRows(7, { extraFields: true, orderDates: true })`): a calculated measure
+ * (`actual / plan - 1`, also heat, KPI and sort key), % difference from the previous fiscal year,
+ * % running total along Line, a distinct count of regions, and department subtotals at the bottom.
+ */
+export const planningCalcPivotSpec: PivotSpec = {
+  version: 1,
+  id: "planning-fy25-fy26-calc",
+  title: "Plan attainment by fiscal year",
+  subtitle: "Calculated measure · % difference from previous year · running total · distinct count",
+  rows: [
+    { field: "department", label: "Department", attributes: ["owner"], subtotal: "end" },
+    { field: "line", label: "Line", sortBy: { measure: "vsPlan", direction: "desc" } },
+  ],
+  columns: { field: "orderDate:year" },
+  measures: [
+    { id: "actual", field: "actual", label: "Actual", format: usdCompact },
+    { id: "plan", field: "plan", label: "Plan", format: usdCompact },
+    { id: "vsPlan", label: "vs Plan", calculate: "actual / plan - 1", format: { style: "percent", decimals: 1, signDisplay: "exceptZero" } },
+    {
+      id: "yoy",
+      field: "actual",
+      label: "YoY",
+      showAs: "percentDifferenceFrom",
+      showAsBase: { field: "orderDate:year", position: "previous" },
+      percentFormat: { style: "percent", decimals: 1, signDisplay: "exceptZero" },
+    },
+    {
+      id: "cumShare",
+      field: "actual",
+      label: "Cum %",
+      showAs: "percentRunningTotal",
+      showAsBase: { field: "line" },
+      percentFormat: { style: "percent", decimals: 0 },
+    },
+    { id: "regions", field: "region", label: "Regions", aggregate: "distinctCount" },
+  ],
+  values: ["actual", "vsPlan", "yoy", "cumShare", "regions"],
+  totals: { rowTotal: true, subtotalLabel: "{label} Total" },
+  expanded: [["Camp"], ["Packs"]],
+  heat: { measure: "vsPlan", scope: "column", applyTo: "leaf" },
+  headerCharts: { measure: "actual", type: "bar" },
+  kpis: [
+    { id: "vsPlan", label: "vs Plan", measure: "vsPlan" },
+    { id: "actual", label: "Actual", measure: "actual", compareTo: "plan" },
+    { id: "regions", label: "Regions", measure: "regions" },
+  ],
+  kpiLevels: [0],
+  fields: planningDateFieldCatalog,
+};

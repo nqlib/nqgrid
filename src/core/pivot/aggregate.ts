@@ -26,7 +26,8 @@ function sum(values: readonly number[]): number {
 
 /**
  * Aggregate `rows` for one measure. Empty input (no rows, or no numeric values) yields `null`,
- * except `count`, which yields `0` for an empty non-null bucket.
+ * except `count` / `distinctCount`, which yield `0` for an empty non-null bucket. `distinctCount`
+ * counts distinct non-blank keys (`String(value)`).
  */
 export function aggregatePivotRows(
   rows: readonly PivotDataRow[],
@@ -42,6 +43,16 @@ export function aggregatePivotRows(
       let c = 0;
       for (const r of rows) if (r[field] !== null && r[field] !== undefined && r[field] !== "") c++;
       return c;
+    }
+    if (agg === "distinctCount") {
+      if (!field) return rows.length;
+      const keys = new Set<string>();
+      for (const r of rows) {
+        const v = r[field];
+        if (v === null || v === undefined || v === "") continue;
+        keys.add(typeof v === "string" ? v : String(v));
+      }
+      return keys.size;
     }
     const values = field ? numbersOf(rows, field) : [];
     if (values.length === 0) return null;

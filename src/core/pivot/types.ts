@@ -81,9 +81,13 @@ export interface PivotDimension {
   /** Row dimensions only: keep the top / bottom `count` keys within each parent group. */
   readonly topN?: PivotTopNSpec;
   /**
-   * Column dimensions with an inner column field: where each group's subtotal column goes —
-   * `end` (default, after its children, like Excel), `start` or `none`. A collapsed group always
-   * shows its total column.
+   * Subtotals of this field's groups (every level but the innermost; ignored there).
+   *
+   * - Column dimensions: where each group's subtotal column goes — `end` (default, after its
+   *   children, like Excel), `start` or `none`. A collapsed group always shows its total column.
+   * - Row dimensions: `start` (default: the group row carries the subtotals, Excel's "at top"),
+   *   `end` (an extra `subtotal` row after the group's children; the expanded group row is blank)
+   *   or `none` (no subtotals while expanded). A collapsed group row always shows its totals.
    */
   readonly subtotal?: "end" | "start" | "none";
 }
@@ -205,7 +209,11 @@ export interface PivotFieldSpec {
   readonly dateGroups?: readonly PivotDateGroup[];
 }
 
-export type PivotBuiltInAggregate = "sum" | "avg" | "min" | "max" | "count" | "first" | "last";
+/**
+ * `distinctCount` counts distinct non-blank keys of `field` (compared as strings, like dimension
+ * keys); group and grand totals count distinct keys of all their records (not the sum of children).
+ */
+export type PivotBuiltInAggregate = "sum" | "avg" | "min" | "max" | "count" | "first" | "last" | "distinctCount";
 
 export type PivotAggregate =
   | PivotBuiltInAggregate
@@ -220,19 +228,52 @@ export type PivotAggregate =
   /** Looked up by name in `BuildPivotModelOptions.aggregators` (functions cannot cross JSON). */
   | { readonly type: "custom"; readonly name: string };
 
-/** Excel-style "Show values as". Percent results are ratios. */
+/**
+ * Excel-style "Show values as". Percent results are ratios. The last six need `showAsBase` (the
+ * field, and for differences the item, they are computed along); see "Show values as" in
+ * `docs/pivot-headless.md` for the edge cases.
+ */
 export type PivotShowAs =
   | "value"
   | "percentOfColumnTotal"
   | "percentOfParentRow"
   | "percentOfParentColumn"
   | "percentOfRowTotal"
-  | "percentOfGrandTotal";
+  | "percentOfGrandTotal"
+  | "differenceFrom"
+  | "percentDifferenceFrom"
+  | "runningTotal"
+  | "percentRunningTotal"
+  | "rankAscending"
+  | "rankDescending";
+
+/** `showAs` kinds that need `showAsBase`. */
+export type PivotShowAsWithBase = "differenceFrom" | "percentDifferenceFrom" | "runningTotal" | "percentRunningTotal" | "rankAscending" | "rankDescending";
+
+/**
+ * Base of `differenceFrom` / `percentDifferenceFrom` / `runningTotal` / `percentRunningTotal` /
+ * `rank*`: a row or column field, and for differences the base item — a key of that field
+ * (`item`), or the `previous` (default) / `next` sibling. Running totals and ranks use the field only.
+ */
+export interface PivotShowAsBase {
+  readonly field: string;
+  /** A key of `field` (e.g. `"2025"`); wins over `position`. */
+  readonly item?: string;
+  /** Default `previous`. */
+  readonly position?: "previous" | "next";
+}
 
 export interface PivotMeasure {
   readonly id: string;
-  /** Source field. Required except for `count`, `ratio` and `custom`. */
+  /** Source field. Required except for `count`, `ratio`, `custom` and calculated measures. */
   readonly field?: string;
+  /**
+   * Calculated measure (Excel's calculated field): an expression over other measure ids, e.g.
+   * `actual / plan - 1` or `[prior year] * 1.05`, evaluated per cell over the referenced measures'
+   * aggregated values (so totals are `sum(actual) / sum(plan) - 1`, not a sum of ratios). Excludes
+   * `field` / `aggregate`. Grammar, functions and null rules: `parsePivotCalc` / `compilePivotCalc`.
+   */
+  readonly calculate?: string;
   readonly label?: string;
   /** Default `sum`. */
   readonly aggregate?: PivotAggregate;
@@ -244,6 +285,8 @@ export interface PivotMeasure {
   readonly showAs?: PivotShowAs;
   /** Applied to group and grand-total rows (default: `showAs`). */
   readonly groupShowAs?: PivotShowAs;
+  /** Field / item the `differenceFrom`, `runningTotal` and `rank*` kinds of `showAs` / `groupShowAs` use. */
+  readonly showAsBase?: PivotShowAsBase;
 }
 
 export type PivotHeatScope = "all" | "column" | "row" | "group";
@@ -297,7 +340,10 @@ export interface PivotTotalsSpec {
   readonly rowTotal?: boolean;
   /** Default `Total`. */
   readonly rowTotalLabel?: string;
-  /** Label of column subtotals; `{label}` is the group label (default `{label} Total`). */
+  /**
+   * Label of column subtotals and of `subtotal: "end"` rows; `{label}` is the group label
+   * (default `{label} Total`).
+   */
   readonly subtotalLabel?: string;
 }
 
@@ -427,7 +473,11 @@ export interface PivotKpiValue {
 
 export interface PivotBodyRow {
   readonly id: string;
-  readonly kind: "group" | "leaf" | "grandTotal";
+  /**
+   * `subtotal` — the totals of an expanded group whose field has `subtotal: "end"`, after its
+   * children (same `depth` / `path` as the group, label `{label} Total`).
+   */
+  readonly kind: "group" | "leaf" | "grandTotal" | "subtotal";
   /** Row-dimension level (`-1` for the grand total). */
   readonly depth: number;
   readonly path: readonly string[];
@@ -443,6 +493,11 @@ export interface PivotBodyRow {
   readonly kpis?: readonly PivotKpiValue[];
   /** Present on the Top-N "Other" row: how many keys it folds together. */
   readonly otherCount?: number;
+  /**
+   * Present on an expanded group row whose subtotals are shown elsewhere (`end`) or not at all
+   * (`none`): its cells are blank.
+   */
+  readonly subtotal?: "end" | "none";
 }
 
 /** A row-dimension cell that covers `span` consecutive visible rows starting at `rowIndex`. */

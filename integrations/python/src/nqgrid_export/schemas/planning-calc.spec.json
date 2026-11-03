@@ -1,0 +1,255 @@
+{
+  "version": 1,
+  "id": "planning-fy25-fy26-calc",
+  "title": "Plan attainment by fiscal year",
+  "subtitle": "Calculated measure · % difference from previous year · running total · distinct count",
+  "rows": [
+    {
+      "field": "department",
+      "label": "Department",
+      "attributes": [
+        "owner"
+      ],
+      "subtotal": "end"
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "sortBy": {
+        "measure": "vsPlan",
+        "direction": "desc"
+      }
+    }
+  ],
+  "columns": {
+    "field": "orderDate:year"
+  },
+  "measures": [
+    {
+      "id": "actual",
+      "field": "actual",
+      "label": "Actual",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "plan",
+      "field": "plan",
+      "label": "Plan",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "vsPlan",
+      "label": "vs Plan",
+      "calculate": "actual / plan - 1",
+      "format": {
+        "style": "percent",
+        "decimals": 1,
+        "signDisplay": "exceptZero"
+      }
+    },
+    {
+      "id": "yoy",
+      "field": "actual",
+      "label": "YoY",
+      "showAs": "percentDifferenceFrom",
+      "showAsBase": {
+        "field": "orderDate:year",
+        "position": "previous"
+      },
+      "percentFormat": {
+        "style": "percent",
+        "decimals": 1,
+        "signDisplay": "exceptZero"
+      }
+    },
+    {
+      "id": "cumShare",
+      "field": "actual",
+      "label": "Cum %",
+      "showAs": "percentRunningTotal",
+      "showAsBase": {
+        "field": "line"
+      },
+      "percentFormat": {
+        "style": "percent",
+        "decimals": 0
+      }
+    },
+    {
+      "id": "regions",
+      "field": "region",
+      "label": "Regions",
+      "aggregate": "distinctCount"
+    }
+  ],
+  "values": [
+    "actual",
+    "vsPlan",
+    "yoy",
+    "cumShare",
+    "regions"
+  ],
+  "totals": {
+    "rowTotal": true,
+    "subtotalLabel": "{label} Total"
+  },
+  "expanded": [
+    [
+      "Camp"
+    ],
+    [
+      "Packs"
+    ]
+  ],
+  "heat": {
+    "measure": "vsPlan",
+    "scope": "column",
+    "applyTo": "leaf"
+  },
+  "headerCharts": {
+    "measure": "actual",
+    "type": "bar"
+  },
+  "kpis": [
+    {
+      "id": "vsPlan",
+      "label": "vs Plan",
+      "measure": "vsPlan"
+    },
+    {
+      "id": "actual",
+      "label": "Actual",
+      "measure": "actual",
+      "compareTo": "plan"
+    },
+    {
+      "id": "regions",
+      "label": "Regions",
+      "measure": "regions"
+    }
+  ],
+  "kpiLevels": [
+    0
+  ],
+  "fields": [
+    {
+      "field": "department",
+      "label": "Department",
+      "type": "dimension"
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "type": "dimension"
+    },
+    {
+      "field": "orderDate",
+      "label": "Order date",
+      "type": "date",
+      "fiscalYearStartMonth": 11,
+      "description": "Fiscal year starts in November"
+    },
+    {
+      "field": "month",
+      "label": "Fiscal month",
+      "type": "dimension",
+      "areas": [
+        "rows",
+        "columns",
+        "filters"
+      ]
+    },
+    {
+      "field": "fiscalYear",
+      "label": "Fiscal year",
+      "type": "dimension"
+    },
+    {
+      "field": "region",
+      "label": "Region",
+      "type": "dimension"
+    },
+    {
+      "field": "channel",
+      "label": "Channel",
+      "type": "dimension"
+    },
+    {
+      "field": "owner",
+      "label": "Owner",
+      "type": "text",
+      "areas": [
+        "rows",
+        "filters"
+      ],
+      "description": "Department owner"
+    },
+    {
+      "field": "actual",
+      "label": "Actual",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "plan",
+      "label": "Plan",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "forecast",
+      "label": "Forecast",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "outlook",
+      "label": "Outlook",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "priorYear",
+      "label": "Prior year",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "units",
+      "label": "Units",
+      "type": "measure",
+      "format": {
+        "decimals": 0,
+        "compact": true
+      }
+    }
+  ]
+}

@@ -5,10 +5,12 @@ Three layers, cheapest first:
 1. JSON Schema (``contract/pivot/v1/*.schema.json``, shipped in this package) — structure.
 2. Referential checks the schema cannot express (mirrors ``validatePivotSpec`` in nqgrid core):
    unknown measure ids in ``values`` / ``heat`` / ``headerCharts`` / ``kpis`` / ``sortBy`` / ``topN``,
-   ``sortBy`` / ``topN`` on column dimensions, ``subtotal`` on row dimensions, a field used twice across
-   ``rows`` and ``columns`` (a dimension or a list of dimensions), duplicate measure ids, facets and
-   catalogue fields, date-grouping entries (``source`` + ``dateGroup``), and custom aggregators (not
-   available in nqgrid-export).
+   ``sortBy`` / ``topN`` on column dimensions, a field used twice across ``rows`` and ``columns`` (a
+   dimension or a list of dimensions), duplicate measure ids, facets and catalogue fields, date-grouping
+   entries (``source`` + ``dateGroup``), calculated measures (expression grammar via
+   :mod:`nqgrid_export.calc`, unknown references, reference cycles), ``showAsBase`` (required by the
+   difference / running-total / rank kinds of ``showAs``, must name a row or column field), and custom
+   aggregators (not available in nqgrid-export).
 3. nqgrid-export itself (authoritative): ``NqgridInvalidInput.details``.
 
 Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
@@ -28,6 +30,8 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError, best_match
 from referencing import Registry, Resource
+
+from .calc import find_cycles, parse_calc
 
 PIVOT_SPEC_SCHEMA_ID = "https://github.com/nqlib/nqgrid/contract/pivot/v1/pivot-spec.schema.json"
 EXPORT_REQUEST_SCHEMA_ID = "https://github.com/nqlib/nqgrid/contract/pivot/v1/export-request.schema.json"
@@ -80,6 +84,22 @@ def dates_example_spec() -> dict[str, Any]:
 def multicol_example_spec() -> dict[str, Any]:
     """The golden ``planning-multicol.spec.json`` example (Region → Channel columns, subtotals, % of parent column)."""
     return _load("planning-multicol.spec.json")
+
+
+def calc_example_spec() -> dict[str, Any]:
+    """The golden ``planning-calc.spec.json`` example (calculated measure, % difference from previous year,
+    % running total, distinct count, department subtotals at the bottom)."""
+    return _load("planning-calc.spec.json")
+
+
+SHOW_AS_WITH_BASE = (
+    "differenceFrom",
+    "percentDifferenceFrom",
+    "runningTotal",
+    "percentRunningTotal",
+    "rankAscending",
+    "rankDescending",
+)
 
 
 DATE_GROUPS = ("year", "quarter", "month", "week", "day", "yearMonth", "yearQuarter")
@@ -141,7 +161,11 @@ def _message(error: ValidationError) -> str:
 
 
 def _schema_errors(validator: Draft202012Validator, instance: Any, prefix: str) -> list[str]:
-    errors = sorted(validator.iter_errors(instance), key=lambda e: [str(p) for p in e.absolute_path])
+    # A calculated measure with field / aggregate (dependentSchemas) gets a clearer referential message.
+    errors = sorted(
+        (e for e in validator.iter_errors(instance) if "dependentSchemas" not in e.absolute_schema_path),
+        key=lambda e: [str(p) for p in e.absolute_path],
+    )
     return [f"{_path(prefix, e)}: {_message(e)}" for e in errors]
 
 
@@ -181,8 +205,6 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
         for key in ("sortBy", "topN"):
             if isinstance(d.get(key), dict):
                 ref(d[key].get("measure"), f"rows[{i}].{key}.measure")
-        if "subtotal" in d:
-            errors.append(f"{prefix}rows[{i}].subtotal is only supported on column dimensions")
         if isinstance(d.get("field"), str):
             used.setdefault(d["field"], f"rows[{i}]")
     for where, d in column_dimensions(spec):
@@ -214,7 +236,60 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
                 errors.append(f"{prefix}fields[{i}]: source and dateGroup go together")
             if f.get("source") is not None and f.get("source") == f["field"]:
                 errors.append(f"{prefix}fields[{i}].source must differ from field")
+    errors += _measure_errors(spec, prefix, ids, set(used))
     return errors
+
+
+def _measure_errors(spec: dict[str, Any], prefix: str, ids: set[str], layout_fields: set[str]) -> list[str]:
+    """Calculated measures (grammar, references, cycles) and ``showAsBase``; same messages as nqgrid."""
+    errors: list[str] = []
+    refs: dict[str, list[str]] = {}
+    where_of: dict[str, str] = {}
+    for i, m in enumerate(spec.get("measures") or []):
+        if not isinstance(m, dict) or not isinstance(m.get("id"), str):
+            continue
+        where = f"{prefix}measures[{i}]"
+        needs_base = m.get("showAs") in SHOW_AS_WITH_BASE or m.get("groupShowAs") in SHOW_AS_WITH_BASE
+        base = m.get("showAsBase")
+        if base is None and needs_base:
+            errors.append(f"{where}.showAsBase is required by its showAs / groupShowAs")
+        elif isinstance(base, dict) and isinstance(base.get("field"), str) and base["field"] not in layout_fields:
+            errors.append(f'{where}.showAsBase.field "{base["field"]}" is not a row or column field')
+        if "calculate" not in m:
+            continue
+        if "field" in m or "aggregate" in m:
+            errors.append(f"{where}: calculate cannot be combined with field or aggregate")
+        parsed = parse_calc(m["calculate"], ids)
+        if parsed.error is not None:
+            errors.append(f"{where}.calculate: {parsed.error.message} (at {parsed.error.position})")
+            continue
+        refs[m["id"]] = list(parsed.references)
+        where_of.setdefault(m["id"], where)
+    for cycle in find_cycles(refs):
+        errors.append(f"{where_of.get(cycle[0], prefix + 'measures')}.calculate: reference cycle {' → '.join(cycle)}")
+    return errors
+
+
+def check_calculated_measure(spec: Mapping[str, Any], calculate: Any, measure_id: str | None = None) -> str | None:
+    """Problem with an expression for the calculated measure ``measure_id`` (new or existing) in ``spec``,
+    or ``None`` when valid. Mirrors ``checkPivotCalculatedMeasure`` (grammar, known measures, cycles incl. itself)."""
+    measures = [m for m in spec.get("measures") or [] if isinstance(m, dict) and isinstance(m.get("id"), str)]
+    ids = {m["id"] for m in measures} | ({measure_id} if measure_id is not None else set())
+    parsed = parse_calc(calculate, ids)
+    if parsed.error is not None:
+        return str(parsed.error)
+    if measure_id is None:
+        return None
+    refs = {
+        m["id"]: list(p.references)
+        for m in measures
+        if m["id"] != measure_id and "calculate" in m
+        for p in [parse_calc(m["calculate"])]
+        if p.error is None
+    }
+    refs[measure_id] = list(parsed.references)
+    cycle = next((c for c in find_cycles(refs) if measure_id in c), None)
+    return f"reference cycle {' → '.join(cycle)}" if cycle else None
 
 
 def validate_pivot_spec(spec: Any, *, prefix: str = "") -> list[str]:
