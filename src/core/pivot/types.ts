@@ -133,6 +133,35 @@ export interface PivotFilter {
 /** A slicer-ready field: `field`, or `{ field, label }`. */
 export type PivotFacetSpec = string | { readonly field: string; readonly label?: string };
 
+/**
+ * Kind of a record field in the field catalogue (field list):
+ * `dimension` (categorical keys), `text` (free text, e.g. ids / notes), `date`, `number` (numeric
+ * values that can also be keys, e.g. a year) and `measure` (numeric, aggregated in Values only).
+ */
+export type PivotFieldType = "dimension" | "measure" | "date" | "number" | "text";
+
+/** Layout areas of the field list (Excel's Filters / Columns / Rows / Values). */
+export type PivotFieldArea = "rows" | "columns" | "values" | "filters";
+
+/**
+ * One entry of the field catalogue (`spec.fields`), used by the field list and the move helpers
+ * (`movePivotField`, …). Metadata only: it does not change the computed model.
+ */
+export interface PivotFieldSpec {
+  readonly field: string;
+  readonly label?: string;
+  /** Default: inferred from the rows (`inferPivotFields`), else `dimension`. */
+  readonly type?: PivotFieldType;
+  /** Areas the field may be placed in. Default: `["values"]` for measures, every area otherwise. */
+  readonly areas?: readonly PivotFieldArea[];
+  /** Aggregate of a measure created by dropping the field into Values (default `sum` for numeric types, else `count`). */
+  readonly aggregate?: PivotBuiltInAggregate;
+  /** Format of a measure created from this field (not applied to `count`). */
+  readonly format?: PivotNumberFormat;
+  /** Shown as a tooltip in the field list and to agents (MCP `describe_pivot_spec`). */
+  readonly description?: string;
+}
+
 export type PivotBuiltInAggregate = "sum" | "avg" | "min" | "max" | "count" | "first" | "last";
 
 export type PivotAggregate =
@@ -250,6 +279,19 @@ export interface PivotSpec {
   readonly filters?: readonly PivotFilter[];
   /** Fields to return as `model.facets` (distinct values, counts, selection) for slicers / filter menus. */
   readonly facets?: readonly PivotFacetSpec[];
+  /**
+   * Field catalogue for the field list: labels, types and allowed areas, in display order.
+   * Optional (inferred from the rows when absent, see `resolvePivotFields`); never changes the model.
+   */
+  readonly fields?: readonly PivotFieldSpec[];
+  /** Field labels for the field list (`{ "priorYear": "Prior year" }`); win over `fields[].label`. */
+  readonly fieldLabels?: Readonly<Record<string, string>>;
+  /**
+   * Position of the "Σ Values" pseudo-field among the column fields when there are several value
+   * measures: `0` puts measures outermost (`Actual › Nov`), the default (= number of column
+   * fields) innermost (`Nov › Actual`), like Excel's Σ Values chip in the Columns area.
+   */
+  readonly valuesIndex?: number;
 }
 
 // ---------------------------------------------------------------------------

@@ -326,6 +326,73 @@ export const pivotHeaderMenuClass = "nqg-pivot-header-menu relative inline-flex"
 export const pivotHeaderMenuPanelClass =
   "nqg-pivot-header-menu-panel absolute left-0 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg normal-case tracking-normal font-normal";
 
+// ---------------------------------------------------------------------------
+// Pivot field list + drag-and-drop (`PivotFieldList`, `startPivotFieldDrag`)
+// State is exposed as data attributes: `data-nqg-drop-active` / `data-nqg-drop-invalid` on a zone
+// under the pointer, `data-nqg-dragging` on the chip being dragged, `data-nqg-kb-dragging` during a
+// keyboard move.
+// ---------------------------------------------------------------------------
+
+/** Field list root (a vertical panel). */
+export const pivotFieldListClass =
+  "nqg-pivot-fields flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-3 text-sm text-foreground";
+
+export const pivotFieldListHeaderClass = "nqg-pivot-fields-header flex items-center justify-between gap-2";
+
+export const pivotFieldListTitleClass = "nqg-pivot-fields-title truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground";
+
+/** Searchable field checklist (scrolls; drop target "unused" = remove). */
+export const pivotFieldListCatalogClass =
+  "nqg-pivot-fields-catalog m-0 flex max-h-56 list-none flex-col overflow-y-auto rounded-md border border-border/70 bg-background p-1 transition-colors data-[nqg-drop-active]:border-destructive/60 data-[nqg-drop-active]:bg-destructive/5";
+
+export const pivotFieldListFieldClass =
+  "nqg-pivot-fields-field flex min-h-7 cursor-grab select-none items-center gap-2 rounded-sm px-1.5 text-xs hover:bg-accent data-[nqg-dragging]:opacity-50";
+
+export const pivotFieldListFieldTypeClass =
+  "nqg-pivot-fields-type inline-flex h-4 min-w-5 shrink-0 items-center justify-center rounded-sm bg-muted px-1 font-mono text-[9px] font-semibold text-muted-foreground";
+
+export const pivotFieldListHintClass = "nqg-pivot-fields-hint text-[11px] text-muted-foreground";
+
+/** Grid of the four areas (Filters, Columns / Rows, Values). */
+export const pivotFieldListAreasClass = "nqg-pivot-fields-areas grid grid-cols-2 gap-2";
+
+export const pivotFieldListAreaClass = "nqg-pivot-fields-area flex min-w-0 flex-col gap-1";
+
+export const pivotFieldListAreaTitleClass =
+  "nqg-pivot-fields-area-title flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
+
+/** One drop zone (chip list). */
+export const pivotFieldListZoneClass =
+  "nqg-pivot-fields-zone m-0 flex min-h-20 max-h-44 list-none flex-col gap-1 overflow-y-auto rounded-md border border-dashed border-border bg-muted/30 p-1 transition-colors data-[nqg-drop-active]:border-primary data-[nqg-drop-active]:bg-primary/5 data-[nqg-drop-invalid]:border-destructive/50 data-[nqg-kb-target]:border-primary";
+
+export const pivotFieldListEmptyClass = "nqg-pivot-fields-empty flex flex-1 items-center justify-center px-2 py-3 text-center text-[11px] text-muted-foreground/80";
+
+/** A field chip in a zone. */
+export const pivotFieldChipClass =
+  "nqg-pivot-chip group flex h-7 min-w-0 shrink-0 items-center gap-1 rounded-md border border-border bg-card pl-1 pr-0.5 text-xs shadow-xs transition-[opacity,box-shadow] data-[nqg-dragging]:opacity-40 data-[nqg-kb-dragging]:border-primary data-[nqg-kb-dragging]:ring-2 data-[nqg-kb-dragging]:ring-ring/50";
+
+/** Chip label button (drag handle; Space / Enter picks it up). */
+export const pivotFieldChipLabelClass =
+  "nqg-pivot-chip-label flex min-w-0 flex-1 cursor-grab items-center gap-1 truncate rounded-sm border-0 bg-transparent px-1 py-0.5 text-left text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+export const pivotFieldChipValuesClass = "nqg-pivot-chip-values border-primary/40 bg-primary/5 font-medium";
+
+/** Keyboard-move insertion line inside a zone. */
+export const pivotFieldListKbIndicatorClass = "nqg-pivot-fields-kb-indicator h-0.5 shrink-0 rounded-full bg-primary";
+
+/** Chip settings / filter panel, rendered in flow under the areas (no portal). */
+export const pivotFieldListPanelClass =
+  "nqg-pivot-fields-panel flex flex-col gap-2 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-sm";
+
+export const pivotFieldListFooterClass = "nqg-pivot-fields-footer flex items-center justify-between gap-2 border-t border-border/70 pt-2";
+
+/** Pointer-drag preview (appended to `document.body` during a drag). */
+export const pivotDragPreviewClass =
+  "nqg-pivot-drag-preview inline-flex h-7 max-w-56 items-center truncate rounded-md border border-primary/50 bg-popover px-2 text-xs font-medium text-popover-foreground shadow-lg";
+
+/** Pointer-drag insertion indicator (appended to `document.body` during a drag). */
+export const pivotDropIndicatorClass = "nqg-pivot-drop-indicator rounded-full bg-primary";
+
 /** Default heat hue; `--nqg-heat-color` overrides it, `--nqg-heat-N` overrides one level. */
 export const PIVOT_HEAT_BASE_COLOR = "#ef6a24";
 

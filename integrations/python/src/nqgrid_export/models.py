@@ -180,6 +180,32 @@ class FacetWithLabel(BaseModel):
     label: str | None = None
 
 
+class PivotFieldSpec(BaseModel):
+    """
+    One field catalogue entry (field list metadata).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    label: str | None = None
+    type: Literal["dimension", "measure", "date", "number", "text"] | None = None
+    """
+    dimension = categorical keys, text = free text, date, number = numeric values that can also be keys, measure = numeric, aggregated in Values only.
+    """
+    areas: list[Literal["rows", "columns", "values", "filters"]] | None = None
+    """
+    Areas the field may be placed in (default: values for measures, every area otherwise).
+    """
+    aggregate: Literal["sum", "avg", "min", "max", "count", "first", "last"] | None = None
+    """
+    Aggregate of a measure created by dropping the field into Values (default sum for numeric types, else count).
+    """
+    format: NumberFormat | None = None
+    description: str | None = None
+
+
 class PositiveNumber(RootModel[float]):
     root: Annotated[float, Field(gt=0.0)]
 
@@ -321,7 +347,7 @@ class Options(BaseModel):
 
 class PivotSpec(BaseModel):
     """
-    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, unique facets) are done by validatePivotSpec().
+    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, unique facets and fields) are done by validatePivotSpec().
     """
 
     model_config = ConfigDict(
@@ -349,6 +375,18 @@ class PivotSpec(BaseModel):
     facets: list[FacetField | FacetWithLabel] | None = None
     """
     Fields returned as model.facets (distinct values with cross-filtered counts and selection) for slicers and filter menus.
+    """
+    fields: list[PivotFieldSpec] | None = None
+    """
+    Field catalogue for the field list (labels, types, allowed areas), in display order. Metadata only: it never changes the computed model. Inferred from the rows when absent.
+    """
+    fieldLabels: dict[str, str] | None = None
+    """
+    Field labels for the field list, e.g. {"priorYear": "Prior year"}; win over fields[].label.
+    """
+    valuesIndex: Annotated[int | None, Field(ge=0)] = None
+    """
+    Position of the "Σ Values" pseudo-field among the column fields when there are several value measures: 0 = measures outermost (Actual › Nov); default (= number of column fields) = innermost (Nov › Actual).
     """
 
 

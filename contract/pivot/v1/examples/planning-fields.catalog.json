@@ -1,0 +1,574 @@
+{
+  "inferred": [
+    {
+      "field": "department",
+      "label": "Department",
+      "type": "dimension"
+    },
+    {
+      "field": "owner",
+      "label": "Owner",
+      "type": "dimension"
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "type": "dimension"
+    },
+    {
+      "field": "month",
+      "label": "Month",
+      "type": "dimension"
+    },
+    {
+      "field": "actual",
+      "label": "Actual",
+      "type": "measure"
+    },
+    {
+      "field": "plan",
+      "label": "Plan",
+      "type": "measure"
+    },
+    {
+      "field": "forecast",
+      "label": "Forecast",
+      "type": "measure"
+    },
+    {
+      "field": "outlook",
+      "label": "Outlook",
+      "type": "measure"
+    },
+    {
+      "field": "priorYear",
+      "label": "Prior Year",
+      "type": "measure"
+    },
+    {
+      "field": "region",
+      "label": "Region",
+      "type": "dimension"
+    },
+    {
+      "field": "channel",
+      "label": "Channel",
+      "type": "dimension"
+    },
+    {
+      "field": "units",
+      "label": "Units",
+      "type": "measure"
+    }
+  ],
+  "resolved": [
+    {
+      "field": "department",
+      "label": "Department",
+      "type": "dimension",
+      "areas": [
+        "rows",
+        "columns",
+        "filters",
+        "values"
+      ],
+      "aggregate": "count"
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "type": "dimension",
+      "areas": [
+        "rows",
+        "columns",
+        "filters",
+        "values"
+      ],
+      "aggregate": "count"
+    },
+    {
+      "field": "month",
+      "label": "Month",
+      "type": "date",
+      "areas": [
+        "rows",
+        "columns",
+        "filters"
+      ],
+      "aggregate": "count"
+    },
+    {
+      "field": "region",
+      "label": "Region",
+      "type": "dimension",
+      "areas": [
+        "rows",
+        "columns",
+        "filters",
+        "values"
+      ],
+      "aggregate": "count"
+    },
+    {
+      "field": "channel",
+      "label": "Channel",
+      "type": "dimension",
+      "areas": [
+        "rows",
+        "columns",
+        "filters",
+        "values"
+      ],
+      "aggregate": "count"
+    },
+    {
+      "field": "owner",
+      "label": "Owner",
+      "type": "text",
+      "areas": [
+        "rows",
+        "filters"
+      ],
+      "aggregate": "count",
+      "description": "Department owner"
+    },
+    {
+      "field": "actual",
+      "label": "Actual",
+      "type": "measure",
+      "areas": [
+        "values"
+      ],
+      "aggregate": "sum",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "plan",
+      "label": "Plan",
+      "type": "measure",
+      "areas": [
+        "values"
+      ],
+      "aggregate": "sum",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "forecast",
+      "label": "Forecast",
+      "type": "measure",
+      "areas": [
+        "values"
+      ],
+      "aggregate": "sum",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "outlook",
+      "label": "Outlook",
+      "type": "measure",
+      "areas": [
+        "values"
+      ],
+      "aggregate": "sum",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "priorYear",
+      "label": "Prior year",
+      "type": "measure",
+      "areas": [
+        "values"
+      ],
+      "aggregate": "sum",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "units",
+      "label": "Units",
+      "type": "measure",
+      "areas": [
+        "values"
+      ],
+      "aggregate": "sum",
+      "format": {
+        "decimals": 0,
+        "compact": true
+      }
+    }
+  ],
+  "state": {
+    "fields": [
+      {
+        "field": "department",
+        "label": "Department",
+        "type": "dimension",
+        "areas": [
+          "rows",
+          "columns",
+          "filters",
+          "values"
+        ],
+        "aggregate": "count",
+        "usedIn": [
+          "rows"
+        ],
+        "checked": true
+      },
+      {
+        "field": "line",
+        "label": "Line",
+        "type": "dimension",
+        "areas": [
+          "rows",
+          "columns",
+          "filters",
+          "values"
+        ],
+        "aggregate": "count",
+        "usedIn": [
+          "rows"
+        ],
+        "checked": true
+      },
+      {
+        "field": "month",
+        "label": "Month",
+        "type": "date",
+        "areas": [
+          "rows",
+          "columns",
+          "filters"
+        ],
+        "aggregate": "count",
+        "usedIn": [
+          "columns"
+        ],
+        "checked": true
+      },
+      {
+        "field": "region",
+        "label": "Region",
+        "type": "dimension",
+        "areas": [
+          "rows",
+          "columns",
+          "filters",
+          "values"
+        ],
+        "aggregate": "count",
+        "usedIn": [
+          "filters"
+        ],
+        "checked": true
+      },
+      {
+        "field": "channel",
+        "label": "Channel",
+        "type": "dimension",
+        "areas": [
+          "rows",
+          "columns",
+          "filters",
+          "values"
+        ],
+        "aggregate": "count",
+        "usedIn": [
+          "rows"
+        ],
+        "checked": true
+      },
+      {
+        "field": "owner",
+        "label": "Owner",
+        "type": "text",
+        "areas": [
+          "rows",
+          "filters"
+        ],
+        "aggregate": "count",
+        "description": "Department owner",
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "actual",
+        "label": "Actual",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [
+          "values"
+        ],
+        "checked": true
+      },
+      {
+        "field": "plan",
+        "label": "Plan",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "forecast",
+        "label": "Forecast",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "outlook",
+        "label": "Outlook",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "priorYear",
+        "label": "Prior year",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "units",
+        "label": "Units",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "decimals": 0,
+          "compact": true
+        },
+        "usedIn": [
+          "values"
+        ],
+        "checked": true
+      }
+    ],
+    "calculated": [
+      {
+        "id": "growth",
+        "label": "Growth on FY25",
+        "inValues": false
+      }
+    ],
+    "filters": [
+      {
+        "key": "filters:region",
+        "area": "filters",
+        "field": "region",
+        "sourceField": "region",
+        "label": "Region",
+        "type": "dimension",
+        "filtered": true
+      }
+    ],
+    "columns": [
+      {
+        "key": "columns:Σ",
+        "area": "columns",
+        "field": "\u0000values",
+        "label": "Σ Values",
+        "isValues": true
+      },
+      {
+        "key": "columns:month",
+        "area": "columns",
+        "field": "month",
+        "sourceField": "month",
+        "label": "Month",
+        "type": "date"
+      }
+    ],
+    "rows": [
+      {
+        "key": "rows:department",
+        "area": "rows",
+        "field": "department",
+        "sourceField": "department",
+        "label": "Department",
+        "type": "dimension"
+      },
+      {
+        "key": "rows:channel",
+        "area": "rows",
+        "field": "channel",
+        "sourceField": "channel",
+        "label": "Channel",
+        "type": "dimension"
+      },
+      {
+        "key": "rows:line",
+        "area": "rows",
+        "field": "line",
+        "sourceField": "line",
+        "label": "Line",
+        "type": "dimension"
+      }
+    ],
+    "values": [
+      {
+        "key": "values:actual",
+        "area": "values",
+        "field": "actual",
+        "label": "Actual",
+        "sourceField": "actual",
+        "type": "measure",
+        "aggregate": "sum"
+      },
+      {
+        "key": "values:units",
+        "area": "values",
+        "field": "units",
+        "label": "Units",
+        "sourceField": "units",
+        "type": "measure",
+        "aggregate": "sum"
+      }
+    ],
+    "unused": [
+      {
+        "field": "owner",
+        "label": "Owner",
+        "type": "text",
+        "areas": [
+          "rows",
+          "filters"
+        ],
+        "aggregate": "count",
+        "description": "Department owner",
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "plan",
+        "label": "Plan",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "forecast",
+        "label": "Forecast",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "outlook",
+        "label": "Outlook",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      },
+      {
+        "field": "priorYear",
+        "label": "Prior year",
+        "type": "measure",
+        "areas": [
+          "values"
+        ],
+        "aggregate": "sum",
+        "format": {
+          "style": "currency",
+          "currency": "USD",
+          "compact": true
+        },
+        "usedIn": [],
+        "checked": false
+      }
+    ]
+  }
+}

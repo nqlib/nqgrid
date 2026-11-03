@@ -5,8 +5,8 @@ Three layers, cheapest first:
 1. JSON Schema (``contract/pivot/v1/*.schema.json``, shipped in this package) — structure.
 2. Referential checks the schema cannot express (mirrors ``validatePivotSpec`` in nqgrid core):
    unknown measure ids in ``values`` / ``heat`` / ``headerCharts`` / ``kpis`` / ``sortBy`` / ``topN``,
-   ``sortBy`` / ``topN`` on the column dimension, duplicate measure ids and facets, and custom
-   aggregators (not available in nqgrid-export).
+   ``sortBy`` / ``topN`` on the column dimension, duplicate measure ids, facets and catalogue fields,
+   and custom aggregators (not available in nqgrid-export).
 3. nqgrid-export itself (authoritative): ``NqgridInvalidInput.details``.
 
 Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
@@ -14,7 +14,11 @@ Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
+import math
+import re
+from collections.abc import Mapping, Sequence
 from functools import cache
 from importlib.resources import files
 from typing import Any
@@ -59,6 +63,11 @@ def example_spec() -> dict[str, Any]:
 def filtered_example_spec() -> dict[str, Any]:
     """The golden ``planning-filtered.spec.json`` example (filters, label filter, Top N + Other, sortBy, facets)."""
     return _load("planning-filtered.spec.json")
+
+
+def fields_example_spec() -> dict[str, Any]:
+    """The golden ``planning-fields.spec.json`` example (field catalogue, Σ Values outermost, report filter)."""
+    return _load("planning-fields.spec.json")
 
 
 @cache
@@ -144,6 +153,12 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
             if field in seen:
                 errors.append(f"{prefix}facets[{i}] {field!r} is duplicated")
             seen.add(field)
+    catalogued: set[str] = set()
+    for i, f in enumerate(spec.get("fields") or []):
+        if isinstance(f, dict) and isinstance(f.get("field"), str):
+            if f["field"] in catalogued:
+                errors.append(f"{prefix}fields[{i}] {f['field']!r} is duplicated")
+            catalogued.add(f["field"])
     return errors
 
 
@@ -218,3 +233,73 @@ def check_fields(spec: dict[str, Any], rows: list[dict[str, Any]], *, sample: in
         for where, field in spec_fields(spec)
         if field not in present
     ]
+
+
+# ---------------------------------------------------------------------------------------------
+# Field catalogue (mirrors inferPivotFields / humanizePivotField in nqgrid core)
+# ---------------------------------------------------------------------------------------------
+
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$")
+
+
+def humanize_pivot_field(field: str) -> str:
+    """``priorYear`` → ``Prior Year``, ``unit_price`` → ``Unit Price`` (same as ``humanizePivotField``)."""
+    text = re.sub(r"[_\-.]+", " ", field)
+    text = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text).strip()
+    words = [w[0].upper() + w[1:] for w in text.split() if w]
+    return " ".join(words) or field
+
+
+def _key(value: Any) -> str:
+    """JS ``String(value)`` for the values JSON can carry (``2.0`` → ``"2"``, ``True`` → ``"true"``)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, (_dt.date, _dt.datetime)):
+        return value.isoformat()
+    return str(value)
+
+
+def infer_pivot_fields(rows: Sequence[Mapping[str, Any]], *, sample: int = 500) -> list[dict[str, Any]]:
+    """Sample-based field catalogue ``[{"field", "label", "type"}]``, identical to nqgrid's ``inferPivotFields``.
+
+    Types: ``measure`` (numbers), ``number`` (integers with ≤ 12 distinct values, e.g. a year), ``date``
+    (dates or ISO-8601 strings), ``text`` (> 50 distinct, mostly unique strings), else ``dimension``.
+    ``sample`` records are read, spread evenly over ``rows``.
+    """
+    sample = max(1, int(sample))
+    n = len(rows)
+    step = 1.0 if n <= sample else n / sample
+    stats: dict[str, dict[str, Any]] = {}
+    s = 0
+    i = 0
+    while i < n and s < sample:
+        for field, v in rows[i].items():
+            st = stats.setdefault(field, {"values": 0, "numbers": 0, "integers": 0, "dates": 0, "distinct": set()})
+            if v is None or v == "":
+                continue
+            st["values"] += 1
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                if math.isfinite(v):
+                    st["numbers"] += 1
+                    if float(v).is_integer():
+                        st["integers"] += 1
+            elif isinstance(v, (_dt.date, _dt.datetime)) or (isinstance(v, str) and _ISO_DATE.match(v)):
+                st["dates"] += 1
+            if len(st["distinct"]) <= 1000:
+                st["distinct"].add(_key(v))
+        s += 1
+        i = math.floor(s * step)
+    out: list[dict[str, Any]] = []
+    for field, st in stats.items():
+        values, distinct = st["values"], len(st["distinct"])
+        kind = "dimension"
+        if values > 0 and st["numbers"] == values:
+            kind = "number" if st["integers"] == values and distinct <= 12 and values >= 2 * distinct else "measure"
+        elif values > 0 and st["dates"] == values:
+            kind = "date"
+        elif distinct > 50 and distinct > values / 2:
+            kind = "text"
+        out.append({"field": field, "label": humanize_pivot_field(field), "type": kind})
+    return out

@@ -1,5 +1,14 @@
 import type { PivotAggregatorRegistry } from "./aggregate";
-import { buildPivotCube, PIVOT_OTHER_KEY, pivotFacetField, pivotSpecDataKey, type PivotCube, type PivotCubeNode } from "./cube";
+import {
+  buildPivotCube,
+  computePivotFacet,
+  PIVOT_OTHER_KEY,
+  pivotFacetField,
+  pivotSpecDataKey,
+  type PivotCube,
+  type PivotCubeFacet,
+  type PivotCubeNode,
+} from "./cube";
 import { createPivotRowEncoding, type PivotRowEncoding } from "./encode";
 import { describePivotFilter, isPivotFilterActive } from "./filter";
 import {
@@ -18,6 +27,7 @@ import {
   type PivotDataRow,
   type PivotDimension,
   type PivotFacet,
+  type PivotFacetSpec,
   type PivotHeaderCell,
   type PivotHeaderSeries,
   type PivotKey,
@@ -140,6 +150,8 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
 
   // ---- Columns + header rows ----------------------------------------------
   const multi = valueMeasures.length > 1;
+  /** Σ Values before the column field (`valuesIndex: 0`): measures outermost, months inside. */
+  const valuesOuter = colDim !== null && multi && spec.valuesIndex === 0;
   /** With a column dimension, `columnKey === null` marks a row-total column. */
   const isRowTotalColumn = (c: PivotValueColumn) => colDim !== null && c.columnKey === null;
   const makeColumn = (columnKey: string | null, columnLabel: string | null, m: PivotMeasure, isRowTotal: boolean) => {
@@ -152,7 +164,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       columnLabel: isRowTotal ? rowTotalLabel : columnLabel,
       measureId: m.id,
       measureLabel: measureLabel(m),
-      headerPath: top === null ? [measureLabel(m)] : multi ? [top, measureLabel(m)] : [top],
+      headerPath: top === null ? [measureLabel(m)] : !multi ? [top] : valuesOuter && !isRowTotal ? [measureLabel(m), top] : [top, measureLabel(m)],
       format,
       percentFormat,
       excelNumFmt: toExcelNumFmt(format),
@@ -163,7 +175,8 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
 
   const columns: PivotValueColumn[] = [];
   if (colDim) {
-    for (const ck of columnKeys) for (const m of valueMeasures) columns.push(makeColumn(ck.key, ck.label, m, false));
+    if (valuesOuter) for (const m of valueMeasures) for (const ck of columnKeys) columns.push(makeColumn(ck.key, ck.label, m, false));
+    else for (const ck of columnKeys) for (const m of valueMeasures) columns.push(makeColumn(ck.key, ck.label, m, false));
     if (totals.rowTotal) for (const m of valueMeasures) columns.push(makeColumn(null, null, m, true));
   } else {
     for (const m of valueMeasures) columns.push(makeColumn(null, null, m, false));
@@ -171,7 +184,18 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const columnMeasures = columns.map((c) => measureOf(c.measureId));
 
   const headerRows: PivotHeaderCell[][] = [];
-  if (colDim && multi) {
+  if (valuesOuter) {
+    const top: PivotHeaderCell[] = valueMeasures.map((m) => ({ label: measureLabel(m), colSpan: columnKeys.length, measureId: m.id }));
+    if (totals.rowTotal) top.push({ label: rowTotalLabel, colSpan: valueMeasures.length, columnKey: null });
+    headerRows.push(top.filter((h) => h.colSpan > 0));
+    headerRows.push(
+      columns.map((c) =>
+        c.columnKey === null
+          ? { label: c.measureLabel, colSpan: 1, columnKey: null, measureId: c.measureId }
+          : { label: c.columnLabel!, colSpan: 1, columnKey: c.columnKey, measureId: c.measureId },
+      ),
+    );
+  } else if (colDim && multi) {
     const top: PivotHeaderCell[] = columnKeys.map((ck) => ({ label: ck.label, colSpan: valueMeasures.length, columnKey: ck.key }));
     if (totals.rowTotal) top.push({ label: rowTotalLabel, colSpan: valueMeasures.length, columnKey: null });
     headerRows.push(top);
@@ -389,26 +413,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(d.topN ? { topN: d.topN } : {}),
     ...(filteredFields.has(d.field) ? { filtered: true as const } : {}),
   }));
-  const facets: PivotFacet[] | null = spec.facets?.length
-    ? cube.facets.map((f, i) => {
-        const facetSpec = spec.facets![i]!;
-        const label = typeof facetSpec !== "string" && facetSpec.label ? facetSpec.label : pivotFieldLabel(spec, pivotFacetField(facetSpec));
-        const keyLabel = keyLabeler(spec, f.field);
-        return {
-          field: f.field,
-          label,
-          filtered: f.selected !== null,
-          values: f.keys.map((key, j) => ({
-            key,
-            label: keyLabel(key),
-            count: f.counts[j]!,
-            total: f.totals[j]!,
-            hasData: f.counts[j]! > 0,
-            selected: f.selected ? f.selected[j]! : true,
-          })),
-        };
-      })
-    : null;
+  const facets: PivotFacet[] | null = spec.facets?.length ? cube.facets.map((f, i) => toPivotFacet(spec, f, spec.facets![i]!)) : null;
   const anyFilter = filteredFields.size > 0 || dims.some((d) => d.topN);
 
   return {
@@ -434,10 +439,46 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   };
 }
 
+function toPivotFacet(spec: PivotSpec, f: PivotCubeFacet, facetSpec: PivotFacetSpec): PivotFacet {
+  const label = typeof facetSpec !== "string" && facetSpec.label ? facetSpec.label : pivotFieldLabel(spec, pivotFacetField(facetSpec));
+  const keyLabel = keyLabeler(spec, f.field);
+  return {
+    field: f.field,
+    label,
+    filtered: f.selected !== null,
+    values: f.keys.map((key, j) => ({
+      key,
+      label: keyLabel(key),
+      count: f.counts[j]!,
+      total: f.totals[j]!,
+      hasData: f.counts[j]! > 0,
+      selected: f.selected ? f.selected[j]! : true,
+    })),
+  };
+}
+
+/**
+ * The `PivotFacet` of any field (as if it were listed in `spec.facets`), computed on demand with
+ * one filter pass and no aggregation. Used by filter menus for fields that are not facets.
+ */
+export function buildPivotFacet(
+  spec: PivotSpec,
+  rows: readonly PivotDataRow[],
+  field: string,
+  options: { readonly encoding?: PivotRowEncoding; readonly label?: string } = {},
+): PivotFacet {
+  return toPivotFacet(spec, computePivotFacet(spec, rows, field, options), options.label ? { field, label: options.label } : field);
+}
+
 /** Memoizing `buildPivotModel` (see `createPivotModelBuilder`). */
 export interface PivotModelBuilder {
   /** Same result as `buildPivotModel(spec, rows, options)`. */
   build(spec: PivotSpec, rows: readonly PivotDataRow[], options?: BuildPivotModelOptions): PivotModel;
+  /**
+   * `model.facets` entry for `field` when `spec` lists it, else `buildPivotFacet` on the cached
+   * encoding (memoized per spec object and field).
+   */
+  facet(spec: PivotSpec, rows: readonly PivotDataRow[], field: string): PivotFacet;
   /** Drop every cached encoding, cube and model. */
   clear(): void;
 }
@@ -459,12 +500,22 @@ export function createPivotModelBuilder(options: { readonly maxCubes?: number } 
   let cubeAggregators: PivotAggregatorRegistry | undefined;
   const cubes = new Map<string, PivotCube>();
   let last: { spec: PivotSpec; cube: PivotCube; model: PivotModel } | null = null;
+  let facetCache: { spec: PivotSpec; byField: Map<string, PivotFacet> } | null = null;
+  const encode = (rows: readonly PivotDataRow[]): PivotRowEncoding => {
+    if (!encoding || encoding.rows !== rows) {
+      encoding = createPivotRowEncoding(rows);
+      cubes.clear();
+      last = null;
+      facetCache = null;
+    }
+    return encoding;
+  };
 
   return {
     build(specInput, rows, buildOptions = {}) {
       const spec = buildOptions.validate === false ? specInput : assertPivotSpec(specInput);
-      if (!encoding || encoding.rows !== rows || cubeAggregators !== buildOptions.aggregators) {
-        if (!encoding || encoding.rows !== rows) encoding = createPivotRowEncoding(rows);
+      const enc = encode(rows);
+      if (cubeAggregators !== buildOptions.aggregators) {
         cubeAggregators = buildOptions.aggregators;
         cubes.clear();
         last = null;
@@ -474,7 +525,7 @@ export function createPivotModelBuilder(options: { readonly maxCubes?: number } 
       if (cube) {
         cubes.delete(key);
       } else {
-        cube = buildPivotCube(spec, rows, { aggregators: buildOptions.aggregators, encoding });
+        cube = buildPivotCube(spec, rows, { aggregators: buildOptions.aggregators, encoding: enc });
         if (cubes.size >= maxCubes) cubes.delete(cubes.keys().next().value!);
       }
       cubes.set(key, cube);
@@ -483,10 +534,22 @@ export function createPivotModelBuilder(options: { readonly maxCubes?: number } 
       last = { spec, cube, model };
       return model;
     },
+    facet(spec, rows, field) {
+      const enc = encode(rows);
+      if (last && last.spec === spec) {
+        const hit = last.model.facets?.find((f) => f.field === field);
+        if (hit) return hit;
+      }
+      if (!facetCache || facetCache.spec !== spec) facetCache = { spec, byField: new Map() };
+      let facet = facetCache.byField.get(field);
+      if (!facet) facetCache.byField.set(field, (facet = buildPivotFacet(spec, rows, field, { encoding: enc })));
+      return facet;
+    },
     clear() {
       encoding = null;
       cubes.clear();
       last = null;
+      facetCache = null;
     },
   };
 }

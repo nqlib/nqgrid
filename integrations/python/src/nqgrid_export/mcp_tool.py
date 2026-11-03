@@ -1,8 +1,10 @@
 """Reference MCP server: let an agent export a pivot as PDF / XLSX and email it.
 
 Tools
-    ``describe_pivot_spec()``  JSON Schema + authoring guide + example (+ the datasets, if the row
-                               provider lists them) so the agent can write a valid spec.
+    ``describe_pivot_spec(dataset=None)``
+                               JSON Schema + authoring guide + examples (+ the datasets, if the row
+                               provider lists them; + that dataset's field catalogue when ``dataset``
+                               is given) so the agent can write a valid spec.
     ``export_pivot_report(spec, rows=None, dataset=None, format="pdf", email_to=None, subject=None,
                           options=None, body=None)``
                                validate → resolve rows → nqgrid-export → save → optionally email.
@@ -40,7 +42,9 @@ from .validation import (
     check_fields,
     example_spec,
     export_options_schema,
+    fields_example_spec,
     filtered_example_spec,
+    infer_pivot_fields,
     pivot_spec_schema,
     validate_export_options,
     validate_pivot_spec,
@@ -75,6 +79,18 @@ class DatasetCatalog(Protocol):
         ...
 
 
+@runtime_checkable
+class FieldCatalog(Protocol):
+    """Optional: a provider that describes a dataset's fields (labels, types, allowed areas).
+
+    Entries follow the spec's ``fields`` items (``{"field", "label"?, "type"?, "areas"?, "aggregate"?,
+    "format"?, "description"?}``). Without it, ``describe_pivot_spec(dataset=...)`` infers the catalogue
+    from a sample of the rows (:func:`~nqgrid_export.validation.infer_pivot_fields`).
+    """
+
+    def field_catalog(self, dataset: str) -> Sequence[Mapping[str, Any]]: ...
+
+
 def _describe_rows(
     dataset_id: str, rows: Sequence[Mapping[str, Any]], description: str | None = None
 ) -> dict[str, Any]:
@@ -105,7 +121,12 @@ class DictRowProvider:
     def list_datasets(self) -> Sequence[Mapping[str, Any]]:
         return [_describe_rows(k, v, self._descriptions.get(k)) for k, v in self._datasets.items()]
 
+    def field_catalog(self, dataset: str) -> Sequence[Mapping[str, Any]]:
+        return infer_pivot_fields(self.get_rows(dataset))
 
+
+_NOT_DATASETS = (".spec.json", ".model.json", ".sheet.json", ".request.json", ".fields.json", ".catalog.json")
+_ALL_AREAS = ["rows", "columns", "filters", "values"]
 _DATASET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 
@@ -134,10 +155,22 @@ class JsonDirectoryRowProvider:
             raise ValueError(f"dataset {dataset!r} is not a JSON array")
         return data
 
+    def field_catalog(self, dataset: str) -> Sequence[Mapping[str, Any]]:
+        """``<dataset>.fields.json`` (a JSON array of catalogue entries) when present, else inferred from the rows."""
+        path = self._path(dataset)
+        stem = path.name.removesuffix(".json").removesuffix(".rows")
+        curated = (self.directory / f"{stem}.fields.json").resolve()
+        if curated.parent == self.directory and curated.is_file():
+            data = json.loads(curated.read_text("utf-8"))
+            if not isinstance(data, list):
+                raise ValueError(f"{curated.name} is not a JSON array")
+            return data
+        return infer_pivot_fields(self.get_rows(dataset))
+
     def list_datasets(self) -> Sequence[Mapping[str, Any]]:
         out = []
         for path in sorted(self.directory.glob("*.json")):
-            if path.name.endswith((".spec.json", ".model.json", ".sheet.json", ".request.json")):
+            if path.name.endswith(_NOT_DATASETS):
                 continue
             dataset = path.name.removesuffix(".json").removesuffix(".rows")
             try:
@@ -200,6 +233,19 @@ Filter in the spec instead of pre-filtering rows: the report header then prints 
   (and optionally `"otherLabel": "All other"`) to fold them into one "Other" row so totals stay complete.
   Example: top 3 lines per department → `{"field": "line", "topN": {"measure": "actual", "count": 3, "other": true}}`.
 - `facets: ["department", "line"]` only matters for interactive slicers; reports do not need it.
+
+## Field catalogue and layout (field list)
+- `describe_pivot_spec(dataset="...")` returns `field_catalog`: every field with `label`, `type`
+  (`dimension | text | date | number | measure`) and the `areas` it may go to. Put `dimension` / `date` / `text`
+  fields in `rows`, `columns` or `filters`; aggregate `measure` / `number` fields in `measures`
+  (a `dimension` in Values means `"aggregate": "count"`).
+- `fields` (optional) copies a catalogue into the spec, so the app's field list shows your labels; it never
+  changes the numbers. `fieldLabels: {"priorYear": "Prior year"}` renames fields for the field list only.
+- `valuesIndex: 0` puts the measures above the months (`Actual › Nov … Oct`, then `Plan › …`) when there are
+  several values; the default puts the months on top (`Nov › Actual, Plan`).
+- A report filter on a field that is not a row / column is just a `filters` entry (`{"field": "region",
+  "exclude": ["West"]}`); `{"field": "region"}` alone keeps it in the app's Filters area without filtering.
+- Example: `fields_example_spec` (Department → Channel → Line × Month, Actual and Units, Region ≠ West).
 
 ## Rules
 - Every `field` must exist in the rows (see `datasets[].fields`), including filter fields; every measure id you
@@ -279,14 +325,19 @@ class PivotReportService:
 
     # -- describe ------------------------------------------------------------------------------
 
-    def describe_pivot_spec(self) -> dict[str, Any]:
-        """Schema, options schema, guide, examples (plain and filtered) and datasets for an LLM agent."""
+    def describe_pivot_spec(self, dataset: str | None = None) -> dict[str, Any]:
+        """Schema, options schema, guide, examples and datasets for an LLM agent.
+
+        With ``dataset``, also ``field_catalog``: that dataset's fields with labels, types and allowed
+        areas (the provider's :class:`FieldCatalog`, else inferred from a sample of its rows).
+        """
         out: dict[str, Any] = {
             "guide": PIVOT_SPEC_AUTHORING_GUIDE,
             "pivot_spec_schema": pivot_spec_schema(),
             "export_options_schema": export_options_schema(),
             "example_spec": example_spec(),
             "filtered_example_spec": filtered_example_spec(),
+            "fields_example_spec": fields_example_spec(),
             "formats": ["pdf", "xlsx"],
         }
         if isinstance(self.row_provider, DatasetCatalog):
@@ -294,6 +345,41 @@ class PivotReportService:
                 out["datasets"] = [dict(d) for d in self.row_provider.list_datasets()]
             except Exception as e:  # a catalog failure must not hide the schema
                 out["datasets_error"] = str(e)
+        if dataset is not None:
+            try:
+                out["dataset"] = dataset
+                out["field_catalog"] = self.field_catalog(dataset)
+            except UnknownDatasetError:
+                out["field_catalog_error"] = f"unknown dataset {dataset!r}"
+            except Exception as e:  # a catalogue failure must not hide the schema
+                out["field_catalog_error"] = str(e)
+        return out
+
+    def field_catalog(self, dataset: str) -> list[dict[str, Any]]:
+        """Resolved catalogue of ``dataset``: every entry with ``label``, ``type``, ``areas`` and ``aggregate``.
+
+        Mirrors nqgrid's ``resolvePivotFields`` defaults: measures go to Values only (``sum``); other types
+        may go anywhere and count in Values.
+        """
+        if self.row_provider is None:
+            raise NqgridInvalidInput("no row provider is configured", details=["dataset: no row provider configured"])
+        if isinstance(self.row_provider, FieldCatalog):
+            entries = [dict(e) for e in self.row_provider.field_catalog(dataset)]
+        else:
+            entries = infer_pivot_fields(self.row_provider.get_rows(dataset))
+        out = []
+        for e in entries:
+            kind = e.get("type") or "dimension"
+            numeric = kind in ("measure", "number")
+            out.append(
+                {
+                    **e,
+                    "label": e.get("label") or e["field"],
+                    "type": kind,
+                    "areas": e.get("areas") or (["values"] if kind == "measure" else list(_ALL_AREAS)),
+                    "aggregate": e.get("aggregate") or ("sum" if numeric else "count"),
+                }
+            )
         return out
 
     # -- export --------------------------------------------------------------------------------
@@ -493,8 +579,9 @@ EXPORT_TOOL_DESCRIPTION = (
     "Call describe_pivot_spec first. If ok is false, fix the spec using validation_errors and retry."
 )
 DESCRIBE_TOOL_DESCRIPTION = (
-    "Return the PivotSpec JSON Schema, render-options schema, an authoring guide, an example spec and "
-    "the available datasets with their fields. Call before export_pivot_report."
+    "Return the PivotSpec JSON Schema, render-options schema, an authoring guide, example specs and "
+    "the available datasets with their fields. Pass `dataset` to also get its field catalogue (labels, "
+    "types, allowed areas). Call before export_pivot_report."
 )
 
 
@@ -541,8 +628,8 @@ def create_mcp_server(service: PivotReportService, *, name: str = "nqgrid-report
         return await anyio.to_thread.run_sync(call)
 
     @server.tool(name="describe_pivot_spec", description=DESCRIBE_TOOL_DESCRIPTION)
-    def describe_pivot_spec() -> dict[str, Any]:
-        return service.describe_pivot_spec()
+    def describe_pivot_spec(dataset: str | None = None) -> dict[str, Any]:
+        return service.describe_pivot_spec(dataset)
 
     @server.resource(
         SCHEMA_URI, name="pivot-spec-schema", description="PivotSpec v1 JSON Schema", mime_type="application/json"

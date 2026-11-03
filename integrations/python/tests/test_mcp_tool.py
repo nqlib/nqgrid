@@ -84,6 +84,51 @@ def test_describe_pivot_spec(tmp_path: Path, provider: DictRowProvider, planning
     assert ds["id"] == "planning-fy26"
     assert ds["rows"] == 264
     assert {"department", "line", "month", "actual", "plan", "owner"} <= set(ds["fields"])
+    assert "field_catalog" not in info
+    assert info["fields_example_spec"]["valuesIndex"] == 0
+
+
+def test_describe_pivot_spec_field_catalog(tmp_path: Path, provider: DictRowProvider) -> None:
+    service = make_service(tmp_path, FakeExporter(), provider)
+    info = service.describe_pivot_spec("planning-fy26")
+    catalog = {f["field"]: f for f in info["field_catalog"]}
+    assert info["dataset"] == "planning-fy26"
+    assert catalog["department"] == {
+        "field": "department",
+        "label": "Department",
+        "type": "dimension",
+        "areas": ["rows", "columns", "filters", "values"],
+        "aggregate": "count",
+    }
+    assert catalog["actual"]["type"] == "measure"
+    assert catalog["actual"]["areas"] == ["values"]
+    assert catalog["priorYear"]["label"] == "Prior Year"
+    assert "field_catalog_error" in service.describe_pivot_spec("nope")
+    assert "field_catalog_error" in make_service(tmp_path, FakeExporter()).describe_pivot_spec("planning-fy26")
+
+
+def test_field_catalog_providers(tmp_path: Path) -> None:
+    (tmp_path / "sales.rows.json").write_text('[{"region": "N", "units": 3}, {"region": "S", "units": 4.5}]')
+    curated = [{"field": "region", "label": "Sales region", "type": "dimension", "areas": ["rows", "filters"]}]
+    (tmp_path / "sales.fields.json").write_text(json.dumps(curated))
+    (tmp_path / "plan.json").write_text('[{"b": 2}]')
+    p = JsonDirectoryRowProvider(tmp_path)
+    assert [d["id"] for d in p.list_datasets()] == ["plan", "sales"]  # *.fields.json is not a dataset
+    assert p.field_catalog("sales") == curated
+    assert p.field_catalog("plan") == [{"field": "b", "label": "B", "type": "measure"}]
+    service = make_service(tmp_path, FakeExporter(), p)
+    (region,) = service.field_catalog("sales")
+    assert region == {**curated[0], "aggregate": "count"}
+
+    class RowsOnly:
+        def get_rows(self, dataset: str) -> list[dict[str, Any]]:
+            return [{"year": 2024, "amount": 1.5}, {"year": 2024, "amount": 2.5}]
+
+    inferred = make_service(tmp_path, FakeExporter(), RowsOnly()).field_catalog("x")
+    assert [(f["field"], f["type"], f["aggregate"]) for f in inferred] == [
+        ("year", "number", "sum"),
+        ("amount", "measure", "sum"),
+    ]
 
 
 def test_export_from_dataset_and_email(
@@ -270,10 +315,11 @@ async def test_in_process_mcp_client(tmp_path: Path, provider: DictRowProvider, 
     pytest.importorskip("mcp", reason="the mcp SDK is not installed")
     sender = FakeSender()
     server = create_mcp_server(make_service(tmp_path, FakeExporter(), provider, sender))
-    tools, (described, exported, invalid), schema_text = await _call_in_process(
+    tools, (described, catalogued, exported, invalid), schema_text = await _call_in_process(
         server,
         [
             ("describe_pivot_spec", {}),
+            ("describe_pivot_spec", {"dataset": "planning-fy26"}),
             (
                 "export_pivot_report",
                 {"spec": planning_spec, "dataset": "planning-fy26", "email_to": ["ana@secolab.example"]},
@@ -284,6 +330,7 @@ async def test_in_process_mcp_client(tmp_path: Path, provider: DictRowProvider, 
     )
     assert {"export_pivot_report", "describe_pivot_spec"} <= set(tools)
     assert _structured(described)["datasets"][0]["id"] == "planning-fy26"
+    assert _structured(catalogued)["field_catalog"][0]["field"] == "department"
     ok = _structured(exported)
     assert ok["ok"] is True and ok["pages"] == 2 and ok["emailed"] is True and Path(ok["path"]).is_file()
     assert len(sender.messages) == 1

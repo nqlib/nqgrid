@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import json
 from typing import Any
 
@@ -22,7 +23,13 @@ from nqgrid_export import (
 )
 from nqgrid_export.models import Options, RatioAggregate
 from nqgrid_export.request import dumps_request
-from nqgrid_export.validation import example_spec, filtered_example_spec
+from nqgrid_export.validation import (
+    example_spec,
+    fields_example_spec,
+    filtered_example_spec,
+    humanize_pivot_field,
+    infer_pivot_fields,
+)
 
 from .conftest import CONTRACT, EXAMPLES, load_example
 
@@ -57,6 +64,12 @@ INVALID_SPECS: dict[str, dict[str, Any]] = {
     "topN without measure": {**MINIMAL, "rows": [{"field": "a", "topN": {"count": 3}}]},
     "bad sortBy direction": {**MINIMAL, "rows": [{"field": "a", "sortBy": {"measure": "m", "direction": "up"}}]},
     "bad facet": {**MINIMAL, "facets": [{"label": "x"}]},
+    "bad field type": {**MINIMAL, "fields": [{"field": "a", "type": "category"}]},
+    "bad field area": {**MINIMAL, "fields": [{"field": "a", "areas": ["pages"]}]},
+    "field without name": {**MINIMAL, "fields": [{"label": "A"}]},
+    "bad field aggregate": {**MINIMAL, "fields": [{"field": "a", "aggregate": "median"}]},
+    "non-string field label": {**MINIMAL, "fieldLabels": {"a": 1}},
+    "negative valuesIndex": {**MINIMAL, "valuesIndex": -1},
     "bad currency": {
         **MINIMAL,
         "measures": [{"id": "m", "field": "v", "format": {"style": "currency", "currency": "US"}}],
@@ -72,6 +85,7 @@ def test_schema_copies_in_the_package_match_the_contract() -> None:
         assert json.loads(pkg.joinpath(name).read_text("utf-8")) == json.loads((CONTRACT / name).read_text()), name
     assert example_spec() == load_example("planning.spec.json")
     assert filtered_example_spec() == load_example("planning-filtered.spec.json")
+    assert fields_example_spec() == load_example("planning-fields.spec.json")
 
 
 def test_schemas_are_valid_2020_12() -> None:
@@ -239,4 +253,54 @@ def test_examples_directory_is_complete() -> None:
         "planning-filtered.model.json",
         "planning-filtered.sheet.json",
         "planning-filtered.html",
+        "planning-fields.spec.json",
+        "planning-fields.rows.json",
+        "planning-fields.model.json",
+        "planning-fields.sheet.json",
+        "planning-fields.catalog.json",
+        "planning-fields.html",
     } <= names
+
+
+def test_fields_spec_validates_everywhere() -> None:
+    spec = load_example("planning-fields.spec.json")
+    rows = load_example("planning-fields.rows.json")
+    assert list(spec_validator.iter_errors(spec)) == []
+    assert validate_pivot_spec(spec) == []
+    model = PivotSpec.model_validate(spec)
+    assert model.valuesIndex == 0
+    assert model.fields is not None and model.fields[2].areas == ["rows", "columns", "filters"]
+    assert model.model_dump(mode="json", exclude_unset=True) == spec
+    assert check_fields(spec, rows) == []
+    dup = {**spec, "fields": [*spec["fields"], {"field": "units"}]}
+    assert validate_pivot_spec(dup) == ["fields[12] 'units' is duplicated"]
+
+
+def test_field_inference_matches_nqgrid() -> None:
+    """``infer_pivot_fields`` mirrors ``inferPivotFields`` (golden ``planning-fields.catalog.json``)."""
+    rows = load_example("planning-fields.rows.json")
+    catalog = load_example("planning-fields.catalog.json")
+    assert infer_pivot_fields(rows) == catalog["inferred"]
+    # Same mixed sample as src/core/pivot/fields.test.ts.
+    mixed = [
+        {"year": 2020 + i % 3, "day": f"2024-01-{i % 28 + 1:02d}", "id": f"ID-{i}", "v": None if i % 2 else i * 1.5}
+        for i in range(200)
+    ]
+    assert [f["type"] for f in infer_pivot_fields(mixed)] == ["number", "date", "text", "measure"]
+    assert [f["type"] for f in infer_pivot_fields([{"d": dt.date(2024, 1, 1), "b": True, "x": 2.0}] * 4)] == [
+        "date",
+        "dimension",
+        "number",
+    ]
+    assert humanize_pivot_field("unit_price") == "Unit Price"
+    assert humanize_pivot_field("priorYear") == "Prior Year"
+    # Sampling reads `sample` rows spread over the data.
+    seen: list[int] = []
+
+    class Row(dict[str, Any]):
+        def items(self) -> Any:
+            seen.append(self["i"])
+            return super().items()
+
+    infer_pivot_fields([Row(i=i) for i in range(1000)], sample=10)
+    assert seen == list(range(0, 1000, 100))

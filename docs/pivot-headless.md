@@ -63,6 +63,8 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
 - `expanded` — `"all"` (default), `"none"`, or key paths like `[["Camp"], ["Packs"]]`.
   Paths are plain strings, so any language can produce them.
 - `filters`, `facets`, and per row dimension `sortBy` / `topN`: see [Filters, slicers & sorting](#filters-slicers--sorting-excel-parity).
+- `fields`, `fieldLabels` (field catalogue, metadata only) and `valuesIndex` (Σ Values position): see
+  [Field list & drag-and-drop](#field-list--drag-and-drop-excel-parity-step-2).
 
 ## Filters, slicers & sorting (Excel parity)
 
@@ -166,6 +168,135 @@ under the title (`locale.filters` renames the label). `PivotSheet.filters` carri
 for view-only changes (expanded state, heat, labels, formats). `usePivotGrid` does this automatically. Headless
 callers use `createPivotModelBuilder()`. Numbers are in [pivot-performance.md](./pivot-performance.md).
 
+## Field list & drag-and-drop (Excel parity, step 2)
+
+Excel's PivotTable field list: a searchable field checklist and four areas (Filters, Columns, Rows, Values). Layout
+changes are pure spec transforms in core, so a backend, an agent and the React panel rearrange a pivot the same way.
+The golden example is `contract/pivot/v1/examples/planning-fields.*` (rows from
+`generatePlanningPivotRows(7, { extraFields: true })`, which adds `region`, `channel` and `units`).
+
+```jsonc
+{
+  "rows": [{ "field": "department" }, { "field": "channel", "label": "Channel" }, { "field": "line" }],
+  "columns": { "field": "month", "order": ["Nov", "…"], "keepEmpty": true },
+  "measures": [{ "id": "actual", "field": "actual" }, { "id": "units", "field": "units", "label": "Units" }],
+  "values": ["actual", "units"],
+  "valuesIndex": 0,                                          // Σ Values before Month: Actual › Nov…Oct, Units › Nov…Oct
+  "filters": [{ "field": "region", "label": "Region", "exclude": ["West"] }],   // Region sits in the Filters area
+  "fields": [                                                // optional catalogue (else inferred from the rows)
+    { "field": "region", "label": "Region", "type": "dimension" },
+    { "field": "month", "label": "Month", "type": "date", "areas": ["rows", "columns", "filters"] },
+    { "field": "units", "label": "Units", "type": "measure", "format": { "decimals": 0, "compact": true } }
+  ],
+  "fieldLabels": { "priorYear": "Prior year" }               // labels only, wins over fields[].label
+}
+```
+
+**Catalogue.** `fields` entries have `field`, `label?`, `type?` (`dimension | text | date | number | measure`),
+`areas?` (default: `["values"]` for measures, every area otherwise), `aggregate?` (for measures created in Values:
+default `sum` for `measure` / `number`, `count` otherwise), `format?` and `description?`. They never change the model
+(`pivotSpecDataKey` ignores them). Without `fields`, `inferPivotFields(rows, { sample })` reads `sample` records (default 500,
+spread evenly) and classifies numbers as `measure` (or `number` for integers with ≤ 12 distinct values, e.g. a year),
+`Date` / ISO-8601 strings as `date`, mostly unique strings with more than 50 values as `text`, everything else as
+`dimension`. Numeric strings stay dimensions; declare serialized decimals as measures. `resolvePivotFields(spec, rows?)`
+merges the catalogue with every field the spec references and fills labels (`fieldLabels` › `fields[].label` › dimension /
+filter label › label of a `sum` measure › `humanizePivotField`: `priorYear` → `Prior Year`). Python mirrors the inference
+(`infer_pivot_fields`, checked against `planning-fields.catalog.json`).
+
+**Areas.** `pivotFieldListState(spec, fields)` returns the chips per area plus the checklist (`usedIn`, `checked`) and
+calculated measures (no source field, e.g. ratios):
+
+| Area | Comes from |
+|------|------------|
+| Rows | `spec.rows` |
+| Columns | `spec.columns` (a list internally) plus the **Σ Values** chip at `valuesIndex` when there are 2+ values |
+| Values | `spec.values` (default: every measure), as measure ids |
+| Filters | fields with an entry in `spec.filters` that are not row / column fields, in filter order. `{ "field": "region" }` (no include / exclude / match) is an inactive placeholder that keeps a field in the area. |
+
+**Pure move helpers** (`@nqlib/nqgrid/core`), each returning a new spec (or the same object when refused):
+
+```ts
+import {
+  movePivotField, planPivotFieldMove, canMovePivotField, reorderPivotField, removePivotField, togglePivotField,
+  addPivotMeasure, setPivotMeasureAggregate, setPivotValuesPosition, swapPivotRowsColumns, ensurePivotFilterField,
+  PIVOT_VALUES_FIELD,
+} from "@nqlib/nqgrid/core";
+
+const opts = { fields };                                                   // catalogue (default: resolvePivotFields(spec))
+spec = movePivotField(spec, { field: "line", from: "rows", to: "columns" }, opts);   // Month swaps into Rows
+spec = movePivotField(spec, { field: "region", from: "unused", to: "filters", index: 0 }, opts);
+spec = addPivotMeasure(spec, { field: "units" }, opts);                    // "Units" (sum, catalogue format)
+spec = setPivotMeasureAggregate(spec, "units", "avg", opts);               // label → "Average of Units"
+spec = setPivotValuesPosition(spec, 0);                                    // Σ Values outermost (valuesIndex: 0)
+spec = movePivotField(spec, { field: PIVOT_VALUES_FIELD, from: "columns", to: "columns", index: 2 }); // …and back
+spec = reorderPivotField(spec, { area: "rows", field: "line", index: 0 }, opts);     // final position
+spec = togglePivotField(spec, "channel", true, opts);                      // checkbox: default area
+spec = swapPivotRowsColumns(spec);                                         // transpose button
+const plan = planPivotFieldMove(spec, move, opts); // { spec, changed, reason?, displaced?, measureId? }
+```
+
+`move.field` is the record field; in Values it is the measure id, for the Σ chip `PIVOT_VALUES_FIELD`, and a calculated
+measure's id when adding it from `unused`. `move.index` is the insertion point as the area is displayed (the drop
+indicator), so dragging a chip below its neighbour is `index = position + 2`. `reorderPivotField` takes final positions.
+
+**Move rules and edge cases**
+
+| Topic | Rule |
+|-------|------|
+| One area per field | A field sits in at most one of Rows / Columns / Filters (plus any number of Values). Moving it from the field list (`from: "unused"`) moves it from wherever it is. |
+| One column field (for now) | The spec supports one column dimension. Moving a second field into Columns keeps the newcomer and **swaps** the old one into the source area when that was Rows (same index) or Filters; from Values or the field list it **replaces** it (the old field leaves the layout and loses its filters). `plan.displaced` reports it. `PIVOT_MAX_COLUMN_FIELDS` is the only cap: moves treat `columns` as a list and apply the cap last. |
+| `sortBy` / `topN` | Travel with a row field that is reordered. They are invalid on `columns`, so they are **stripped** on the way into Columns (and do not come back). A row field moved to Filters drops its dimension settings. |
+| Filters | Moving to Filters keeps the field's filters (they become report filters), or adds a placeholder. Moving from Filters to Rows / Columns keeps active filters and drops the placeholder. Removing a field from Rows / Columns / Filters, or moving it to Values, clears its filters (like Excel). `ensurePivotFilterField` re-adds the placeholder after a filter menu clears the filter of a Filters-area field. |
+| `expanded` | Paths survive while the levels they span keep their fields and order and still name a group level. When structural changes drop every path, `expanded` returns to `"all"` (Excel opens new layouts expanded). |
+| Values | Dropping a field reuses an identical hidden measure (same field and aggregate, e.g. the planning `plan` measure kept for KPIs) or creates `{ id, field, label, aggregate?, format? }` with a unique id. A field can be added twice (`units_2`). Dimensions count (`Count of Region`). Calculated measures (ratio, custom) can be added / removed but never become dimensions (`noSourceField`). |
+| Measure references | A measure that leaves Values: `sortBy` / `topN` on it are dropped (Excel drops value filters on removed fields); `heat.measure` / `headerCharts.measure` repoint to the first remaining value; the measure itself is deleted unless a KPI (or a remaining sort / Top N) references it, so KPIs always stay valid. |
+| Aggregates | `setPivotMeasureAggregate(spec, id, sum | count | avg | min | max | first | last)`. Auto labels follow (`Units` → `Average of Units`), custom labels stay. Switching to `count` drops the format; switching back restores the catalogue format. Calculated measures only accept `count`. |
+| Σ Values | Shown in Columns with 2+ values. `valuesIndex: 0` puts measures outermost: `headerRows[0]` holds measure cells spanning the months, header bars sit under the series measure's months, row totals stay last. `valuesIndex` is dropped when it is the default, with fewer than 2 values or without a column field. Σ Values cannot leave Columns (Excel's "Σ Values in Rows" is not supported yet). |
+| Transpose | `swapPivotRowsColumns` turns row fields into column fields and vice versa; with one column field the innermost row field and the column field trade places (`Department › Line × Month` → `Department › Month × Line`). |
+| Refusals | `planPivotFieldMove` never produces an invalid spec: the last row field or value cannot leave (`rowsRequired`, `valuesRequired`), catalogue `areas` are enforced (`notAllowed`), plus `notFound` and `unchanged`. A seeded property test runs 1,200 random steps (moves, toggles, aggregate changes, transposes, filters) through `validatePivotSpec` and the model builder. |
+
+**React** (`@nqlib/nqgrid/pivot`):
+
+```tsx
+const grid = usePivotGrid({ ...spec, fields: catalogue }, rows);   // grid.fields, grid.facet(field), grid.moveField(…)
+<PivotFieldList {...pivotFieldListProps(grid)} />                  // spec, fields, onSpecChange, getFacet, model
+```
+
+| Export | Purpose |
+|--------|---------|
+| `PivotFieldList` | Excel-style panel: search, field checklist (checkbox → default area: Values for numeric types, else Rows; unchecking removes the field everywhere), Filters / Columns / Rows / Values drop zones with chips, a transpose button, and "Defer layout update" (changes collect in a draft until **Update**; `deferLayout` / `defaultDeferLayout` / `onDeferLayoutChange`). Chip menu (⋯ / Shift+F10): move up / down / to another area, remove, "Summarize values by", and the field's `PivotFilterMenu` (any field, via `getFacet`), shown in flow under the areas (no portal, nothing clipped). A pure spec editor: every change goes through the core helpers and `onSpecChange`. `classNames` slots, `labels` (i18n, announcements), `renderField`, `renderChip`, `filterMenuProps`, `onMove(plan, move)`. |
+| `startPivotFieldDrag`, `pivotFieldDragHandleProps`, `pivotDropZoneProps` | The dependency-free drag engine. Drop zones are DOM attributes (`data-nqg-drop-zone`, `data-nqg-drop-item`, optional `data-nqg-drop-axis="x"` / `data-nqg-drop-offset`), so any element can be a zone or a handle, e.g. the grid's dimension headers. |
+| `pivotKeyboardDragStep`, `pivotKeyboardDropIndex`, `pivotDropIndex`, `pivotAutoScrollStep` | Pure keyboard-move and geometry helpers (unit-tested; reusable by custom UIs). |
+| `usePivotGrid` additions | `fields` (resolved catalogue; inferred when `spec.fields` is absent, `inferFields: { sample }`), `facet(field)` (any field, computed on demand from the cached encoding: one filter pass, no aggregation), `moveField`, `reorderField`, `removeField`, `toggleField`, `addMeasure`, `setMeasureAggregate`, `setValuesPosition`, `swapRowsColumns`, also as `reducePivotGridSpec` actions. `pivotFilterMenuProps(grid, field)` now works for fields that are not in `spec.facets`. |
+
+**Drag-and-drop design**
+
+- **Pointer Events, no dependency.** Mouse and pen start after 4 px; touch starts after a 250 ms press (moving more
+  than 8 px first scrolls the list instead), and an active touch drag cancels `touchmove` so the page does not scroll.
+  The preview and insertion line are fixed-position elements appended to `document.body` for the drag only (plain DOM,
+  not a React portal), with inline fallback colours so they work without Tailwind.
+- **No re-render while dragging.** Pointer moves are coalesced to one hit test per animation frame
+  (`elementFromPoint` → closest zone → midpoint rule); the preview, indicator and zone state
+  (`data-nqg-drop-active` / `data-nqg-drop-invalid`) are updated in the DOM. `canDrop` (`canMovePivotField`) is
+  memoized per target. Only the drop calls `onSpecChange`, so the pivot rebuilds once; with "Defer layout update",
+  only when Update is clicked.
+- **Auto-scroll.** Near the top / bottom 28 px of the scroll container under the pointer (a zone, the checklist or the
+  panel), it scrolls up to 14 px per frame, faster towards the edge.
+- **Cancel.** Escape, `pointercancel` or a drop outside an accepting zone cancels; the click after a drag is swallowed.
+- **Keyboard (WCAG 2.1.1 / 2.5.7).** Chip labels are buttons (`aria-roledescription="draggable field"`, instructions via
+  `aria-describedby`). Space / Enter picks a chip up; ↑ / ↓ move it within an area and continue into the previous / next
+  one, ← / → jump areas (Filters, Columns, Rows, Values), Home / End; Space / Enter drops, Escape (or Tab / blur)
+  cancels. Areas that refuse the chip are skipped. An in-flow insertion line shows the target, every step is announced
+  in an `aria-live="assertive"` region ("Line: Rows, position 3 of 3"), and focus follows the chip after the drop.
+  Delete removes a chip; Shift+F10 opens its menu.
+- **Grid headers.** `renderDimensionHeader` can make each row header a handle (drag it onto a field-list area) and a
+  one-item horizontal zone (`pivotDropZoneProps("rows", { axis: "x", offset: level })`), so dropping on another header
+  reorders the row levels. The playground does both. Column headers have no render slot yet (follow-up).
+
+**Exports.** Rearranged specs export like any other: the PDF / XLSX test in `packages/nqgrid-export` exports a spec
+after a sequence of moves (swap, added measures, Σ Values outermost, a report filter, a new row field, an aggregate
+change). With Σ Values outermost the static renderer names column chunks by measure ("Actual · Columns 1–12 of 24").
+
 ### Formatting is deterministic
 
 `formatPivotNumber` does not use `Intl`. WebKit (macOS Tauri), WebView2 (Windows Tauri) and Node
@@ -184,13 +315,15 @@ Everything a non-JS producer needs is in [`contract/pivot/v1`](../contract/pivot
 | `examples/planning.sheet.json` | Expected `pivotModelToSheet` output (what an XLSX writer consumes). |
 | `examples/planning.html` | Expected `renderPivotHtml` output (`generatedAt: "2026-01-15 09:30 UTC"`), i.e. what the PDF prints. |
 | `examples/planning-filtered.{spec,model,sheet}.json` + `.html` | Same rows with filters, a label filter, Top 3 + "Other", sort by value and facets. |
+| `examples/planning-fields.{spec,rows,model,sheet}.json` + `.html` | Rows with `region`, `channel`, `units`; a field catalogue, three row levels, Σ Values outermost and a report filter on a non-dimension field (the documented move sequence from `planning.spec.json`). |
+| `examples/planning-fields.catalog.json` | `inferPivotFields(rows)`, `resolvePivotFields(spec, rows)` and `pivotFieldListState` for that spec (Python checks its inference against it). |
 | `export-request.schema.json` + `examples/planning.request.json` | The export request `{ spec, rows \| dataset, format?, options? }` (CLI / `POST /export`, and app → backend with a `dataset` reference). TS: `buildPivotExportRequest`, `PIVOT_EXPORT_REQUEST_JSON_SCHEMA`; Python: [`integrations/python`](../integrations/python/README.md). |
 
 The golden files are regenerated by `src/core/pivot/contract.test.ts` and `src/render-static/render-static.test.ts` (`pnpm test -u`);
 any diff is a contract change and should bump the spec `version` if it is breaking.
 `validatePivotSpec` additionally checks references the schema cannot express
-(unknown measure ids in `values`, `heat`, `headerCharts`, `kpis`, `sortBy`, `topN`; duplicate measure ids and facets;
-`sortBy` / `topN` only on row dimensions).
+(unknown measure ids in `values`, `heat`, `headerCharts`, `kpis`, `sortBy`, `topN`; duplicate measure ids, facets and
+catalogue fields; `sortBy` / `topN` only on row dimensions).
 
 ### XLSX without Node
 
@@ -344,4 +477,10 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
 6. **Excel parity, step 1 — done.** Report / slicer / label filters, cross-filtered facets, sort by value and
    Top / Bottom N (with "Other") in the spec; `PivotSlicer`, `PivotFilterMenu`, `PivotHeaderMenu` and header
    indicators; filters in the PDF header and XLSX; a faster engine with an aggregate / view split
-   ([pivot-performance.md](./pivot-performance.md)). Next: field list + drag-and-drop (step 2).
+   ([pivot-performance.md](./pivot-performance.md)).
+7. **Excel parity, step 2 — done.** Field catalogue (`fields`, `fieldLabels`, inference), `valuesIndex` (Σ Values
+   position), pure move helpers with documented rules, `PivotFieldList` with dependency-free pointer and keyboard
+   drag-and-drop, draggable grid headers, "Defer layout update", MCP field catalogues per dataset.
+   Next (step 3): several column fields (`columns` as a list; the move helpers already treat it as one, only
+   `PIVOT_MAX_COLUMN_FIELDS` and the engine's column tree change), collapsible column groups, date grouping
+   (year / quarter / month from `date` fields), Σ Values in Rows.

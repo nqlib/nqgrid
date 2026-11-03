@@ -4,6 +4,7 @@
 - :class:`SubprocessExporter` — one-shot ``nqgrid-export --input - --out -`` runner, same interface.
 - :mod:`nqgrid_export.models` — Pydantic v2 models generated from ``contract/pivot/v1``.
 - :func:`validate_pivot_spec` / :func:`validate_export_request` — JSON Schema + referential checks.
+- :func:`infer_pivot_fields` — field catalogue (labels, types) from sample rows, same as nqgrid's field list.
 - :func:`write_xlsx_from_sheet` — openpyxl workbook from ``format="sheet"`` JSON.
 - :mod:`nqgrid_export.mcp_tool` — reference MCP server (``export_pivot_report``, ``describe_pivot_spec``).
 - :mod:`nqgrid_export.email` — report emails through an injectable sender.
@@ -25,6 +26,8 @@ from .subprocess_exporter import SubprocessExporter
 from .validation import (
     check_fields,
     export_request_schema,
+    humanize_pivot_field,
+    infer_pivot_fields,
     pivot_spec_schema,
     validate_export_options,
     validate_export_request,
@@ -55,6 +58,8 @@ __all__ = [
     "check_fields",
     "export_filename",
     "export_request_schema",
+    "humanize_pivot_field",
+    "infer_pivot_fields",
     "pdf_page_count",
     "pivot_spec_schema",
     "validate_export_options",

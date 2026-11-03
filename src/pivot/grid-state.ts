@@ -11,7 +11,27 @@ import {
   togglePivotGroup,
   type PivotSortRequest,
 } from "../core/pivot/interaction";
-import type { PivotFilter, PivotHeatScope, PivotModel, PivotSpec, PivotTopNSpec } from "../core/pivot/types";
+import {
+  addPivotMeasure,
+  movePivotField,
+  removePivotField,
+  reorderPivotField,
+  setPivotMeasureAggregate,
+  setPivotValuesPosition,
+  swapPivotRowsColumns,
+  togglePivotField,
+  type PivotFieldMove,
+} from "../core/pivot/fields";
+import type {
+  PivotBuiltInAggregate,
+  PivotFieldArea,
+  PivotFieldSpec,
+  PivotFilter,
+  PivotHeatScope,
+  PivotModel,
+  PivotSpec,
+  PivotTopNSpec,
+} from "../core/pivot/types";
 
 /** Every view-state change the grid can make. All of it lands in the spec ("export what I see"). */
 export type PivotGridAction =
@@ -26,7 +46,22 @@ export type PivotGridAction =
   | { readonly type: "clearFilters" }
   | { readonly type: "setSort"; readonly field: string; readonly sort: PivotSortRequest | null }
   | { readonly type: "setTopN"; readonly field: string; readonly topN: PivotTopNSpec | null }
-  | { readonly type: "setSpec"; readonly spec: PivotSpec | ((prev: PivotSpec) => PivotSpec) };
+  | { readonly type: "setSpec"; readonly spec: PivotSpec | ((prev: PivotSpec) => PivotSpec) }
+  // Field list (`fields`: the catalogue for labels / types / allowed areas; default: `resolvePivotFields(spec)`).
+  | { readonly type: "moveField"; readonly move: PivotFieldMove; readonly fields?: readonly PivotFieldSpec[] }
+  | { readonly type: "reorderField"; readonly area: PivotFieldArea; readonly field: string; readonly index: number; readonly fields?: readonly PivotFieldSpec[] }
+  | { readonly type: "removeField"; readonly field: string; readonly from: PivotFieldArea; readonly fields?: readonly PivotFieldSpec[] }
+  | { readonly type: "toggleField"; readonly field: string; readonly checked: boolean; readonly fields?: readonly PivotFieldSpec[] }
+  | {
+      readonly type: "addMeasure";
+      readonly field: string;
+      readonly aggregate?: PivotBuiltInAggregate;
+      readonly index?: number;
+      readonly fields?: readonly PivotFieldSpec[];
+    }
+  | { readonly type: "setMeasureAggregate"; readonly measureId: string; readonly aggregate: PivotBuiltInAggregate; readonly fields?: readonly PivotFieldSpec[] }
+  | { readonly type: "setValuesPosition"; readonly index: number }
+  | { readonly type: "swapRowsColumns" };
 
 /**
  * Pure spec transition behind `usePivotGrid`. `model` must be built from `spec`
@@ -58,5 +93,21 @@ export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: 
       return setPivotTopN(spec, action.field, action.topN);
     case "setSpec":
       return typeof action.spec === "function" ? action.spec(spec) : action.spec;
+    case "moveField":
+      return movePivotField(spec, action.move, { fields: action.fields });
+    case "reorderField":
+      return reorderPivotField(spec, { area: action.area, field: action.field, index: action.index }, { fields: action.fields });
+    case "removeField":
+      return removePivotField(spec, { field: action.field, from: action.from }, { fields: action.fields });
+    case "toggleField":
+      return togglePivotField(spec, action.field, action.checked, { fields: action.fields });
+    case "addMeasure":
+      return addPivotMeasure(spec, { field: action.field, aggregate: action.aggregate, index: action.index }, { fields: action.fields });
+    case "setMeasureAggregate":
+      return setPivotMeasureAggregate(spec, action.measureId, action.aggregate, { fields: action.fields });
+    case "setValuesPosition":
+      return setPivotValuesPosition(spec, action.index);
+    case "swapRowsColumns":
+      return swapPivotRowsColumns(spec);
   }
 }

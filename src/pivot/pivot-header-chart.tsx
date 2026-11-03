@@ -131,7 +131,11 @@ export function PivotHeaderChartBand({
   const pointByKey = new Map(series.points.map((p) => [p.columnKey, p] as const));
   const sticky = mode === "interactive";
   const rowStyle: CSSProperties = { height };
-  const top = model.headerRows[0] ?? [];
+  const first = model.headerRows[0] ?? [];
+  // Σ Values outermost (`valuesIndex: 0`): the top row holds measures, so bars go under the
+  // column-key cells of the last header row that belong to the series measure.
+  const byMeasure = !first.every((h) => h.columnKey !== undefined);
+  const top = byMeasure ? (model.headerRows[model.headerRows.length - 1] ?? []) : first;
   return (
     <tr className={className} style={rowStyle} data-nqg-band="">
       <th
@@ -143,7 +147,10 @@ export function PivotHeaderChartBand({
         {summary === undefined ? <PivotHeaderSummary model={model} /> : summary}
       </th>
       {top.map((h, i) => {
-        const point = h.columnKey === null || h.columnKey === undefined ? undefined : pointByKey.get(h.columnKey);
+        const point =
+          h.columnKey === null || h.columnKey === undefined || (byMeasure && h.measureId !== series.measureId)
+            ? undefined
+            : pointByKey.get(h.columnKey);
         const width = geometry.valueWidth * h.colSpan;
         return (
           <th

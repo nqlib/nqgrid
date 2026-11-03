@@ -84,6 +84,14 @@ errors += check_fields(raw, rows)                            # fields the rows d
 validate_export_request({"spec": raw, "dataset": "sales"})   # the whole request, incl. options (css is rejected)
 ```
 
+Field catalogues (what the app's field list shows) use the same inference as nqgrid core:
+
+```python
+from nqgrid_export import infer_pivot_fields
+
+infer_pivot_fields(rows)   # [{"field": "region", "label": "Region", "type": "dimension"}, {"field": "units", ..., "type": "measure"}, ...]
+```
+
 `models.py` is generated; do not edit it. After a contract change:
 
 ```bash
@@ -114,9 +122,10 @@ from nqgrid_export import NqgridExportClient
 from nqgrid_export.email import SmtpEmailSender
 from nqgrid_export.mcp_tool import PivotReportService, create_mcp_server
 
-class SecolabRows:                                   # implements RowProvider (and optionally DatasetCatalog)
+class SecolabRows:                                   # implements RowProvider (optionally DatasetCatalog, FieldCatalog)
     def get_rows(self, dataset: str) -> list[dict]: ...
     def list_datasets(self) -> list[dict]: ...       # [{"id", "description", "fields"}] for describe_pivot_spec
+    def field_catalog(self, dataset: str) -> list[dict]: ...  # [{"field", "label", "type", "areas"?, ...}]; else inferred
 
 service = PivotReportService(
     NqgridExportClient(),                            # or SubprocessExporter()
@@ -135,9 +144,12 @@ Or, configured entirely from env: `nqgrid-export-mcp` / `python -m nqgrid_export
 | Tool | Signature | Returns |
 |------|-----------|---------|
 | `export_pivot_report` | `(spec: dict, rows: list[dict] \| None = None, dataset: str \| None = None, format: "pdf" \| "xlsx" = "pdf", email_to: list[str] \| None = None, subject: str \| None = None, options: dict \| None = None, body: str \| None = None)` | `{ok, format, path, filename, bytes, pages, rows, dataset, recipients, emailed, validation_errors, error}` |
-| `describe_pivot_spec` | `()` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, formats, datasets?}` (the guide covers filters, sort by value and Top N) |
+| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N and the field catalogue) |
 
 Resources: `nqgrid://pivot-spec/v1/schema` (JSON) and `nqgrid://pivot-spec/v1/guide` (Markdown).
+
+The field catalogue comes from the provider's optional `field_catalog(dataset)` (`FieldCatalog` protocol;
+`JsonDirectoryRowProvider` reads `<dataset>.fields.json` next to the rows), else from `infer_pivot_fields` on the rows.
 
 `export_pivot_report` never raises for bad input: it validates the spec, options, recipients and the fields
 the spec reads against the rows, and returns `ok: false` with `validation_errors` the agent can act on. It caps rows

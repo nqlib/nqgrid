@@ -16,3 +16,5 @@ export * from "./pivot-table";
 export * from "./pivot-header-indicator";
 export * from "./pivot-slicer";
 export * from "./pivot-filter-menu";
+export * from "./field-drag";
+export * from "./pivot-field-list";

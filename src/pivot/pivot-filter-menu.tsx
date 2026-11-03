@@ -512,8 +512,9 @@ export function pivotSlicerProps(grid: PivotGridState, field: string): Pick<Pivo
 }
 
 /**
- * `PivotFilterMenu` props bound to a `usePivotGrid` state: facet, row-dimension state, the spec's
- * measures, and callbacks (Clear removes this field's filters and Top N).
+ * `PivotFilterMenu` props bound to a `usePivotGrid` state: facet (`grid.facet`, so any field works,
+ * not only `spec.facets`), row-dimension state, the spec's measures, and callbacks (Clear removes
+ * this field's filters and Top N).
  */
 export function pivotFilterMenuProps(
   grid: PivotGridState,
@@ -521,7 +522,7 @@ export function pivotFilterMenuProps(
 ): Pick<PivotFilterMenuProps, "facet" | "dimension" | "measures" | "onApplyValues" | "onTopNChange" | "onSortChange" | "onClear"> {
   const dimension = grid.model.rowDimensions.find((d) => d.field === field);
   return {
-    facet: pivotFacetOf(grid.model, field),
+    facet: grid.facet ? grid.facet(field) : pivotFacetOf(grid.model, field),
     dimension,
     measures: grid.spec.measures.map((m) => ({ id: m.id, label: m.label ?? m.id })),
     onApplyValues: (selected, allKeys) => grid.setFilterValues(field, allKeys, selected),

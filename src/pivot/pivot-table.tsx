@@ -411,8 +411,10 @@ export const PivotTable = memo(function PivotTable({
               : null}
             {cells.map((h, i) => {
               const pos = headCellPos(r);
+              // Σ Values outermost: a measure spans every month; left-align so the label stays in view.
+              const style = h.colSpan > 1 && h.measureId !== undefined ? { ...pos.style, textAlign: "left" as const } : pos.style;
               return (
-                <th key={`v${r}:${i}`} scope="col" colSpan={h.colSpan} className={cx(pivotHeadValueCellClass, pos.className)} style={pos.style}>
+                <th key={`v${r}:${i}`} scope="col" colSpan={h.colSpan} className={cx(pivotHeadValueCellClass, pos.className)} style={style}>
                   {h.label}
                 </th>
               );

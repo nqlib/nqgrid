@@ -1,8 +1,25 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { createPivotModelBuilder, type BuildPivotModelOptions } from "../core/pivot/build-model";
+import {
+  inferPivotFields,
+  resolvePivotFields,
+  type InferPivotFieldsOptions,
+  type PivotFieldInfo,
+  type PivotFieldMove,
+} from "../core/pivot/fields";
 import type { PivotSortRequest } from "../core/pivot/interaction";
-import type { PivotDataRow, PivotFilter, PivotHeatScope, PivotModel, PivotSpec, PivotTopNSpec } from "../core/pivot/types";
+import type {
+  PivotBuiltInAggregate,
+  PivotDataRow,
+  PivotFacet,
+  PivotFieldArea,
+  PivotFilter,
+  PivotHeatScope,
+  PivotModel,
+  PivotSpec,
+  PivotTopNSpec,
+} from "../core/pivot/types";
 import { reducePivotGridSpec, type PivotGridAction } from "./grid-state";
 
 export interface UsePivotGridOptions extends BuildPivotModelOptions {
@@ -11,6 +28,8 @@ export interface UsePivotGridOptions extends BuildPivotModelOptions {
    * reported here (store it and pass it back). Without it, `spec` is only the initial value.
    */
   readonly onSpecChange?: (next: PivotSpec) => void;
+  /** Sampling for the inferred field catalogue when `spec.fields` is absent (see `inferPivotFields`). */
+  readonly inferFields?: InferPivotFieldsOptions;
 }
 
 export interface PivotGridState {
@@ -39,6 +58,26 @@ export interface PivotGridState {
   readonly setSort: (field: string, sort: PivotSortRequest | null) => void;
   readonly setTopN: (field: string, topN: PivotTopNSpec | null) => void;
   readonly setSpec: (next: PivotSpec | ((prev: PivotSpec) => PivotSpec)) => void;
+  /** Field catalogue: `spec.fields` (else inferred from `rows`) plus referenced fields (`resolvePivotFields`). */
+  readonly fields: readonly PivotFieldInfo[];
+  /**
+   * Facet of any field for filter menus: `model.facets` when listed in `spec.facets`, else computed on
+   * demand from the cached encoding (one filter pass, no aggregation, memoized per spec).
+   */
+  readonly facet: (field: string) => PivotFacet;
+  /** `movePivotField` with the grid's catalogue. */
+  readonly moveField: (move: PivotFieldMove) => void;
+  /** Move a chip to final position `index` in its area. */
+  readonly reorderField: (area: PivotFieldArea, field: string, index: number) => void;
+  readonly removeField: (field: string, from: PivotFieldArea) => void;
+  /** Field-list checkbox. */
+  readonly toggleField: (field: string, checked: boolean) => void;
+  readonly addMeasure: (field: string, aggregate?: PivotBuiltInAggregate, index?: number) => void;
+  readonly setMeasureAggregate: (measureId: string, aggregate: PivotBuiltInAggregate) => void;
+  /** Σ Values position among the column fields (`0` = measures outermost). */
+  readonly setValuesPosition: (index: number) => void;
+  /** Transpose rows and columns (`swapPivotRowsColumns`). */
+  readonly swapRowsColumns: () => void;
 }
 
 /**
@@ -54,7 +93,7 @@ export function usePivotGrid(
   rows: readonly PivotDataRow[],
   options: UsePivotGridOptions = {},
 ): PivotGridState {
-  const { onSpecChange, aggregators, validate } = options;
+  const { onSpecChange, aggregators, validate, inferFields } = options;
   const [internal, setInternal] = useState(spec);
   const [builder] = useState(createPivotModelBuilder);
   const current = onSpecChange ? spec : internal;
@@ -63,6 +102,11 @@ export function usePivotGrid(
     () => builder.build(current, rows, { aggregators, validate }),
     [builder, current, rows, aggregators, validate],
   );
+
+  const sample = inferFields?.sample;
+  const hasCatalogue = current.fields !== undefined;
+  const inferred = useMemo(() => (hasCatalogue ? null : inferPivotFields(rows, { sample })), [hasCatalogue, rows, sample]);
+  const fields = useMemo(() => resolvePivotFields(inferred ? { ...current, fields: inferred } : current), [current, inferred]);
 
   // Several dispatches before the next render (e.g. a menu applying values and Top N) chain on
   // each other instead of each starting from the rendered spec.
@@ -97,7 +141,17 @@ export function usePivotGrid(
       setSort: (field, sort) => dispatch({ type: "setSort", field, sort }),
       setTopN: (field, topN) => dispatch({ type: "setTopN", field, topN }),
       setSpec: (next) => dispatch({ type: "setSpec", spec: next }),
+      fields,
+      facet: (field) => builder.facet(current, rows, field),
+      moveField: (move) => dispatch({ type: "moveField", move, fields }),
+      reorderField: (area, field, index) => dispatch({ type: "reorderField", area, field, index, fields }),
+      removeField: (field, from) => dispatch({ type: "removeField", field, from, fields }),
+      toggleField: (field, checked) => dispatch({ type: "toggleField", field, checked, fields }),
+      addMeasure: (field, aggregate, index) => dispatch({ type: "addMeasure", field, aggregate, index, fields }),
+      setMeasureAggregate: (measureId, aggregate) => dispatch({ type: "setMeasureAggregate", measureId, aggregate, fields }),
+      setValuesPosition: (index) => dispatch({ type: "setValuesPosition", index }),
+      swapRowsColumns: () => dispatch({ type: "swapRowsColumns" }),
     }),
-    [current, rows, model, dispatch],
+    [current, rows, model, dispatch, fields, builder],
   );
 }

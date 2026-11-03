@@ -1,4 +1,4 @@
-import type { PivotDataRow, PivotSpec } from "../core/pivot/types";
+import type { PivotDataRow, PivotFieldSpec, PivotSpec } from "../core/pivot/types";
 
 /** Fiscal months (Nov → Oct) used as the pivot column dimension. */
 export const PLANNING_FISCAL_MONTHS = [
@@ -41,9 +41,37 @@ export interface PlanningPivotRow extends PivotDataRow {
   readonly priorYear: number;
 }
 
+/** Extra fields added by `generatePlanningPivotRows(seed, { extraFields: true })`. */
+export interface PlanningPivotExtraFields {
+  readonly region: (typeof PLANNING_REGIONS)[number];
+  readonly channel: (typeof PLANNING_CHANNELS)[number];
+  readonly units: number;
+}
+
+export const PLANNING_REGIONS = ["North", "South", "East", "West"] as const;
+export const PLANNING_CHANNELS = ["Retail", "Online", "Wholesale"] as const;
+/** Average unit price per department (units = actual / price). */
+const UNIT_PRICE: Readonly<Record<string, number>> = { Footwear: 120, Apparel: 75, Camp: 160, Packs: 95 };
+
+export interface GeneratePlanningPivotRowsOptions {
+  /**
+   * Add `region`, `channel` (dimensions) and `units` (measure) to every record, for the field list
+   * demo. Drawn from a separate PRNG, so the other fields are identical to the default rows (the
+   * `planning.*` goldens do not change).
+   */
+  readonly extraFields?: boolean;
+}
+
 /** One record per department × line × fiscal month. */
-export function generatePlanningPivotRows(seed = 7): PlanningPivotRow[] {
+export function generatePlanningPivotRows(seed?: number): PlanningPivotRow[];
+export function generatePlanningPivotRows(
+  seed: number | undefined,
+  options: GeneratePlanningPivotRowsOptions & { readonly extraFields: true },
+): (PlanningPivotRow & PlanningPivotExtraFields)[];
+export function generatePlanningPivotRows(seed?: number, options?: GeneratePlanningPivotRowsOptions): PlanningPivotRow[];
+export function generatePlanningPivotRows(seed = 7, options: GeneratePlanningPivotRowsOptions = {}): PlanningPivotRow[] {
   const rand = lcg(seed);
+  const extra = options.extraFields ? lcg(seed ^ 0x5eed) : null;
   const rows: PlanningPivotRow[] = [];
   for (const dept of DEPARTMENTS) {
     dept.lines.forEach((line, li) => {
@@ -62,6 +90,13 @@ export function generatePlanningPivotRows(seed = 7): PlanningPivotRow[] {
           forecast: Math.round(outlook * 0.33),
           outlook,
           priorYear: Math.round(actual / (0.95 + rand() * 0.12)),
+          ...(extra
+            ? {
+                region: PLANNING_REGIONS[Math.floor(extra() * PLANNING_REGIONS.length)]!,
+                channel: PLANNING_CHANNELS[Math.floor(extra() * PLANNING_CHANNELS.length)]!,
+                units: Math.round(actual / (UNIT_PRICE[dept.name]! * (0.9 + extra() * 0.2))),
+              }
+            : {}),
         });
       });
     });
@@ -135,4 +170,41 @@ export const planningFilteredPivotSpec: PivotSpec = {
     { field: "line", match: { op: "notContains", value: "kids" } },
   ],
   facets: ["department", "line"],
+};
+
+/** Field catalogue for the planning rows with `extraFields` (labels, types, allowed areas, formats). */
+export const planningFieldCatalog: readonly PivotFieldSpec[] = [
+  { field: "department", label: "Department", type: "dimension" },
+  { field: "line", label: "Line", type: "dimension" },
+  { field: "month", label: "Month", type: "date", areas: ["rows", "columns", "filters"] },
+  { field: "region", label: "Region", type: "dimension" },
+  { field: "channel", label: "Channel", type: "dimension" },
+  { field: "owner", label: "Owner", type: "text", areas: ["rows", "filters"], description: "Department owner" },
+  { field: "actual", label: "Actual", type: "measure", format: usdCompact },
+  { field: "plan", label: "Plan", type: "measure", format: usdCompact },
+  { field: "forecast", label: "Forecast", type: "measure", format: usdCompact },
+  { field: "outlook", label: "Outlook", type: "measure", format: usdCompact },
+  { field: "priorYear", label: "Prior year", type: "measure", format: usdCompact },
+  { field: "units", label: "Units", type: "measure", format: { decimals: 0, compact: true } },
+];
+
+/**
+ * `planningPivotSpec` rearranged in the field list (golden `planning-fields.*`, rows from
+ * `generatePlanningPivotRows(7, { extraFields: true })`). From `{ ...planningPivotSpec, fields }`:
+ * add Units to Values, drag Σ Values before Month (measures outermost), drag Region into Filters
+ * and exclude West, drag Channel into Rows between Department and Line.
+ */
+export const planningFieldsPivotSpec: PivotSpec = {
+  ...planningPivotSpec,
+  id: "planning-fy26-fields",
+  subtitle: "Rearranged in the field list",
+  rows: [planningPivotSpec.rows[0]!, { field: "channel", label: "Channel" }, planningPivotSpec.rows[1]!],
+  measures: [
+    ...planningPivotSpec.measures,
+    { id: "units", field: "units", label: "Units", format: { decimals: 0, compact: true } },
+  ],
+  values: ["actual", "units"],
+  valuesIndex: 0,
+  filters: [{ field: "region", label: "Region", exclude: ["West"] }],
+  fields: planningFieldCatalog,
 };

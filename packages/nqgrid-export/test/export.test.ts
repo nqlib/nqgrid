@@ -2,12 +2,23 @@ import { readFileSync } from "node:fs";
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 
-import type { PivotSheet } from "@nqlib/nqgrid/core";
+import {
+  addPivotMeasure,
+  movePivotField,
+  resolvePivotFields,
+  setPivotFilterValues,
+  setPivotMeasureAggregate,
+  setPivotValuesPosition,
+  validatePivotSpec,
+  type PivotDataRow,
+  type PivotSheet,
+  type PivotSpec,
+} from "@nqlib/nqgrid/core";
 import { pivotHeatLevelFillHex } from "@nqlib/nqgrid/render-static";
 
 import { exportPivot } from "../src/exporter";
 import { NQGRID_EXPORT_VERSION } from "../src/version";
-import { GOLDEN_GENERATED_AT, planningFilteredSpec, planningRows, planningSpec, readExample } from "./helpers";
+import { chromiumAvailable, GOLDEN_GENERATED_AT, pdfPageCount, planningFilteredSpec, planningRows, planningSpec, readExample } from "./helpers";
 
 const colName = (c: number) => {
   let s = "";
@@ -137,4 +148,66 @@ describe("exportPivot (xlsx with filters)", async () => {
     expect(labels).toContain("Other");
     expect(labels).not.toContain("Kids");
   });
+});
+
+describe("exportPivot after field-list moves (rearranged specs)", async () => {
+  const rows = JSON.parse(readExample("planning-fields.rows.json")) as PivotDataRow[];
+  const fields = resolvePivotFields({ ...planningSpec, fields: JSON.parse(readExample("planning-fields.spec.json")).fields });
+  // Line ↔ Month, Units + Plan in Values, Σ Values outermost, Region as a report filter, Channel as a row.
+  let spec: PivotSpec = { ...planningSpec, fields };
+  spec = movePivotField(spec, { field: "line", from: "rows", to: "columns" }, { fields });
+  spec = addPivotMeasure(spec, { field: "units" }, { fields });
+  spec = addPivotMeasure(spec, { field: "plan", index: 0 }, { fields });
+  spec = setPivotValuesPosition(spec, 0);
+  spec = movePivotField(spec, { field: "region", from: "unused", to: "filters" }, { fields });
+  spec = setPivotFilterValues(spec, "region", ["North", "South", "East", "West"], ["North", "East"]);
+  spec = movePivotField(spec, { field: "channel", from: "unused", to: "rows", index: 0 }, { fields });
+  spec = setPivotMeasureAggregate(spec, "units", "avg", { fields });
+
+  it("the moved spec is valid and changes the layout", () => {
+    expect(validatePivotSpec(spec)).toMatchObject({ ok: true });
+    expect(spec.rows.map((d) => d.field)).toEqual(["channel", "department", "month"]);
+    expect(spec.columns?.field).toBe("line");
+    expect(spec.values).toEqual(["plan", "actual", "units"]);
+  });
+
+  it("xlsx: values, filters and the Spec sheet follow the moved spec", async () => {
+    const bytes = await exportPivot({ spec, rows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    const sheet = JSON.parse((await exportPivot({ spec, rows, format: "sheet" })) as string) as PivotSheet;
+    expect(sheet.filters).toEqual(["Region = North, East"]);
+    const ws = wb.worksheets[0]!;
+    // Measures are the top header row (Σ Values outermost), lines below.
+    const header = [...new Set((ws.getRow(1).values as unknown[]).filter((v) => typeof v === "string"))];
+    expect(header).toEqual(["Plan", "Actual", "Average of Units"]);
+    expect(sheet.cells.slice(0, sheet.frozenRows).flat().map((c) => c.v)).toContain("Channel");
+    expect((ws.getRow(2).values as unknown[]).filter((v) => v === "Tents")).toHaveLength(3);
+    let numeric = 0;
+    sheet.cells.forEach((row, r) =>
+      row.forEach((src, c) => {
+        const cell = ws.getCell(r + 1, c + 1);
+        if (cell.isMerged && cell.master.address !== cell.address) return;
+        expect(cell.value ?? null).toBe(src.v);
+        if (typeof src.v === "number") numeric++;
+      }),
+    );
+    expect(numeric).toBeGreaterThan(100);
+    const ss = wb.getWorksheet("Spec")!;
+    const lines: string[] = [];
+    ss.eachRow((row, n) => {
+      if (n >= 5) lines.push(String(row.getCell(1).value ?? ""));
+    });
+    expect(JSON.parse(lines.join("\n"))).toEqual(spec);
+  });
+
+  it("html / pdf render the moved spec", async () => {
+    const html = (await exportPivot({ spec, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })) as string;
+    expect(html).toContain("Filters: Region = North, East");
+    expect(html).toContain("Average of Units");
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec, rows, format: "pdf", options: { generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(Buffer.from(pdf.subarray(0, 5)).toString("latin1")).toBe("%PDF-");
+    expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
 });

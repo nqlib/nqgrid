@@ -738,6 +738,22 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   };
 }
 
+/**
+ * Cross-filtered facet of one field without aggregating (one filter pass): what `spec.facets`
+ * would report for `field`. For filter menus on fields that are not in `spec.facets`, e.g. the
+ * field list's Filters area. Pass the builder's `encoding` to skip re-reading records.
+ */
+export function computePivotFacet(
+  spec: PivotSpec,
+  rows: readonly PivotDataRow[],
+  field: string,
+  options: { readonly encoding?: PivotRowEncoding } = {},
+): PivotCubeFacet {
+  const enc = options.encoding && options.encoding.rows === rows ? options.encoding : createPivotRowEncoding(rows);
+  const pass = runPivotFilterPass(compilePivotFilters(spec.filters, enc), [field], enc);
+  return facetOf(field, pass.facets.get(field)!, spec);
+}
+
 function facetOf(field: string, counts: PivotFacetCounts, spec: PivotSpec): PivotCubeFacet {
   const dim = spec.rows.find((d) => d.field === field) ?? (spec.columns?.field === field ? spec.columns : undefined);
   const keys = counts.codes.keys;

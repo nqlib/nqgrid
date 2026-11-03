@@ -1,6 +1,7 @@
 # Pivot performance
 
-`buildPivotModel` benchmarks before and after the filters / Top N / sort-by-value work (Excel parity, step 1).
+`buildPivotModel` benchmarks before and after the filters / Top N / sort-by-value work (Excel parity, step 1), plus the
+field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)).
 The harness is `bench/pivot.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
 
 ## Setup
@@ -35,6 +36,43 @@ rebuild, with no facets, Top N or sort by value. The facet / Top N row has no "b
 **Summary at 500k records:** a cold build is about 10× faster. Expanding a group or changing heat scope in
 `usePivotGrid` drops from about 1.5 s to about 3.5 ms, because it no longer re-aggregates. A slicer click drops
 from about 0.9 s to about 37 ms.
+
+## Step 2: field list moves (Excel parity, step 2)
+
+Two scenarios measure what a field-list drop costs: the pure spec move plus the one rebuild it triggers, on a builder
+that keeps the column encoding (as in `usePivotGrid`) but only one cube (`maxCubes: 1`), so every iteration
+re-aggregates instead of hitting the cube cache.
+
+- **Move field**: `movePivotField` alternates Line → Columns (Month swaps into Rows) and Month → Columns (Line swaps
+  back), then rebuilds. With Line in Columns the grid has 48 lines × 3 measures + 3 totals = 147 value columns and
+  region → department → month rows, so the view stage (cell formatting) dominates at small sizes.
+- **Add measure**: `addPivotMeasure(units, sum)` adds a 4th value (13 more columns), alternating with the base spec.
+
+Both builders warm up in `beforeAll` and are cleared in `afterAll`, so their caches add no memory pressure to the
+other scenarios. Medians in ms: step 1 = 7 runs of HEAD `a0c3eb0` (same machine and session, run from a temporary
+worktree), step 2 = 6 runs of this tree, interleaved with 3 of the HEAD runs.
+
+| Scenario | 10k step 1 | 10k step 2 | 100k step 1 | 100k step 2 | 500k step 1 | 500k step 2 |
+|---|---:|---:|---:|---:|---:|---:|
+| Base spec, cold `buildPivotModel` | 17.3 | 18.7 | 46.6 | 48.3 | 177.6 | 177.7 |
+| 3 filters, cold | 12.2 | 12.4 | 43.3 | 44.1 | 166.8 | 181.1 |
+| Filters + label filter + 4 facets + Top 5 (Other) + sortBy, cold | 14.1 | 15.7 | 50.8 | 49.4 | 195.2 | 202.4 |
+| View-only change (builder, cube reused) | 2.7 | 2.8 | 2.4 | 2.5 | 2.4 | 2.9 |
+| Filter change: slicer click (builder, encoding reused) | 2.3 | 2.6 | 8.4 | 7.8 | 32.4 | 36.5 |
+| **Move field: Line ↔ Columns** (`movePivotField` + rebuild) | n/a | 29.4 | n/a | 34.4 | n/a | 82.7 |
+| **Add measure: Units into Values** (`addPivotMeasure` + rebuild) | n/a | 14.3 | n/a | 23.6 | n/a | 65.7 |
+
+**Summary at 500k records:** a drop that moves a field between Rows and Columns rebuilds in about 80 ms, and adding a
+measure in about 65 ms, because the encoding is reused (a cold build is about 180 ms). Pointer moves during a drag cost
+no React work at all (DOM-only, one hit test per animation frame); the grid rebuilds once, on the drop, or on Update
+with "Defer layout update".
+
+**Regression check.** The existing scenarios run the same code paths as step 1 (the step-2 engine changes are a
+`valuesIndex` branch in the column layout and an on-demand facet API). Most medians are within ±10 %. Three exceed it,
+all within this VM's noise: 10k slicer click (2.3 → 2.6 ms, ±6–10 % rme), 500k view-only change (2.4 → 2.9 ms, 5
+samples at ±130 % rme), and 500k slicer click (32.4 → 36.5 ms). Re-running only the slicer-click and view-only
+scenarios, 4 interleaved runs per tree, gave 500k slicer click 35.1 → 34.7 ms (−1 %) and 10k / 100k slicer click −9 %
+each. The 500k view-only row stays at its noise floor (2.5 → 3.1 ms, 5 samples).
 
 ## What changed
 

@@ -14,8 +14,10 @@ import {
   cn,
 } from "@nqlib/nqui";
 import {
+  canMovePivotField,
   clearPivotFilters,
   generatePlanningPivotRows,
+  planningFieldCatalog,
   planningPivotSpec,
   flightsTableShellExtraClass,
   pivotExportFilename,
@@ -30,11 +32,15 @@ import {
   type PivotSpec,
 } from "@nqlib/nqgrid";
 import {
+  PivotFieldList,
   PivotFilterIcon,
   PivotFilterMenu,
   PivotSlicer,
   PivotTable,
+  pivotDropZoneProps,
   pivotExportRequestFromGrid,
+  pivotFieldDragHandleProps,
+  pivotFieldListProps,
   pivotFilterMenuProps,
   pivotSlicerProps,
   usePivotGrid,
@@ -147,16 +153,36 @@ function ExportPanel({ grid }: { grid: PivotGridState }) {
   );
 }
 
-/** The planning spec plus slicer facets (filters, sort and Top N are added by the controls). */
-const demoSpec: PivotSpec = { ...planningPivotSpec, facets: ["department", "line"] };
+/**
+ * The planning spec plus slicer facets and a field catalogue (labels, types, allowed areas) for the
+ * field list. Filters, sort, Top N and the layout are changed by the controls.
+ */
+const demoSpec: PivotSpec = { ...planningPivotSpec, facets: ["department", "line"], fields: planningFieldCatalog };
 
-/** Line header: label, sort / filter indicator and an nqui popover holding `PivotFilterMenu`. */
-function LineHeaderMenu({ grid, context }: { grid: PivotGridState; context: PivotDimensionHeaderContext }) {
+/**
+ * Row-dimension header: a drag handle (drop it on the field list's areas, or on another header to
+ * reorder the row levels), the sort / filter indicator and an nqui popover holding `PivotFilterMenu`.
+ */
+function DimensionHeaderMenu({ grid, context }: { grid: PivotGridState; context: PivotDimensionHeaderContext }) {
   const [open, setOpen] = useState(false);
   const active = context.status.filtered || context.status.sort !== null;
+  const field = context.dimension.field;
+  const source = { field, from: "rows" as const, label: context.label };
   return (
-    <div className="flex min-w-0 items-center justify-between gap-1">
-      <span className="flex min-w-0 items-center gap-1">
+    <div
+      className="flex min-w-0 items-center justify-between gap-1 rounded-sm data-[nqg-drop-active]:bg-primary/10"
+      {...pivotDropZoneProps("rows", { axis: "x", offset: context.level })}
+      data-nqg-drop-item=""
+    >
+      <span
+        className="flex min-w-0 items-center gap-1"
+        title={`Drag ${context.label} to the field list or another header`}
+        {...pivotFieldDragHandleProps({
+          source,
+          canDrop: (target) => canMovePivotField(grid.spec, { ...source, to: target.to, index: target.index }, { fields: grid.fields }),
+          onDrop: (target) => grid.moveField({ ...source, to: target.to, index: target.index }),
+        })}
+      >
         <span className="truncate">{context.label}</span>
         {context.indicator}
       </span>
@@ -172,7 +198,7 @@ function LineHeaderMenu({ grid, context }: { grid: PivotGridState; context: Pivo
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="max-h-[var(--radix-popover-content-available-height)] w-auto overflow-y-auto p-3">
-          <PivotFilterMenu {...pivotFilterMenuProps(grid, context.dimension.field)} onClose={() => setOpen(false)} />
+          <PivotFilterMenu {...pivotFilterMenuProps(grid, field)} onClose={() => setOpen(false)} />
         </PopoverContent>
       </Popover>
     </div>
@@ -214,7 +240,7 @@ function SlicerBar({ grid }: { grid: PivotGridState }) {
             </Button>
           </>
         ) : (
-          <span>Click a slicer value to filter (Ctrl/⌘-click or the multi-select button to pick several); use the Line header menu for sort and Top N.</span>
+          <span>Click a slicer value to filter (Ctrl/⌘-click or the multi-select button to pick several); use a row header menu for sort and Top N.</span>
         )}
         {counts ? (
           <span className="ml-auto tabular-nums">
@@ -233,81 +259,90 @@ function SlicerBar({ grid }: { grid: PivotGridState }) {
  * request a Tauri app sends to its backend, so the PDF/XLSX matches the screen (filters included).
  */
 export function PlanningPivotDemo() {
-  const rows = useMemo(() => generatePlanningPivotRows(), []);
+  // `extraFields` adds region, channel and units to drag around (the other fields are unchanged).
+  const rows = useMemo(() => generatePlanningPivotRows(7, { extraFields: true }), []);
   const pivot = usePivotGrid(demoSpec, rows);
   const { model, spec } = pivot;
   const [showExport, setShowExport] = useState(false);
+  const [showFields, setShowFields] = useState(true);
   const scope = spec.heat?.scope ?? "all";
   const renderDimensionHeader = useCallback(
-    (context: PivotDimensionHeaderContext) =>
-      context.dimension.field === "line" ? (
-        <LineHeaderMenu grid={pivot} context={context} />
-      ) : (
-        <span className="flex min-w-0 items-center gap-1">
-          <span className="truncate">{context.label}</span>
-          {context.indicator}
-        </span>
-      ),
+    (context: PivotDimensionHeaderContext) => <DimensionHeaderMenu grid={pivot} context={context} />,
     [pivot],
   );
+  const layoutText = `${model.rowDimensions.map((d) => d.label).join(" → ")}${model.columnDimension ? ` × ${model.columnDimension.label}` : ""} · ${(spec.values ?? spec.measures.map((m) => m.id))
+    .map((id) => spec.measures.find((m) => m.id === id)?.label ?? id)
+    .join(", ")}`;
 
   return (
     <div className="flex h-[calc(100dvh-8.5rem)] min-h-[36rem] flex-col gap-3">
-      <div className={cn(tableShellClass, flightsTableShellExtraClass, "flex-1")}>
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold leading-tight">{model.title}</h2>
-            <p className="text-xs text-muted-foreground">Department → Line × fiscal month · actuals</p>
+      <div className="flex min-h-0 flex-1 gap-3">
+        <div className={cn(tableShellClass, flightsTableShellExtraClass, "min-w-0 flex-1")}>
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold leading-tight">{model.title}</h2>
+              <p className="text-xs text-muted-foreground" data-testid="pivot-layout">
+                {layoutText}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Heat by</span>
+              <Select value={scope} onValueChange={(v) => pivot.setHeatScope(v as PivotHeatScope)}>
+                <SelectTrigger size="sm" minWidth="10rem" aria-label="Heat by">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HEAT_SCOPES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" onClick={pivot.expandAll}>
+                Expand all
+              </Button>
+              <Button size="sm" variant="outline" onClick={pivot.collapseAll}>
+                Collapse all
+              </Button>
+              <Button size="sm" variant={showFields ? "secondary" : "outline"} aria-pressed={showFields} onClick={() => setShowFields((v) => !v)}>
+                Fields
+              </Button>
+              <Button size="sm" onClick={() => setShowExport((v) => !v)}>
+                {showExport ? "Hide export" : "Export"}
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">Heat by</span>
-            <Select value={scope} onValueChange={(v) => pivot.setHeatScope(v as PivotHeatScope)}>
-              <SelectTrigger size="sm" minWidth="10rem" aria-label="Heat by">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HEAT_SCOPES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button size="sm" variant="outline" onClick={pivot.expandAll}>
-              Expand all
-            </Button>
-            <Button size="sm" variant="outline" onClick={pivot.collapseAll}>
-              Collapse all
-            </Button>
-            <Button size="sm" onClick={() => setShowExport((v) => !v)}>
-              {showExport ? "Hide export" : "Export"}
-            </Button>
+
+          <SlicerBar grid={pivot} />
+
+          <ScrollArea
+            orientation="both"
+            fadeMask={false}
+            className={tableScrollAreaRootClass}
+            viewportStyle={tableScrollViewportStyle}
+          >
+            <PivotTable
+              model={model}
+              onToggleGroup={pivot.toggleGroup}
+              renderDimensionHeader={renderDimensionHeader}
+              aria-label="FY26 sales plan pivot"
+            />
+          </ScrollArea>
+
+          <div className={tableFooterClass}>
+            <p className="text-sm text-muted-foreground">
+              {model.rows.length} visible rows · {model.columns.length} value columns · heat scope{" "}
+              <span className="font-medium text-foreground">{HEAT_SCOPES.find((s) => s.value === scope)?.label}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">Group rows show % of month total; lines show actuals.</p>
           </div>
         </div>
-
-        <SlicerBar grid={pivot} />
-
-        <ScrollArea
-          orientation="both"
-          fadeMask={false}
-          className={tableScrollAreaRootClass}
-          viewportStyle={tableScrollViewportStyle}
-        >
-          <PivotTable
-            model={model}
-            onToggleGroup={pivot.toggleGroup}
-            renderDimensionHeader={renderDimensionHeader}
-            aria-label="FY26 sales plan pivot"
-          />
-        </ScrollArea>
-
-        <div className={tableFooterClass}>
-          <p className="text-sm text-muted-foreground">
-            {model.rows.length} visible rows · {model.columns.length} months · heat scope{" "}
-            <span className="font-medium text-foreground">{HEAT_SCOPES.find((s) => s.value === scope)?.label}</span>
-          </p>
-          <p className="text-xs text-muted-foreground">Group rows show % of month total; lines show actuals.</p>
-        </div>
+        {showFields ? (
+          <aside className="flex w-80 shrink-0 flex-col overflow-y-auto" aria-label="Pivot field list">
+            <PivotFieldList {...pivotFieldListProps(pivot)} className="shadow-none" />
+          </aside>
+        ) : null}
       </div>
 
       {showExport ? <ExportPanel grid={pivot} /> : null}

@@ -14,6 +14,8 @@ const SHOW_AS = new Set([
 ]);
 const HEAT_SCOPES = new Set(["all", "column", "row", "group"]);
 const MATCH_OPS = new Set(["contains", "notContains", "beginsWith", "endsWith", "equals", "notEquals"]);
+const FIELD_TYPES = new Set(["dimension", "measure", "date", "number", "text"]);
+const FIELD_AREAS = new Set(["rows", "columns", "values", "filters"]);
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((k) => typeof k === "string");
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -24,7 +26,8 @@ const isNonEmptyString = (v: unknown): v is string => typeof v === "string" && v
  * Structural + referential validation for specs arriving over the wire (e.g. from Python).
  * The JSON Schema in `contract/pivot/v1` covers structure; this also checks that measure ids
  * referenced by `values`, `heat`, `headerCharts`, `kpis`, `sortBy` and `topN` exist, that
- * `sortBy` / `topN` sit on row dimensions, and that filters / facets are well-formed.
+ * `sortBy` / `topN` sit on row dimensions, that filters / facets are well-formed, and that the
+ * field catalogue (`fields`, `fieldLabels`) and `valuesIndex` are well-formed.
  */
 export function validatePivotSpec(input: unknown): PivotSpecValidation {
   const errors: string[] = [];
@@ -228,6 +231,38 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
         seen.add(field);
       });
     }
+  }
+
+  if (input.fields !== undefined) {
+    if (!Array.isArray(input.fields)) {
+      errors.push("fields must be an array");
+    } else {
+      const seen = new Set<string>();
+      input.fields.forEach((f, i) => {
+        const where = `fields[${i}]`;
+        if (!isObject(f) || !isNonEmptyString(f.field)) {
+          errors.push(`${where}.field must be a non-empty string`);
+          return;
+        }
+        if (seen.has(f.field)) errors.push(`${where} "${f.field}" is duplicated`);
+        seen.add(f.field);
+        if (f.type !== undefined && !FIELD_TYPES.has(f.type as string)) {
+          errors.push(`${where}.type must be one of ${[...FIELD_TYPES].join(" | ")}`);
+        }
+        if (f.areas !== undefined && !(Array.isArray(f.areas) && f.areas.every((a) => FIELD_AREAS.has(a as string)))) {
+          errors.push(`${where}.areas must be an array of ${[...FIELD_AREAS].join(" | ")}`);
+        }
+        if (f.aggregate !== undefined && !BUILT_IN_AGGREGATES.has(f.aggregate as string)) {
+          errors.push(`${where}.aggregate "${String(f.aggregate)}" is not supported`);
+        }
+      });
+    }
+  }
+  if (input.fieldLabels !== undefined && !(isObject(input.fieldLabels) && Object.values(input.fieldLabels).every((v) => typeof v === "string"))) {
+    errors.push("fieldLabels must be an object of strings");
+  }
+  if (input.valuesIndex !== undefined && !(Number.isInteger(input.valuesIndex) && (input.valuesIndex as number) >= 0)) {
+    errors.push("valuesIndex must be an integer ≥ 0");
   }
 
   return errors.length ? { ok: false, errors } : { ok: true, spec: input as unknown as PivotSpec };

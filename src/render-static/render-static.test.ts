@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildPivotModel } from "../core/pivot/build-model";
 import type { PivotSpec } from "../core/pivot/types";
-import { generatePlanningPivotRows, planningFilteredPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
+import { generatePlanningPivotRows, planningFieldsPivotSpec, planningFilteredPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
 import { pivotBodyGroups, pivotKpiPanelHeight } from "../pivot/layout";
 import { PIVOT_SERIES_COLORS } from "../styles";
 import {
@@ -39,6 +39,15 @@ describe("renderPivotHtml", () => {
     expect(filtered).toContain('aria-sort="descending"');
     expect(html).not.toContain("data-nqg-filters");
     expect(renderPivotHtmlFromSpec(planningFilteredPivotSpec, rows, { generatedAt, locale: { filters: "Filter" } })).toContain(">Filter: Department");
+  });
+
+  it("renders a spec rearranged in the field list (golden planning-fields.html: Σ Values outermost, 3 row levels)", async () => {
+    const fieldsRows = generatePlanningPivotRows(7, { extraFields: true });
+    const rearranged = renderPivotHtmlFromSpec(planningFieldsPivotSpec, fieldsRows, { generatedAt });
+    await expect(rearranged).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-fields.html");
+    expect(rearranged).toContain("Filters: Region ≠ West");
+    // Measures are the top header row; header bars sit under the Actual months only.
+    expect(count(rearranged, /data-nqg-bar=/g)).toBe(12);
   });
 
   it("is deterministic and equals renderPivotHtmlFromSpec", () => {

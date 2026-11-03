@@ -150,7 +150,9 @@ function PivotStaticReport({ model, options, layout }: { model: PivotModel; opti
   const geometry = tableGeometryOptions(options);
   const multi = layout.chunks.length > 1;
   const total = model.columns.length;
-  const dimension = model.columnDimension?.label;
+  // Chunk ranges name the top header row: months, or measures when Σ Values is outermost.
+  const measuresOuter = (model.headerRows[0] ?? []).some((h) => h.colSpan > 1 && h.measureId !== undefined);
+  const dimension = measuresOuter ? undefined : model.columnDimension?.label;
   const summary = model.headerSeries ? <PivotHeaderSummary model={model} /> : undefined;
   const filters = pivotFiltersText(model);
 

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { generatePlanningPivotRows, planningFilteredPivotSpec, planningPivotSpec } from "../../fixtures/planning-pivot-mock";
+import {
+  generatePlanningPivotRows,
+  planningFieldsPivotSpec,
+  planningFilteredPivotSpec,
+  planningPivotSpec,
+} from "../../fixtures/planning-pivot-mock";
 import { buildPivotModel } from "./build-model";
+import { inferPivotFields, pivotFieldListState, resolvePivotFields } from "./fields";
 import { pivotModelToSheet } from "./to-sheet";
 
 /**
@@ -38,5 +44,24 @@ describe("pivot golden contract", () => {
     await expect(json(filtered)).toMatchFileSnapshot(`${dir}/planning-filtered.model.json`);
     await expect(json(pivotModelToSheet(filtered))).toMatchFileSnapshot(`${dir}/planning-filtered.sheet.json`);
     expect(JSON.parse(JSON.stringify(filtered))).toEqual(filtered);
+  });
+
+  // Field list: extra fields (region, channel, units), a field catalogue, Σ Values outermost and a
+  // report filter on a field that is not a row / column (rows: generatePlanningPivotRows(7, { extraFields: true })).
+  const fieldsRows = generatePlanningPivotRows(7, { extraFields: true });
+  const fieldsModel = buildPivotModel(planningFieldsPivotSpec, fieldsRows);
+
+  it("planning-fields example (field catalogue, rearranged layout)", async () => {
+    await expect(json(planningFieldsPivotSpec)).toMatchFileSnapshot(`${dir}/planning-fields.spec.json`);
+    await expect(json(fieldsRows)).toMatchFileSnapshot(`${dir}/planning-fields.rows.json`);
+    await expect(json(fieldsModel)).toMatchFileSnapshot(`${dir}/planning-fields.model.json`);
+    await expect(json(pivotModelToSheet(fieldsModel))).toMatchFileSnapshot(`${dir}/planning-fields.sheet.json`);
+    // What a producer gets from inference (Python mirrors inferPivotFields) and the field-list state.
+    const catalog = {
+      inferred: inferPivotFields(fieldsRows),
+      resolved: resolvePivotFields(planningFieldsPivotSpec, fieldsRows),
+      state: pivotFieldListState(planningFieldsPivotSpec, resolvePivotFields(planningFieldsPivotSpec, fieldsRows)),
+    };
+    await expect(json(catalog)).toMatchFileSnapshot(`${dir}/planning-fields.catalog.json`);
   });
 });
