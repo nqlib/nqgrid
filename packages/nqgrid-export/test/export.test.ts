@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 import {
   addPivotMeasure,
   movePivotField,
+  pivotColumnFields,
   resolvePivotFields,
+  setPivotDateGrouping,
   setPivotFilterValues,
   setPivotMeasureAggregate,
   setPivotValuesPosition,
@@ -155,7 +157,8 @@ describe("exportPivot after field-list moves (rearranged specs)", async () => {
   const fields = resolvePivotFields({ ...planningSpec, fields: JSON.parse(readExample("planning-fields.spec.json")).fields });
   // Line ↔ Month, Units + Plan in Values, Σ Values outermost, Region as a report filter, Channel as a row.
   let spec: PivotSpec = { ...planningSpec, fields };
-  spec = movePivotField(spec, { field: "line", from: "rows", to: "columns" }, { fields });
+  spec = movePivotField(spec, { field: "line", from: "rows", to: "columns", index: 0 }, { fields });
+  spec = movePivotField(spec, { field: "month", from: "columns", to: "rows" }, { fields });
   spec = addPivotMeasure(spec, { field: "units" }, { fields });
   spec = addPivotMeasure(spec, { field: "plan", index: 0 }, { fields });
   spec = setPivotValuesPosition(spec, 0);
@@ -167,7 +170,7 @@ describe("exportPivot after field-list moves (rearranged specs)", async () => {
   it("the moved spec is valid and changes the layout", () => {
     expect(validatePivotSpec(spec)).toMatchObject({ ok: true });
     expect(spec.rows.map((d) => d.field)).toEqual(["channel", "department", "month"]);
-    expect(spec.columns?.field).toBe("line");
+    expect(spec.columns).toEqual({ field: "line", label: "Line" });
     expect(spec.values).toEqual(["plan", "actual", "units"]);
   });
 
@@ -209,5 +212,55 @@ describe("exportPivot after field-list moves (rearranged specs)", async () => {
     const pdf = (await exportPivot({ spec, rows, format: "pdf", options: { generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
     expect(Buffer.from(pdf.subarray(0, 5)).toString("latin1")).toBe("%PDF-");
     expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+});
+
+describe("several column fields and date grouping (planning-multicol / planning-dates)", async () => {
+  const fieldsRows = JSON.parse(readExample("planning-fields.rows.json")) as PivotDataRow[];
+  const multi = JSON.parse(readExample("planning-multicol.spec.json")) as PivotSpec;
+  const datesRows = JSON.parse(readExample("planning-dates.rows.json")) as PivotDataRow[];
+  const dates = JSON.parse(readExample("planning-dates.spec.json")) as PivotSpec;
+
+  it("model / sheet / html match the golden files", async () => {
+    for (const [spec, rows, name] of [[multi, fieldsRows, "planning-multicol"], [dates, datesRows, "planning-dates"]] as const) {
+      expect(await exportPivot({ spec, rows, format: "model" })).toBe(readExample(`${name}.model.json`));
+      expect(await exportPivot({ spec, rows, format: "sheet" })).toBe(readExample(`${name}.sheet.json`));
+      expect(await exportPivot({ spec, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })).toBe(readExample(`${name}.html`));
+    }
+  });
+
+  it("xlsx keeps the multi-row header: row-spanning subtotal merges and the frozen header rows", async () => {
+    const bytes = await exportPivot({ spec: multi, rows: fieldsRows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    const sheet = JSON.parse(readExample("planning-multicol.sheet.json")) as PivotSheet;
+    expect(sheet.frozenRows).toBe(3);
+    expect(ws.views[0]).toMatchObject({ state: "frozen", ySplit: 3 });
+    // "North Total" covers two header rows and its two measure columns.
+    const merge = sheet.merges.find((m) => m.rowSpan === 2 && m.colSpan === 2)!;
+    const master = ws.getCell(merge.row + 1, merge.col + 1);
+    expect(master.value).toBe("North Total");
+    expect(ws.getCell(merge.row + 2, merge.col + 2).isMerged).toBe(true);
+    expect(ws.getCell(merge.row + 2, merge.col + 2).master.address).toBe(master.address);
+    sheet.cells.forEach((row, r) =>
+      row.forEach((src, c) => {
+        const cell = ws.getCell(r + 1, c + 1);
+        if (cell.isMerged && cell.master.address !== cell.address) return;
+        expect(cell.value ?? null).toBe(src.v);
+      }),
+    );
+  });
+
+  it("a date grouping changed after loading exports like any spec (pdf splits by column group)", async () => {
+    const months = setPivotDateGrouping({ ...dates, columnsExpanded: "all" }, "orderDate", ["year", "quarter", "month"]);
+    expect(pivotColumnFields(months).map((d) => d.field)).toEqual(["orderDate:year", "orderDate:quarter", "orderDate:month"]);
+    const html = (await exportPivot({ spec: months, rows: datesRows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })) as string;
+    // A fiscal year (17 columns) is wider than a page: chunks follow its quarters instead.
+    expect(html).toContain("Year (Order date) FY25 Q1 – FY25 Q3 Total · Columns 1–12 of 35");
+    expect(html).toContain(">Nov<");
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec: months, rows: datesRows, format: "pdf", options: { generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(2);
   }, 60_000);
 });

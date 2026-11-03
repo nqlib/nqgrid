@@ -94,16 +94,56 @@ export interface PivotColumnChunk {
   readonly lastLabel: string;
 }
 
-/** Indivisible column groups: one per top-level header cell (one per column when there are no headers). */
-export function pivotColumnUnits(model: PivotModel): PivotColumnUnit[] {
+/** A header cell with its value-column range (row spans from earlier rows accounted for). */
+export interface PivotPlacedHeaderCell {
+  readonly cell: PivotHeaderCell;
+  readonly row: number;
+  readonly start: number;
+  readonly end: number;
+}
+
+/** Every header cell with its column range, row by row (cells spanning down cover later rows). */
+export function pivotHeaderCellPositions(model: PivotModel): PivotPlacedHeaderCell[][] {
+  const covered = model.headerRows.map(() => new Set<number>());
+  return model.headerRows.map((row, r) => {
+    const out: PivotPlacedHeaderCell[] = [];
+    let at = 0;
+    for (const cell of row) {
+      while (covered[r]!.has(at)) at++;
+      out.push({ cell, row: r, start: at, end: at + cell.colSpan });
+      for (let below = 1; below < (cell.rowSpan ?? 1) && r + below < covered.length; below++) {
+        for (let i = at; i < at + cell.colSpan; i++) covered[r + below]!.add(i);
+      }
+      at += cell.colSpan;
+    }
+    return out;
+  });
+}
+
+/**
+ * Indivisible column groups: one per top-level header cell (one per column when there are no
+ * headers). With `maxColumns`, a group wider than that is split along the next header row (e.g. a
+ * fiscal year into its quarters, its subtotal staying one unit), recursively, so chunks keep groups
+ * whole where they fit and only split them where they cannot. Labels of split units carry the outer
+ * labels (`FY26 Q1`).
+ */
+export function pivotColumnUnits(model: PivotModel, maxColumns = Infinity): PivotColumnUnit[] {
   const top = model.headerRows[0];
   if (!top?.length) return model.columns.map((c, i) => ({ start: i, end: i + 1, label: c.measureLabel }));
+  const placed = pivotHeaderCellPositions(model);
   const units: PivotColumnUnit[] = [];
-  let at = 0;
-  for (const h of top) {
-    units.push({ start: at, end: at + h.colSpan, label: h.label });
-    at += h.colSpan;
-  }
+  const add = (p: PivotPlacedHeaderCell, label: string) => {
+    const next = p.row + (p.cell.rowSpan ?? 1);
+    if (p.end - p.start > maxColumns && next < placed.length) {
+      const inner = placed[next]!.filter((q) => q.start >= p.start && q.end <= p.end);
+      if (inner.length > 1) {
+        for (const q of inner) add(q, `${label} ${q.cell.label}`);
+        return;
+      }
+    }
+    units.push({ start: p.start, end: p.end, label });
+  };
+  for (const p of placed[0]!) add(p, p.cell.label);
   return units;
 }
 
@@ -112,9 +152,9 @@ export function pivotColumnUnits(model: PivotModel): PivotColumnUnit[] {
  * of its own). Chunks are balanced: 12 months at 5 per page → 4 + 4 + 4, not 5 + 5 + 2.
  */
 export function pivotColumnChunks(model: PivotModel, maxColumns: number): PivotColumnChunk[] {
-  const units = pivotColumnUnits(model);
   const total = model.columns.length;
   const max = Math.max(1, Math.floor(maxColumns));
+  const units = pivotColumnUnits(model, max);
   if (units.length === 0) return [{ index: 0, count: 1, start: 0, end: 0, firstLabel: "", lastLabel: "" }];
   const target = total <= max ? total : Math.ceil(total / Math.ceil(total / max));
   const groups: PivotColumnUnit[][] = [];
@@ -151,18 +191,18 @@ export function slicePivotModelColumns(model: PivotModel, start: number, end: nu
   const columns = model.columns.slice(start, end);
   const ids = new Set(columns.map((c) => c.id));
   const keys = new Set(columns.map((c) => c.columnKey));
-  const headerRows = model.headerRows.map((row) => {
+  const headerRows = pivotHeaderCellPositions(model).map((row) => {
     const out: PivotHeaderCell[] = [];
-    let at = 0;
-    for (const h of row) {
+    for (const { cell: h, start: at } of row) {
       const a = Math.max(at, start);
       const b = Math.min(at + h.colSpan, end);
       if (b > a) out.push(b - a === h.colSpan ? h : { ...h, colSpan: b - a });
-      at += h.colSpan;
     }
     return out;
   });
   const sliceRow = <R extends PivotModel["rows"][number]>(r: R): R => ({ ...r, cells: r.cells.slice(start, end) });
+  const outer = new Set(columns.flatMap((c) => (c.columnPath?.length ? [c.columnPath[0]!] : [])));
+  const series = model.headerSeries;
   return {
     ...model,
     columns,
@@ -170,8 +210,12 @@ export function slicePivotModelColumns(model: PivotModel, start: number, end: nu
     headerRows,
     rows: model.rows.map(sliceRow),
     grandTotal: sliceRow(model.grandTotal),
-    headerSeries: model.headerSeries
-      ? { ...model.headerSeries, points: model.headerSeries.points.filter((p) => ids.has(p.columnId)) }
+    headerSeries: series
+      ? {
+          ...series,
+          points: series.points.filter((p) => ids.has(p.columnId)),
+          ...(series.groups ? { groups: series.groups.filter((g) => outer.has(decodeURIComponent(g.columnKey))) } : {}),
+        }
       : null,
   };
 }

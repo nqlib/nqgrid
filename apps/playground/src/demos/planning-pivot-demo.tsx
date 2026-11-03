@@ -14,9 +14,10 @@ import {
   cn,
 } from "@nqlib/nqui";
 import {
-  canMovePivotField,
   clearPivotFilters,
   generatePlanningPivotRows,
+  PIVOT_VALUES_FIELD,
+  planningDatesPivotSpec,
   planningFieldCatalog,
   planningPivotSpec,
   flightsTableShellExtraClass,
@@ -44,13 +45,16 @@ import {
   pivotFilterMenuProps,
   pivotSlicerProps,
   usePivotGrid,
+  usePivotLayoutDraft,
+  type PivotColumnHeaderContext,
   type PivotDimensionHeaderContext,
   type PivotGridState,
+  type PivotLayoutDraftState,
 } from "@nqlib/nqgrid/pivot";
 
 const HEAT_SCOPES: readonly { value: PivotHeatScope; label: string }[] = [
   { value: "all", label: "All Lines" },
-  { value: "column", label: "Per month" },
+  { value: "column", label: "Per column" },
   { value: "row", label: "Per line" },
   { value: "group", label: "Within department" },
 ];
@@ -154,16 +158,31 @@ function ExportPanel({ grid }: { grid: PivotGridState }) {
 }
 
 /**
- * The planning spec plus slicer facets and a field catalogue (labels, types, allowed areas) for the
- * field list. Filters, sort, Top N and the layout are changed by the controls.
+ * Presets: the planning spec (fiscal months in Columns), and two fiscal years of orders with
+ * `orderDate` grouped Year → Quarter in Columns (collapsible), both with slicer facets and a field
+ * catalogue (labels, types, allowed areas) for the field list. Filters, sort, Top N and the layout
+ * are changed by the controls.
  */
-const demoSpec: PivotSpec = { ...planningPivotSpec, facets: ["department", "line"], fields: planningFieldCatalog };
+const PRESETS = {
+  planning: {
+    label: "Fiscal months",
+    spec: { ...planningPivotSpec, facets: ["department", "line"], fields: planningFieldCatalog } as PivotSpec,
+    rows: () => generatePlanningPivotRows(7, { extraFields: true }),
+  },
+  dates: {
+    label: "Order date: Year → Quarter",
+    spec: { ...planningDatesPivotSpec, facets: ["department", "line"] } as PivotSpec,
+    rows: () => generatePlanningPivotRows(7, { extraFields: true, orderDates: true }),
+  },
+} as const;
+type PresetId = keyof typeof PRESETS;
 
 /**
  * Row-dimension header: a drag handle (drop it on the field list's areas, or on another header to
  * reorder the row levels), the sort / filter indicator and an nqui popover holding `PivotFilterMenu`.
+ * Drags go through the shared layout draft, so "Defer layout update" holds them until Update.
  */
-function DimensionHeaderMenu({ grid, context }: { grid: PivotGridState; context: PivotDimensionHeaderContext }) {
+function DimensionHeaderMenu({ grid, layout, context }: { grid: PivotGridState; layout: PivotLayoutDraftState; context: PivotDimensionHeaderContext }) {
   const [open, setOpen] = useState(false);
   const active = context.status.filtered || context.status.sort !== null;
   const field = context.dimension.field;
@@ -179,8 +198,8 @@ function DimensionHeaderMenu({ grid, context }: { grid: PivotGridState; context:
         title={`Drag ${context.label} to the field list or another header`}
         {...pivotFieldDragHandleProps({
           source,
-          canDrop: (target) => canMovePivotField(grid.spec, { ...source, to: target.to, index: target.index }, { fields: grid.fields }),
-          onDrop: (target) => grid.moveField({ ...source, to: target.to, index: target.index }),
+          canDrop: (target) => layout.canMoveField({ ...source, to: target.to, index: target.index }),
+          onDrop: (target) => layout.moveField({ ...source, to: target.to, index: target.index }),
         })}
       >
         <span className="truncate">{context.label}</span>
@@ -201,6 +220,50 @@ function DimensionHeaderMenu({ grid, context }: { grid: PivotGridState; context:
           <PivotFilterMenu {...pivotFilterMenuProps(grid, field)} onClose={() => setOpen(false)} />
         </PopoverContent>
       </Popover>
+    </div>
+  );
+}
+
+/**
+ * Column header: the column group toggle, and for column-field cells a drag handle (drop on the field
+ * list, or on another column level to reorder) plus a drop zone at the level's Columns-area position.
+ * Measure cells drag Σ Values.
+ */
+function ColumnHeader({ layout, context }: { layout: PivotLayoutDraftState; context: PivotColumnHeaderContext }) {
+  const draggable = context.kind === "dimension" || context.kind === "measure";
+  if (!draggable || context.mode !== "interactive") {
+    // Subtotal / total labels span several header rows and may wrap.
+    return context.toggle ? (
+      <span className="flex min-w-0 items-center gap-1">
+        {context.toggle}
+        <span className="truncate">{context.label}</span>
+      </span>
+    ) : (
+      context.label
+    );
+  }
+  const source =
+    context.kind === "measure"
+      ? { field: PIVOT_VALUES_FIELD, from: "columns" as const, label: "Σ Values" }
+      : { field: context.dimension!.field, from: "columns" as const, label: context.dimension!.label };
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1 rounded-sm data-[nqg-drop-active]:bg-primary/10"
+      {...pivotDropZoneProps("columns", { axis: "x", offset: context.areaIndex })}
+      data-nqg-drop-item=""
+    >
+      {context.toggle}
+      <span
+        className="min-w-0 truncate"
+        title={`Drag ${source.label} to the field list or another column level`}
+        {...pivotFieldDragHandleProps({
+          source,
+          canDrop: (target) => layout.canMoveField({ ...source, to: target.to, index: target.index }),
+          onDrop: (target) => layout.moveField({ ...source, to: target.to, index: target.index }),
+        })}
+      >
+        {context.label}
+      </span>
     </div>
   );
 }
@@ -259,18 +322,29 @@ function SlicerBar({ grid }: { grid: PivotGridState }) {
  * request a Tauri app sends to its backend, so the PDF/XLSX matches the screen (filters included).
  */
 export function PlanningPivotDemo() {
-  // `extraFields` adds region, channel and units to drag around (the other fields are unchanged).
-  const rows = useMemo(() => generatePlanningPivotRows(7, { extraFields: true }), []);
-  const pivot = usePivotGrid(demoSpec, rows);
+  const [preset, setPreset] = useState<PresetId>(() => (new URLSearchParams(window.location.search).get("pivot") === "dates" ? "dates" : "planning"));
+  // Remount per preset so the grid starts from the preset's spec and rows.
+  return <PlanningPivotView key={preset} preset={preset} onPresetChange={setPreset} />;
+}
+
+function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPresetChange: (p: PresetId) => void }) {
+  // `extraFields` adds region, channel and units to drag around (the other fields are unchanged);
+  // the dates preset spans two fiscal years with an ISO `orderDate`.
+  const rows = useMemo(() => PRESETS[preset].rows(), [preset]);
+  const pivot = usePivotGrid(PRESETS[preset].spec, rows);
+  const layout = usePivotLayoutDraft(pivot);
   const { model, spec } = pivot;
   const [showExport, setShowExport] = useState(false);
   const [showFields, setShowFields] = useState(true);
   const scope = spec.heat?.scope ?? "all";
   const renderDimensionHeader = useCallback(
-    (context: PivotDimensionHeaderContext) => <DimensionHeaderMenu grid={pivot} context={context} />,
-    [pivot],
+    (context: PivotDimensionHeaderContext) => <DimensionHeaderMenu grid={pivot} layout={layout} context={context} />,
+    [pivot, layout],
   );
-  const layoutText = `${model.rowDimensions.map((d) => d.label).join(" → ")}${model.columnDimension ? ` × ${model.columnDimension.label}` : ""} · ${(spec.values ?? spec.measures.map((m) => m.id))
+  const renderColumnHeader = useCallback((context: PivotColumnHeaderContext) => <ColumnHeader layout={layout} context={context} />, [layout]);
+  const nestedColumns = (model.columnDimensions?.length ?? 0) > 1;
+  const columnText = (model.columnDimensions ?? (model.columnDimension ? [model.columnDimension] : [])).map((d) => d.label).join(" → ");
+  const layoutText = `${model.rowDimensions.map((d) => d.label).join(" → ")}${columnText ? ` × ${columnText}` : ""} · ${(spec.values ?? spec.measures.map((m) => m.id))
     .map((id) => spec.measures.find((m) => m.id === id)?.label ?? id)
     .join(", ")}`;
 
@@ -286,6 +360,18 @@ export function PlanningPivotDemo() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Select value={preset} onValueChange={(v) => onPresetChange(v as PresetId)}>
+                <SelectTrigger size="sm" minWidth="12rem" aria-label="Preset">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PRESETS) as PresetId[]).map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {PRESETS[id].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <span className="text-xs text-muted-foreground">Heat by</span>
               <Select value={scope} onValueChange={(v) => pivot.setHeatScope(v as PivotHeatScope)}>
                 <SelectTrigger size="sm" minWidth="10rem" aria-label="Heat by">
@@ -305,6 +391,16 @@ export function PlanningPivotDemo() {
               <Button size="sm" variant="outline" onClick={pivot.collapseAll}>
                 Collapse all
               </Button>
+              {nestedColumns ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={pivot.expandAllColumns}>
+                    Expand columns
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={pivot.collapseAllColumns}>
+                    Collapse columns
+                  </Button>
+                </>
+              ) : null}
               <Button size="sm" variant={showFields ? "secondary" : "outline"} aria-pressed={showFields} onClick={() => setShowFields((v) => !v)}>
                 Fields
               </Button>
@@ -325,8 +421,10 @@ export function PlanningPivotDemo() {
             <PivotTable
               model={model}
               onToggleGroup={pivot.toggleGroup}
+              onToggleColumnGroup={pivot.toggleColumnGroup}
               renderDimensionHeader={renderDimensionHeader}
-              aria-label="FY26 sales plan pivot"
+              renderColumnHeader={renderColumnHeader}
+              aria-label={`${model.title ?? "Sales"} pivot`}
             />
           </ScrollArea>
 
@@ -335,12 +433,14 @@ export function PlanningPivotDemo() {
               {model.rows.length} visible rows · {model.columns.length} value columns · heat scope{" "}
               <span className="font-medium text-foreground">{HEAT_SCOPES.find((s) => s.value === scope)?.label}</span>
             </p>
-            <p className="text-xs text-muted-foreground">Group rows show % of month total; lines show actuals.</p>
+            <p className="text-xs text-muted-foreground">
+              {preset === "dates" ? "Order dates grouped by fiscal year (from November); click a year to collapse it." : "Group rows show % of month total; lines show actuals."}
+            </p>
           </div>
         </div>
         {showFields ? (
           <aside className="flex w-80 shrink-0 flex-col overflow-y-auto" aria-label="Pivot field list">
-            <PivotFieldList {...pivotFieldListProps(pivot)} className="shadow-none" />
+            <PivotFieldList {...pivotFieldListProps(pivot, layout)} className="shadow-none" />
           </aside>
         ) : null}
       </div>

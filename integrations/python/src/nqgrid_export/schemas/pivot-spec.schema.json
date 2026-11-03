@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/nqlib/nqgrid/contract/pivot/v1/pivot-spec.schema.json",
   "title": "PivotSpec",
-  "description": "nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, unique facets and fields) are done by validatePivotSpec().",
+  "description": "nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, subtotal only on column dimensions, a field used at most once across rows and columns, unique facets and fields) are done by validatePivotSpec().",
   "type": "object",
   "required": [
     "version",
@@ -31,7 +31,19 @@
       }
     },
     "columns": {
-      "$ref": "#/$defs/dimension"
+      "description": "Column dimension, or the column hierarchy outermost first (e.g. year → quarter → month). A single dimension (the original v1 shape) and a one-element array are equivalent.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/dimension"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/dimension"
+          }
+        }
+      ]
     },
     "measures": {
       "type": "array",
@@ -65,14 +77,39 @@
           "type": "string"
         },
         "rowTotal": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Grand total column(s), one per value measure (across every column group with several column fields)."
         },
         "rowTotalLabel": {
           "type": "string"
+        },
+        "subtotalLabel": {
+          "type": "string",
+          "description": "Label of column subtotals; {label} is the group label (default \"{label} Total\")."
         }
       }
     },
     "expanded": {
+      "oneOf": [
+        {
+          "enum": [
+            "all",
+            "none"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "columnsExpanded": {
+      "description": "Column groups (every column level but the innermost): \"all\" (default), \"none\", or key paths of expanded groups, e.g. [[\"2026\"]]. A collapsed group shows only its total column.",
       "oneOf": [
         {
           "enum": [
@@ -275,7 +312,8 @@
           ]
         },
         "keepEmpty": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Column dimensions: keep order keys without data; date-grouped fields also fill gaps between the first and last period with data."
         },
         "blankLabel": {
           "type": "string"
@@ -292,6 +330,14 @@
         },
         "topN": {
           "$ref": "#/$defs/topN"
+        },
+        "subtotal": {
+          "enum": [
+            "end",
+            "start",
+            "none"
+          ],
+          "description": "Column dimensions with an inner column field: subtotal column per group at the end (default), the start, or none."
         }
       }
     },
@@ -378,6 +424,7 @@
         "value",
         "percentOfColumnTotal",
         "percentOfParentRow",
+        "percentOfParentColumn",
         "percentOfRowTotal",
         "percentOfGrandTotal"
       ]
@@ -696,7 +743,7 @@
     },
     "field": {
       "title": "PivotFieldSpec",
-      "description": "One field catalogue entry (field list metadata).",
+      "description": "One field catalogue entry (field list metadata). Entries with source + dateGroup define derived date fields; date settings (fiscalYearStartMonth, timeZoneOffsetMinutes, monthNames) change the model.",
       "type": "object",
       "required": [
         "field"
@@ -749,8 +796,65 @@
         },
         "description": {
           "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Derived date field: the record field holding the dates (with dateGroup). Names like \"orderDate:year\" are derived without an entry."
+        },
+        "dateGroup": {
+          "$ref": "#/$defs/dateGroup"
+        },
+        "fiscalYearStartMonth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "Date fields: first month of the fiscal year (default 1). Fiscal years are named by the year they end in."
+        },
+        "timeZoneOffsetMinutes": {
+          "type": "integer",
+          "minimum": -840,
+          "maximum": 840,
+          "description": "Date fields: fixed offset applied to instants (epoch ms, ISO strings with a zone) before taking the day. Default 0 (UTC)."
+        },
+        "monthNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 12,
+          "maxItems": 12,
+          "description": "Date fields: month labels (default Jan … Dec)."
+        },
+        "dateGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dateGroup"
+          },
+          "description": "Date fields: \"Group by\" choices in the field list (default: every group when the values parse as dates; [] turns grouping off)."
         }
+      },
+      "dependentRequired": {
+        "source": [
+          "dateGroup"
+        ],
+        "dateGroup": [
+          "source"
+        ]
       }
+    },
+    "dateGroup": {
+      "title": "DateGroup",
+      "description": "year, quarter (Q1–Q4 of any year), month (Jan–Dec of any year), week (ISO week), day, yearMonth (2026-01), yearQuarter (2026-Q1). Year and quarter keys follow fiscalYearStartMonth.",
+      "enum": [
+        "year",
+        "quarter",
+        "month",
+        "week",
+        "day",
+        "yearMonth",
+        "yearQuarter"
+      ]
     }
   }
 }

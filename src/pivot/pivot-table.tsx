@@ -1,6 +1,6 @@
 import { memo, type CSSProperties, type ReactNode } from "react";
 
-import type { PivotBodyRow, PivotModel, PivotModelDimension } from "../core/pivot/types";
+import type { PivotBodyRow, PivotHeaderCell, PivotModel, PivotModelDimension } from "../core/pivot/types";
 import {
   pivotCountClass,
   pivotGrandTotalCellClass,
@@ -29,10 +29,13 @@ import { pivotAriaSort, pivotDimensionStatus, PivotHeaderIndicator, type PivotDi
 import { PivotKpiDelta, PivotKpiPanel } from "./pivot-kpi-panel";
 import {
   pivotBodyGroups,
+  pivotColumnHeaderRole,
   pivotDimensionSlots,
+  pivotModelColumnDimensions,
   pivotKpiPanelHeight,
   pivotRowCaption,
   pivotTableGeometry,
+  type PivotColumnHeaderRole,
   type PivotTableGeometry,
 } from "./layout";
 
@@ -59,12 +62,33 @@ export interface PivotDimensionHeaderContext {
   readonly indicator: ReactNode;
 }
 
+export interface PivotColumnHeaderContext extends PivotColumnHeaderRole {
+  readonly model: PivotModel;
+  readonly mode: PivotRenderMode;
+  readonly cell: PivotHeaderCell;
+  /** Header row index (`0` = outermost). */
+  readonly row: number;
+  /** Column field of `dimension` / `subtotal` cells, else `null`. */
+  readonly dimension: { readonly field: string; readonly label: string } | null;
+  /** The field has an active report / label filter. */
+  readonly filtered: boolean;
+  /** Default header text. */
+  readonly label: string;
+  /** Expand / collapse button of a column group (`null` otherwise, in static mode or without `onToggleColumnGroup`). */
+  readonly toggle: ReactNode;
+}
+
 export interface PivotTableProps {
   readonly model: PivotModel;
   /** `interactive` (default): toggles + CSS sticky pinning. `static`: plain markup for HTML/PDF. */
   readonly mode?: PivotRenderMode;
   /** Called with a group's key path (e.g. `usePivotGrid().toggleGroup`). Toggles render only when set. */
   readonly onToggleGroup?: (path: readonly string[]) => void;
+  /**
+   * Called with a column group's key path (e.g. `usePivotGrid().toggleColumnGroup`). Expand / collapse
+   * buttons render on column-group headers only when set.
+   */
+  readonly onToggleColumnGroup?: (path: readonly string[]) => void;
   /** Row-dimension column widths in px (tabular default `[208, 172]`). */
   readonly dimensionWidths?: readonly number[];
   /** Value column width in px (default 84). */
@@ -95,6 +119,12 @@ export interface PivotTableProps {
    * (`PivotHeaderMenu` + `PivotFilterMenu`, or your own popover). Default: label + indicator.
    */
   readonly renderDimensionHeader?: (context: PivotDimensionHeaderContext) => ReactNode;
+  /**
+   * Replace a value-column header's content, e.g. to make column-field headers drag handles for the
+   * field list (`pivotFieldDragHandleProps`) and drop zones (`pivotDropZoneProps("columns", { axis: "x",
+   * offset: context.areaIndex })`). Default: the label, plus `toggle` on column groups.
+   */
+  readonly renderColumnHeader?: (context: PivotColumnHeaderContext) => ReactNode;
   /** Replace the outer span cell content (the KPI side-panel slot). */
   readonly renderSpanCell?: (row: PivotBodyRow, context: PivotSpanCellContext) => ReactNode;
   readonly className?: string;
@@ -134,6 +164,7 @@ export const PivotTable = memo(function PivotTable({
   model,
   mode = "interactive",
   onToggleGroup,
+  onToggleColumnGroup,
   dimensionWidths,
   valueWidth,
   rowHeight = 36,
@@ -147,6 +178,7 @@ export const PivotTable = memo(function PivotTable({
   fillSpanHeight,
   renderSpanCell,
   renderDimensionHeader,
+  renderColumnHeader,
   className,
   style,
   "aria-label": ariaLabel,
@@ -336,6 +368,47 @@ export const PivotTable = memo(function PivotTable({
     ];
   };
 
+  const columnFields = pivotModelColumnDimensions(model);
+  const filteredFields = new Set(model.filters?.map((f) => f.field) ?? []);
+  const columnHeader = (h: PivotHeaderCell, r: number): ReactNode => {
+    const path = h.columnPath;
+    const toggle =
+      interactive && onToggleColumnGroup && h.expanded !== undefined && path ? (
+        <button
+          type="button"
+          className={pivotToggleClass}
+          aria-expanded={h.expanded}
+          aria-label={`${h.expanded ? "Collapse" : "Expand"} ${h.label}`}
+          onClick={() => onToggleColumnGroup(path)}
+          data-nqg-column-toggle=""
+        >
+          <Chevron expanded={h.expanded} />
+        </button>
+      ) : null;
+    if (renderColumnHeader) {
+      const role = pivotColumnHeaderRole(model, r, h);
+      const dimension = role.level === null ? null : (columnFields[role.level] ?? null);
+      return renderColumnHeader({
+        ...role,
+        model,
+        mode,
+        cell: h,
+        row: r,
+        dimension,
+        filtered: dimension !== null && filteredFields.has(dimension.field),
+        label: h.label,
+        toggle,
+      });
+    }
+    if (!toggle) return h.label;
+    return (
+      <span className={pivotHeadLabelClass} style={HEAD_LABEL_STYLE}>
+        {toggle}
+        <span className={pivotLabelTextClass}>{h.label}</span>
+      </span>
+    );
+  };
+
   const dimensionHeaders = compact ? [model.rowDimensions.map((d) => d.label).join(" / ")] : model.rowDimensions.map((d) => d.label);
   const statuses = model.rowDimensions.map((_, level) => pivotDimensionStatus(model, level));
   /** Header content + `aria-sort`; plain text when nothing is active (keeps markup minimal). */
@@ -411,11 +484,23 @@ export const PivotTable = memo(function PivotTable({
               : null}
             {cells.map((h, i) => {
               const pos = headCellPos(r);
-              // Σ Values outermost: a measure spans every month; left-align so the label stays in view.
-              const style = h.colSpan > 1 && h.measureId !== undefined ? { ...pos.style, textAlign: "left" as const } : pos.style;
+              // Σ Values outermost / column groups: the cell spans several columns; left-align so the
+              // label stays in view.
+              const left = h.colSpan > 1 && (h.measureId !== undefined || h.columnPath !== undefined);
+              // Subtotal labels ("FY26 Total") span several header rows: let them wrap there.
+              const style = left || h.rowSpan ? { ...pos.style, ...(left ? { textAlign: "left" as const } : {}), ...(h.rowSpan ? { whiteSpace: "normal" as const } : {}) } : pos.style;
               return (
-                <th key={`v${r}:${i}`} scope="col" colSpan={h.colSpan} className={cx(pivotHeadValueCellClass, pos.className)} style={style}>
-                  {h.label}
+                <th
+                  key={`v${r}:${i}`}
+                  scope="col"
+                  colSpan={h.colSpan}
+                  rowSpan={h.rowSpan}
+                  className={cx(pivotHeadValueCellClass, pos.className)}
+                  style={style}
+                  data-nqg-subtotal={h.subtotal ? "" : undefined}
+                  data-nqg-column-level={h.columnLevel}
+                >
+                  {columnHeader(h, r)}
                 </th>
               );
             })}

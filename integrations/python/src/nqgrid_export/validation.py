@@ -5,8 +5,10 @@ Three layers, cheapest first:
 1. JSON Schema (``contract/pivot/v1/*.schema.json``, shipped in this package) — structure.
 2. Referential checks the schema cannot express (mirrors ``validatePivotSpec`` in nqgrid core):
    unknown measure ids in ``values`` / ``heat`` / ``headerCharts`` / ``kpis`` / ``sortBy`` / ``topN``,
-   ``sortBy`` / ``topN`` on the column dimension, duplicate measure ids, facets and catalogue fields,
-   and custom aggregators (not available in nqgrid-export).
+   ``sortBy`` / ``topN`` on column dimensions, ``subtotal`` on row dimensions, a field used twice across
+   ``rows`` and ``columns`` (a dimension or a list of dimensions), duplicate measure ids, facets and
+   catalogue fields, date-grouping entries (``source`` + ``dateGroup``), and custom aggregators (not
+   available in nqgrid-export).
 3. nqgrid-export itself (authoritative): ``NqgridInvalidInput.details``.
 
 Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
@@ -68,6 +70,43 @@ def filtered_example_spec() -> dict[str, Any]:
 def fields_example_spec() -> dict[str, Any]:
     """The golden ``planning-fields.spec.json`` example (field catalogue, Σ Values outermost, report filter)."""
     return _load("planning-fields.spec.json")
+
+
+def dates_example_spec() -> dict[str, Any]:
+    """The golden ``planning-dates.spec.json`` example (``orderDate`` by fiscal year → quarter, FY25 collapsed)."""
+    return _load("planning-dates.spec.json")
+
+
+def multicol_example_spec() -> dict[str, Any]:
+    """The golden ``planning-multicol.spec.json`` example (Region → Channel columns, subtotals, % of parent column)."""
+    return _load("planning-multicol.spec.json")
+
+
+DATE_GROUPS = ("year", "quarter", "month", "week", "day", "yearMonth", "yearQuarter")
+
+
+def column_dimensions(spec: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    """``(path, dimension)`` for ``columns``: a single dimension (``"columns"``) or a list (``"columns[i]"``)."""
+    columns = spec.get("columns")
+    if isinstance(columns, list):
+        return [(f"columns[{i}]", d) for i, d in enumerate(columns)]
+    return [("columns", columns)] if columns is not None else []
+
+
+def date_field_source(spec: Mapping[str, Any], field: str) -> str | None:
+    """The record field a derived date field reads (``orderDate:year`` → ``orderDate``), else ``None``.
+
+    Mirrors ``resolvePivotDateField``: a ``fields`` entry with ``source`` + ``dateGroup``, or a name
+    ``<source>:<group>`` without a non-date catalogue entry of its own.
+    """
+    entries = [f for f in spec.get("fields") or [] if isinstance(f, dict)]
+    own = next((f for f in entries if f.get("field") == field), None)
+    if own is not None and isinstance(own.get("source"), str) and own.get("dateGroup") in DATE_GROUPS:
+        return str(own["source"])
+    if own is not None and own.get("dateGroup") is None and own.get("type") not in (None, "date"):
+        return None
+    source, sep, group = field.rpartition(":")
+    return source if sep and source and group in DATE_GROUPS else None
 
 
 @cache
@@ -135,17 +174,29 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
         if isinstance(k, dict):
             ref(k.get("measure"), f"kpis[{i}].measure")
             ref(k.get("compareTo"), f"kpis[{i}].compareTo")
+    used: dict[str, str] = {}
     for i, d in enumerate(spec.get("rows") or []):
         if not isinstance(d, dict):
             continue
         for key in ("sortBy", "topN"):
             if isinstance(d.get(key), dict):
                 ref(d[key].get("measure"), f"rows[{i}].{key}.measure")
-    columns = spec.get("columns")
-    if isinstance(columns, dict):
+        if "subtotal" in d:
+            errors.append(f"{prefix}rows[{i}].subtotal is only supported on column dimensions")
+        if isinstance(d.get("field"), str):
+            used.setdefault(d["field"], f"rows[{i}]")
+    for where, d in column_dimensions(spec):
+        if not isinstance(d, dict):
+            continue
         for key in ("sortBy", "topN"):
-            if key in columns:
-                errors.append(f"{prefix}columns.{key} is only supported on row dimensions")
+            if key in d:
+                errors.append(f"{prefix}{where}.{key} is only supported on row dimensions")
+        field = d.get("field")
+        if isinstance(field, str):
+            if field in used:
+                errors.append(f"{prefix}{where}.field {field!r} is already used by {used[field]}")
+            else:
+                used[field] = where
     seen: set[str] = set()
     for i, f in enumerate(spec.get("facets") or []):
         field = f if isinstance(f, str) else f.get("field") if isinstance(f, dict) else None
@@ -159,6 +210,10 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
             if f["field"] in catalogued:
                 errors.append(f"{prefix}fields[{i}] {f['field']!r} is duplicated")
             catalogued.add(f["field"])
+            if ("source" in f) != ("dateGroup" in f):
+                errors.append(f"{prefix}fields[{i}]: source and dateGroup go together")
+            if f.get("source") is not None and f.get("source") == f["field"]:
+                errors.append(f"{prefix}fields[{i}].source must differ from field")
     return errors
 
 
@@ -188,15 +243,20 @@ def validate_export_request(request: Any) -> list[str]:
 
 
 def spec_fields(spec: dict[str, Any]) -> list[tuple[str, str]]:
-    """``(path, field)`` for every row field a spec reads (dimensions, measures, filters, facets)."""
+    """``(path, field)`` for every row field a spec reads (dimensions, measures, filters, facets).
+
+    Derived date fields (``orderDate:year``) report the record field they read (``orderDate``).
+    """
     out: list[tuple[str, str]] = []
-    dims = [(f"rows[{i}]", d) for i, d in enumerate(spec.get("rows") or [])]
-    if isinstance(spec.get("columns"), dict):
-        dims.append(("columns", spec["columns"]))
+    dims = [(f"rows[{i}]", d) for i, d in enumerate(spec.get("rows") or [])] + column_dimensions(spec)
+
+    def key_field(field: str) -> str:
+        return date_field_source(spec, field) or field
+
     for where, d in dims:
         if isinstance(d, dict):
             if isinstance(d.get("field"), str):
-                out.append((f"{where}.field", d["field"]))
+                out.append((f"{where}.field", key_field(d["field"])))
             for j, a in enumerate(d.get("attributes") or []):
                 if isinstance(a, str):
                     out.append((f"{where}.attributes[{j}]", a))
@@ -212,11 +272,11 @@ def spec_fields(spec: dict[str, Any]) -> list[tuple[str, str]]:
                     out.append((f"measures[{i}].aggregate.{key}", agg[key]))
     for i, f in enumerate(spec.get("filters") or []):
         if isinstance(f, dict) and isinstance(f.get("field"), str):
-            out.append((f"filters[{i}].field", f["field"]))
+            out.append((f"filters[{i}].field", key_field(f["field"])))
     for i, f in enumerate(spec.get("facets") or []):
         field = f if isinstance(f, str) else f.get("field") if isinstance(f, dict) else None
         if isinstance(field, str):
-            out.append((f"facets[{i}]", field))
+            out.append((f"facets[{i}]", key_field(field)))
     return out
 
 

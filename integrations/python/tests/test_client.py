@@ -20,7 +20,7 @@ from nqgrid_export import (
     pdf_page_count,
 )
 
-from .conftest import EXAMPLES, GOLDEN_GENERATED_AT, ExportService
+from .conftest import EXAMPLES, GOLDEN_GENERATED_AT, ExportService, load_example
 
 # --- unit: error mapping ------------------------------------------------------------------------
 
@@ -161,6 +161,39 @@ def test_filtered_spec_matches_the_golden_files(
     html = client.export(filtered_spec, planning_rows, format="html", options=OPTIONS)
     assert html == (EXAMPLES / "planning-filtered.html").read_text("utf-8")
     assert "Filters: Department = Camp, Packs" in html
+
+
+@pytest.mark.e2e
+@pytest.mark.parametrize(
+    ("name", "rows_name"),
+    [("planning-multicol", "planning-fields.rows.json"), ("planning-dates", "planning-dates.rows.json")],
+)
+def test_column_hierarchy_and_date_grouping_match_the_golden_files(
+    client: NqgridExportClient, name: str, rows_name: str
+) -> None:
+    """Several column fields, subtotal columns, fiscal date groups and collapsed groups come from nqgrid."""
+    spec = load_example(f"{name}.spec.json")
+    rows = load_example(rows_name)
+    assert client.export(spec, rows, format="model") == load_example(f"{name}.model.json")
+    assert client.export(spec, rows, format="sheet") == load_example(f"{name}.sheet.json")
+    assert client.export(PivotSpec.model_validate(spec), rows, format="model") == load_example(f"{name}.model.json")
+    html = client.export(spec, rows, format="html", options=OPTIONS)
+    assert html == (EXAMPLES / f"{name}.html").read_text("utf-8")
+
+
+@pytest.mark.e2e
+def test_date_grouping_changes_from_python(client: NqgridExportClient) -> None:
+    """An agent regroups a date by editing derived field names; nqgrid parses the ISO dates in UTC."""
+    spec = load_example("planning-dates.spec.json")
+    rows = load_example("planning-dates.rows.json")
+    by_month = {**spec, "columns": [{"field": "orderDate:yearMonth", "keepEmpty": True}], "columnsExpanded": "all"}
+    model = client.export(by_month, rows, format="model")
+    keys = [k["label"] for k in model["columnKeys"]]
+    assert keys[0] == "Nov 2024" and keys[-1] == "Oct 2026" and len(keys) == 24
+    fy26 = {**spec, "filters": [{"field": "orderDate:year", "include": ["2026"]}]}
+    filtered = client.export(fy26, rows, format="model")
+    assert filtered["filters"][0]["text"] == "Year (Order date) = FY26"
+    assert filtered["recordCount"]["matched"] == len(rows) // 2
 
 
 @pytest.mark.e2e

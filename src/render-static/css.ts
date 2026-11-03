@@ -267,3 +267,12 @@ body {
 .nqg-pivot-down { color: var(--nqg-negative); }
 .nqg-pivot-flat { color: var(--nqg-muted-fg); }
 `;
+
+/**
+ * Appended when a report has several column fields: long column keys in narrow value columns end in
+ * an ellipsis instead of running into their neighbours. Kept out of `PIVOT_STATIC_CSS` so reports
+ * with one column field keep a byte-identical stylesheet.
+ */
+export const PIVOT_STATIC_NESTED_HEADER_CSS = `.nqg-pivot-head-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nqg-pivot-head-value[data-nqg-subtotal] { white-space: normal; }
+`;

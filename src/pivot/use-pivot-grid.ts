@@ -12,6 +12,7 @@ import type { PivotSortRequest } from "../core/pivot/interaction";
 import type {
   PivotBuiltInAggregate,
   PivotDataRow,
+  PivotDateGroup,
   PivotFacet,
   PivotFieldArea,
   PivotFilter,
@@ -46,6 +47,10 @@ export interface PivotGridState {
   readonly toggleGroup: (path: readonly string[]) => void;
   readonly expandAll: () => void;
   readonly collapseAll: () => void;
+  /** Expand / collapse one column group (key path, e.g. `["2026"]`). */
+  readonly toggleColumnGroup: (path: readonly string[]) => void;
+  readonly expandAllColumns: () => void;
+  readonly collapseAllColumns: () => void;
   readonly setHeatScope: (scope: PivotHeatScope) => void;
   /** Replace the filters on `filter.field` (an empty filter clears them). */
   readonly setFilter: (filter: PivotFilter) => void;
@@ -78,6 +83,8 @@ export interface PivotGridState {
   readonly setValuesPosition: (index: number) => void;
   /** Transpose rows and columns (`swapPivotRowsColumns`). */
   readonly swapRowsColumns: () => void;
+  /** "Group by…" for a date field (`setPivotDateGrouping`); `[]` ungroups. */
+  readonly setDateGrouping: (field: string, groups: readonly PivotDateGroup[], area?: "rows" | "columns" | "filters") => void;
 }
 
 /**
@@ -106,7 +113,8 @@ export function usePivotGrid(
   const sample = inferFields?.sample;
   const hasCatalogue = current.fields !== undefined;
   const inferred = useMemo(() => (hasCatalogue ? null : inferPivotFields(rows, { sample })), [hasCatalogue, rows, sample]);
-  const fields = useMemo(() => resolvePivotFields(inferred ? { ...current, fields: inferred } : current), [current, inferred]);
+  // Rows let declared `date` fields prove their values parse before they offer "Group by…".
+  const fields = useMemo(() => resolvePivotFields(inferred ? { ...current, fields: inferred } : current, rows), [current, inferred, rows]);
 
   // Several dispatches before the next render (e.g. a menu applying values and Top N) chain on
   // each other instead of each starting from the rendered spec.
@@ -132,6 +140,9 @@ export function usePivotGrid(
       toggleGroup: (path) => dispatch({ type: "toggleGroup", path }),
       expandAll: () => dispatch({ type: "expandAll" }),
       collapseAll: () => dispatch({ type: "collapseAll" }),
+      toggleColumnGroup: (path) => dispatch({ type: "toggleColumnGroup", path }),
+      expandAllColumns: () => dispatch({ type: "expandAllColumns" }),
+      collapseAllColumns: () => dispatch({ type: "collapseAllColumns" }),
       setHeatScope: (scope) => dispatch({ type: "setHeatScope", scope }),
       setFilter: (filter) => dispatch({ type: "setFilter", filter }),
       setFilterValues: (field, allKeys, selected) => dispatch({ type: "setFilterValues", field, allKeys, selected }),
@@ -151,6 +162,7 @@ export function usePivotGrid(
       setMeasureAggregate: (measureId, aggregate) => dispatch({ type: "setMeasureAggregate", measureId, aggregate, fields }),
       setValuesPosition: (index) => dispatch({ type: "setValuesPosition", index }),
       swapRowsColumns: () => dispatch({ type: "swapRowsColumns" }),
+      setDateGrouping: (field, groups, area) => dispatch({ type: "setDateGrouping", field, groups, area, fields }),
     }),
     [current, rows, model, dispatch, fields, builder],
   );

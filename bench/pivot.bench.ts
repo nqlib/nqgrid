@@ -61,9 +61,11 @@ for (const n of SIZES) {
     let moveSpec: PivotSpec = benchBaseSpec;
     let m = 0;
     bench("move field: Line ↔ Columns (movePivotField + rebuild, encoding reused)", () => {
-      // Line → Columns swaps Month into Rows; Month → Columns swaps Line back.
-      const move = m++ % 2 === 0 ? ({ field: "line", from: "rows", to: "columns" } as const) : ({ field: "month", from: "rows", to: "columns" } as const);
-      moveSpec = movePivotField(moveSpec, move);
+      // Line ↔ Month (the step-2 layouts). Since step 3 Columns hold several fields, so the swap is two
+      // moves: Line into Columns before Month, then Month into Rows (and back).
+      const [a, b] = m++ % 2 === 0 ? (["line", "month"] as const) : (["month", "line"] as const);
+      moveSpec = movePivotField(moveSpec, { field: a, from: "rows", to: "columns", index: 0 });
+      moveSpec = movePivotField(moveSpec, { field: b, from: "columns", to: "rows" });
       moveBuilder.build(moveSpec, rows);
     }, {
       ...opts(n),

@@ -86,6 +86,10 @@ def test_describe_pivot_spec(tmp_path: Path, provider: DictRowProvider, planning
     assert {"department", "line", "month", "actual", "plan", "owner"} <= set(ds["fields"])
     assert "field_catalog" not in info
     assert info["fields_example_spec"]["valuesIndex"] == 0
+    assert [c["field"] for c in info["multicol_example_spec"]["columns"]] == ["region", "channel"]
+    assert info["dates_example_spec"]["columns"][0] == {"field": "orderDate:year"}
+    for topic in ("## Several column fields", "## Date grouping", "percentOfParentColumn", "fiscalYearStartMonth"):
+        assert topic in info["guide"]
 
 
 def test_describe_pivot_spec_field_catalog(tmp_path: Path, provider: DictRowProvider) -> None:

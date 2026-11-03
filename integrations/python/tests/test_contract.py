@@ -24,11 +24,14 @@ from nqgrid_export import (
 from nqgrid_export.models import Options, RatioAggregate
 from nqgrid_export.request import dumps_request
 from nqgrid_export.validation import (
+    date_field_source,
+    dates_example_spec,
     example_spec,
     fields_example_spec,
     filtered_example_spec,
     humanize_pivot_field,
     infer_pivot_fields,
+    multicol_example_spec,
 )
 
 from .conftest import CONTRACT, EXAMPLES, load_example
@@ -70,6 +73,15 @@ INVALID_SPECS: dict[str, dict[str, Any]] = {
     "bad field aggregate": {**MINIMAL, "fields": [{"field": "a", "aggregate": "median"}]},
     "non-string field label": {**MINIMAL, "fieldLabels": {"a": 1}},
     "negative valuesIndex": {**MINIMAL, "valuesIndex": -1},
+    "empty columns array": {**MINIMAL, "columns": []},
+    "column without field": {**MINIMAL, "columns": [{"field": "b"}, {"label": "x"}]},
+    "bad subtotal": {**MINIMAL, "columns": [{"field": "b", "subtotal": "middle"}, {"field": "c"}]},
+    "bad columnsExpanded": {**MINIMAL, "columnsExpanded": [[1]]},
+    "bad dateGroup": {**MINIMAL, "fields": [{"field": "x", "source": "d", "dateGroup": "decade"}]},
+    "bad fiscal month": {**MINIMAL, "fields": [{"field": "d", "fiscalYearStartMonth": 13}]},
+    "bad time zone offset": {**MINIMAL, "fields": [{"field": "d", "timeZoneOffsetMinutes": 900}]},
+    "short monthNames": {**MINIMAL, "fields": [{"field": "d", "monthNames": ["J"]}]},
+    "bad dateGroups": {**MINIMAL, "fields": [{"field": "d", "dateGroups": ["decade"]}]},
     "bad currency": {
         **MINIMAL,
         "measures": [{"id": "m", "field": "v", "format": {"style": "currency", "currency": "US"}}],
@@ -86,6 +98,8 @@ def test_schema_copies_in_the_package_match_the_contract() -> None:
     assert example_spec() == load_example("planning.spec.json")
     assert filtered_example_spec() == load_example("planning-filtered.spec.json")
     assert fields_example_spec() == load_example("planning-fields.spec.json")
+    assert dates_example_spec() == load_example("planning-dates.spec.json")
+    assert multicol_example_spec() == load_example("planning-multicol.spec.json")
 
 
 def test_schemas_are_valid_2020_12() -> None:
@@ -259,6 +273,15 @@ def test_examples_directory_is_complete() -> None:
         "planning-fields.sheet.json",
         "planning-fields.catalog.json",
         "planning-fields.html",
+        "planning-multicol.spec.json",
+        "planning-multicol.model.json",
+        "planning-multicol.sheet.json",
+        "planning-multicol.html",
+        "planning-dates.spec.json",
+        "planning-dates.rows.json",
+        "planning-dates.model.json",
+        "planning-dates.sheet.json",
+        "planning-dates.html",
     } <= names
 
 
@@ -304,3 +327,65 @@ def test_field_inference_matches_nqgrid() -> None:
 
     infer_pivot_fields([Row(i=i) for i in range(1000)], sample=10)
     assert seen == list(range(0, 1000, 100))
+
+
+@pytest.mark.parametrize(
+    ("spec_name", "rows_name"),
+    [
+        ("planning-multicol.spec.json", "planning-fields.rows.json"),
+        ("planning-dates.spec.json", "planning-dates.rows.json"),
+    ],
+)
+def test_column_hierarchy_and_date_specs_validate_everywhere(spec_name: str, rows_name: str) -> None:
+    spec = load_example(spec_name)
+    rows = load_example(rows_name)
+    assert list(spec_validator.iter_errors(spec)) == []
+    assert validate_pivot_spec(spec) == []
+    model = PivotSpec.model_validate(spec)
+    assert model.model_dump(mode="json", exclude_unset=True) == spec
+    assert check_fields(spec, rows) == []  # orderDate:year / orderDate:quarter read orderDate
+
+
+def test_column_and_date_referential_checks() -> None:
+    spec = {**MINIMAL, "columns": [{"field": "b", "sortBy": {"measure": "m"}}, {"field": "a"}]}
+    assert validate_pivot_spec(spec) == [
+        "columns[0].sortBy is only supported on row dimensions",
+        "columns[1].field 'a' is already used by rows[0]",
+    ]
+    assert validate_pivot_spec({**MINIMAL, "rows": [{"field": "a", "subtotal": "end"}]}) == [
+        "rows[0].subtotal is only supported on column dimensions"
+    ]
+    # The single-object shape keeps its old paths.
+    assert validate_pivot_spec({**MINIMAL, "columns": {"field": "b", "topN": {"measure": "m", "count": 1}}}) == [
+        "columns.topN is only supported on row dimensions"
+    ]
+    lonely = {**MINIMAL, "fields": [{"field": "x", "source": "d"}]}
+    assert "fields[0]: source and dateGroup go together" in validate_pivot_spec(lonely)
+    assert validate_pivot_spec({**MINIMAL, "fields": [{"field": "d", "source": "d", "dateGroup": "year"}]}) == [
+        "fields[0].source must differ from field"
+    ]
+
+
+def test_date_field_sources() -> None:
+    spec = {
+        **MINIMAL,
+        "fields": [
+            {"field": "fy", "source": "orderDate", "dateGroup": "year"},
+            {"field": "a:year", "type": "dimension"},
+        ],
+    }
+    assert date_field_source(spec, "orderDate:quarter") == "orderDate"
+    assert date_field_source(spec, "fy") == "orderDate"
+    assert date_field_source(spec, "a:year") is None  # declared as a plain dimension
+    assert date_field_source(spec, "orderDate") is None
+    assert date_field_source(spec, "x:decade") is None
+    rows = [{"orderDate": "2026-01-15", "v": 1}]
+    dated = {
+        **MINIMAL,
+        "rows": [{"field": "orderDate:month"}],
+        "filters": [{"field": "orderDate:year", "include": ["2026"]}],
+    }
+    assert check_fields(dated, rows) == []
+    assert [e.split(":")[0] for e in check_fields({**dated, "rows": [{"field": "shipDate:month"}]}, rows)] == [
+        "spec.rows[0].field"
+    ]

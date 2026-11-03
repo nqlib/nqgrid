@@ -1,4 +1,5 @@
 import { pivotPathId } from "./build-model";
+import { pivotColumnFields, withPivotColumnFields } from "./columns";
 import { isPivotFilterActive } from "./filter";
 import type {
   PivotDimension,
@@ -31,6 +32,46 @@ export function togglePivotGroup(spec: PivotSpec, model: PivotModel, path: reado
 
 export function setPivotExpandedAll(spec: PivotSpec, expanded: boolean): PivotSpec {
   return { ...spec, expanded: expanded ? "all" : "none" };
+}
+
+/**
+ * Expand or collapse one column group (key path from the outermost column field, e.g. `["2026"]`).
+ * `model` must be built from `spec` (used to materialize `"all"` from the visible groups). A
+ * collapsed group shows only its total column.
+ */
+export function togglePivotColumnGroup(spec: PivotSpec, model: PivotModel, path: readonly string[]): PivotSpec {
+  const current: (readonly string[])[] =
+    spec.columnsExpanded === undefined || spec.columnsExpanded === "all"
+      ? pivotExpandedColumnGroups(model)
+      : spec.columnsExpanded === "none"
+        ? []
+        : [...spec.columnsExpanded];
+  const id = pivotPathId(path);
+  const without = current.filter((p) => pivotPathId(p) !== id);
+  const columnsExpanded = without.length === current.length ? [...current, [...path]] : without;
+  return { ...spec, columnsExpanded };
+}
+
+/** Expand (`"all"`) or collapse (`"none"`) every column group. */
+export function setPivotColumnsExpandedAll(spec: PivotSpec, expanded: boolean): PivotSpec {
+  return { ...spec, columnsExpanded: expanded ? "all" : "none" };
+}
+
+/** Key paths of the expanded column groups visible in `model` (header cells with `expanded: true`). */
+export function pivotExpandedColumnGroups(model: PivotModel): string[][] {
+  const out: string[][] = [];
+  const seen = new Set<string>();
+  for (const row of model.headerRows) {
+    for (const h of row) {
+      if (h.expanded !== true || !h.columnPath) continue;
+      const id = pivotPathId(h.columnPath);
+      if (!seen.has(id)) {
+        seen.add(id);
+        out.push([...h.columnPath]);
+      }
+    }
+  }
+  return out;
 }
 
 /** Change the heat color domain (`all`, `column`, `row`, `group`); adds a default heat spec when absent. */
@@ -167,14 +208,17 @@ function omit<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Omit<T
 /**
  * Sort a dimension (by `field`). Row dimensions: `{ by: "label" }` sets `sort` and drops `sortBy`;
  * `{ by: "value", measure, direction?, columnKey? }` sets `sortBy` (keeping `sort` as tie-breaker);
- * `null` removes both. The column dimension supports label sorting only. Unknown fields: unchanged.
+ * `null` removes both. Column dimensions support label sorting only. Unknown fields: unchanged.
  */
 export function setPivotSort(spec: PivotSpec, field: string, sort: PivotSortRequest | null): PivotSpec {
   if (!spec.rows.some((d) => d.field === field)) {
-    if (spec.columns?.field !== field) return spec;
-    if (sort?.by === "value") throw new TypeError("nqgrid pivot: sorting the column dimension by value is not supported");
-    const columns = sort === null || sort.direction === "none" ? omit(spec.columns, "sort") : { ...spec.columns, sort: sort.direction };
-    return { ...spec, columns };
+    const dims = pivotColumnFields(spec);
+    const at = dims.findIndex((d) => d.field === field);
+    if (at < 0) return spec;
+    if (sort?.by === "value") throw new TypeError("nqgrid pivot: sorting a column dimension by value is not supported");
+    const d = dims[at]!;
+    dims[at] = sort === null || sort.direction === "none" ? omit(d, "sort") : { ...d, sort: sort.direction };
+    return withPivotColumnFields(spec, dims);
   }
   return updateRowDimension(spec, field, (d) => {
     if (sort === null) return omit(d, "sort", "sortBy");

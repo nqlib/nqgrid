@@ -1,8 +1,11 @@
+import { pivotColumnFields, withPivotColumnFields } from "./columns";
+import { parsePivotDateFieldName, pivotDateFieldName, pivotDateGroupLabel, pivotDayOf, PIVOT_DATE_GROUPS, PIVOT_INVALID_DAY } from "./dates";
 import { isPivotFilterActive } from "./filter";
 import type {
   PivotAggregate,
   PivotBuiltInAggregate,
   PivotDataRow,
+  PivotDateGroup,
   PivotDimension,
   PivotFieldArea,
   PivotFieldSpec,
@@ -31,10 +34,21 @@ export const PIVOT_FIELD_AREAS: readonly PivotFieldArea[] = ["filters", "columns
 export const PIVOT_VALUES_FIELD = "\u0000values";
 
 /**
- * Column dimensions the spec supports today. Moves keep `columns` as a list internally and apply
- * this cap last (replace / swap), so raising it is the only change multiple column fields need here.
+ * Most column fields the move helpers put in Columns (the engine itself has no limit). A field
+ * moved into a full Columns area displaces the innermost other column field (see the move rules).
  */
-export const PIVOT_MAX_COLUMN_FIELDS = 1;
+export const PIVOT_MAX_COLUMN_FIELDS = 4;
+
+/**
+ * Groups applied when a date field (one with `dateGroups`) is dropped from the field list into an
+ * area: Year → Quarter in Columns, Year → Month in Rows, Year in Filters (only groups the field
+ * offers and that are not placed yet). Override with `PivotFieldMoveOptions.dateGrouping`.
+ */
+export const PIVOT_DEFAULT_DATE_GROUPING: Readonly<Record<"rows" | "columns" | "filters", readonly PivotDateGroup[]>> = {
+  columns: ["year", "quarter"],
+  rows: ["year", "month"],
+  filters: ["year"],
+};
 
 const ALL_AREAS: readonly PivotFieldArea[] = ["rows", "columns", "filters", "values"];
 const NUMERIC_TYPES: ReadonlySet<PivotFieldType> = new Set(["measure", "number"]);
@@ -49,6 +63,11 @@ export interface PivotFieldInfo {
   readonly aggregate: PivotBuiltInAggregate;
   readonly format?: PivotNumberFormat;
   readonly description?: string;
+  /** Date fields whose values parse as dates: the "Group by…" choices (see `PivotFieldSpec.dateGroups`). */
+  readonly dateGroups?: readonly PivotDateGroup[];
+  /** Derived date fields (`orderDate:year`): the date field they group. */
+  readonly source?: string;
+  readonly dateGroup?: PivotDateGroup;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +137,44 @@ export function inferPivotFields(rows: readonly PivotDataRow[], options: InferPi
   return out;
 }
 
+/**
+ * Do the sampled values of `field` parse as dates (≥ 90 % of the non-empty ones, see `pivotDayOf`)?
+ * Decides whether a declared `date` field without `dateGroups` offers "Group by…".
+ */
+export function pivotFieldHasDates(rows: readonly PivotDataRow[], field: string, sample = 200): boolean {
+  const n = rows.length;
+  const step = n <= sample ? 1 : n / sample;
+  let values = 0;
+  let dates = 0;
+  for (let s = 0, i = 0; i < n && s < sample; s++, i = Math.floor(s * step)) {
+    const v = rows[i]![field];
+    if (v === null || v === undefined || v === "") continue;
+    values++;
+    if (pivotDayOf(v) !== PIVOT_INVALID_DAY) dates++;
+  }
+  return values > 0 && dates >= values * 0.9;
+}
+
+/** Catalogue info of a derived date field (`orderDate:year` → `Year (Order Date)`). */
+function derivedInfo(fields: readonly PivotFieldSpec[], field: string, fieldLabels?: Readonly<Record<string, string>>): PivotFieldInfo | null {
+  const own = fields.find((f) => f.field === field);
+  const parsed = own?.source && own.dateGroup ? { source: own.source, group: own.dateGroup } : own && own.type !== undefined && own.type !== "date" ? null : parsePivotDateFieldName(field);
+  if (!parsed) return null;
+  const src = fields.find((f) => f.field === parsed.source);
+  const sourceLabel = fieldLabels?.[parsed.source] ?? src?.label ?? humanizePivotField(parsed.source);
+  const type: PivotFieldType = "date";
+  return {
+    field,
+    label: fieldLabels?.[field] ?? own?.label ?? `${pivotDateGroupLabel(parsed.group)} (${sourceLabel})`,
+    type,
+    areas: own?.areas ?? src?.areas?.filter((a) => a !== "values") ?? ["rows", "columns", "filters"],
+    aggregate: own?.aggregate ?? "count",
+    ...(own?.description ? { description: own.description } : {}),
+    source: parsed.source,
+    dateGroup: parsed.group,
+  };
+}
+
 function defaultAreas(type: PivotFieldType): readonly PivotFieldArea[] {
   return type === "measure" ? ["values"] : ALL_AREAS;
 }
@@ -137,7 +194,11 @@ export function resolvePivotFields(
   rows?: readonly PivotDataRow[],
   options: InferPivotFieldsOptions = {},
 ): PivotFieldInfo[] {
-  const base: PivotFieldSpec[] = spec.fields ? [...spec.fields] : rows ? inferPivotFields(rows, options) : [];
+  // Derived date entries (`source` + `dateGroup`) add to the catalogue; they do not replace inference.
+  const declared = spec.fields?.filter((f) => !(f.source && f.dateGroup)) ?? [];
+  const derived = spec.fields?.filter((f) => f.source && f.dateGroup) ?? [];
+  const inferred = !declared.length && rows ? inferPivotFields(rows, options) : null;
+  const base: PivotFieldSpec[] = [...(declared.length || !inferred ? declared : inferred), ...derived];
   const known = new Set(base.map((f) => f.field));
   const add = (field: string | undefined, type: PivotFieldType) => {
     if (field && !known.has(field)) {
@@ -146,7 +207,7 @@ export function resolvePivotFields(
     }
   };
   for (const d of spec.rows) add(d.field, "dimension");
-  if (spec.columns) add(spec.columns.field, "dimension");
+  for (const d of pivotColumnFields(spec)) add(d.field, "dimension");
   for (const f of spec.filters ?? []) add(f.field, "dimension");
   for (const m of spec.measures) {
     const agg = m.aggregate ?? "sum";
@@ -154,14 +215,42 @@ export function resolvePivotFields(
   }
 
   const specLabel = (field: string): string | undefined => {
-    const dim = spec.rows.find((d) => d.field === field) ?? (spec.columns?.field === field ? spec.columns : undefined);
+    const dim = spec.rows.find((d) => d.field === field) ?? pivotColumnFields(spec).find((d) => d.field === field);
     if (dim?.label) return dim.label;
     const filter = spec.filters?.find((f) => f.field === field && f.label);
     if (filter?.label) return filter.label;
     return spec.measures.find((m) => m.field === field && (m.aggregate ?? "sum") === "sum" && m.label)?.label;
   };
-  return base.map((f) => {
+  const catalogue = spec.fields ? [...spec.fields, ...(inferred ?? [])] : base;
+  // Derived date fields are listed right after their source field (Excel's Years / Quarters under the date).
+  const declaredField = (field: string) => spec.fields?.some((x) => x.field === field && !(x.source && x.dateGroup)) ?? false;
+  const sourceOf = (f: PivotFieldSpec) => f.source ?? (f.type === "date" || !declaredField(f.field) ? parsePivotDateFieldName(f.field)?.source : undefined);
+  const derivedBySource = new Map<string, PivotFieldSpec[]>();
+  for (const f of base) {
+    const src = sourceOf(f);
+    if (src && src !== f.field && base.some((x) => x.field === src)) {
+      if (!derivedBySource.has(src)) derivedBySource.set(src, []);
+      derivedBySource.get(src)!.push(f);
+    }
+  }
+  if (derivedBySource.size) {
+    const moved = new Set([...derivedBySource.values()].flat());
+    const ordered: PivotFieldSpec[] = [];
+    for (const f of base) {
+      if (moved.has(f)) continue;
+      ordered.push(f, ...(derivedBySource.get(f.field) ?? []));
+    }
+    base.splice(0, base.length, ...ordered);
+  }
+  return base.map((f): PivotFieldInfo => {
+    const isNew = f.type === "dimension" && !spec.fields?.some((x) => x.field === f.field) && !inferred?.some((x) => x.field === f.field);
+    const derivedField = (f.source && f.dateGroup) || isNew ? derivedInfo(catalogue, f.field, spec.fieldLabels) : null;
+    if (derivedField) {
+      const label = spec.fieldLabels?.[f.field] ?? f.label ?? specLabel(f.field) ?? derivedField.label;
+      return { ...derivedField, label };
+    }
     const type = f.type ?? "dimension";
+    const groups = type !== "date" ? undefined : f.dateGroups ?? (rows && pivotFieldHasDates(rows, f.field) ? PIVOT_DATE_GROUPS : undefined);
     return {
       field: f.field,
       label: spec.fieldLabels?.[f.field] ?? f.label ?? specLabel(f.field) ?? humanizePivotField(f.field),
@@ -170,12 +259,17 @@ export function resolvePivotFields(
       aggregate: f.aggregate ?? defaultAggregate(type),
       ...(f.format ? { format: f.format } : {}),
       ...(f.description ? { description: f.description } : {}),
+      ...(groups?.length ? { dateGroups: groups } : {}),
     };
   });
 }
 
 function fieldInfo(fields: readonly PivotFieldSpec[], field: string): PivotFieldInfo {
   const f = fields.find((x) => x.field === field);
+  if (!f || (f.source && f.dateGroup) || (f.type === "date" && parsePivotDateFieldName(field))) {
+    const derived = derivedInfo(fields, field);
+    if (derived) return f?.label ? { ...derived, label: f.label } : derived;
+  }
   const type = f?.type ?? "dimension";
   return {
     field,
@@ -184,6 +278,7 @@ function fieldInfo(fields: readonly PivotFieldSpec[], field: string): PivotField
     areas: f?.areas ?? defaultAreas(type),
     aggregate: f?.aggregate ?? defaultAggregate(type),
     ...(f?.format ? { format: f.format } : {}),
+    ...(f?.dateGroups?.length ? { dateGroups: f.dateGroups } : {}),
   };
 }
 
@@ -208,6 +303,13 @@ export interface PivotFieldListItem {
   readonly calculated?: boolean;
   /** The Σ Values chip in Columns. */
   readonly isValues?: boolean;
+  /**
+   * Date fields that can be grouped: the source date field (`orderDate` for `orderDate` itself and
+   * for `orderDate:year`). Pass it to `setPivotDateGrouping`.
+   */
+  readonly dateSource?: string;
+  /** Derived date field: its group. */
+  readonly dateGroup?: PivotDateGroup;
   /** An active report / label filter on the field. */
   readonly filtered?: boolean;
   /** Row dimension sorted by label or value. */
@@ -239,11 +341,6 @@ export interface PivotFieldListState {
   readonly values: readonly PivotFieldListItem[];
   /** Catalogue fields used in no area. */
   readonly unused: readonly PivotFieldListField[];
-}
-
-/** The column dimensions as a list (`columns` is a single dimension today). */
-export function pivotColumnFields(spec: PivotSpec): PivotDimension[] {
-  return spec.columns ? [spec.columns] : [];
 }
 
 /** Measure ids shown as values (`spec.values`, default every measure). */
@@ -278,6 +375,11 @@ export function pivotFieldListState(spec: PivotSpec, fields: readonly PivotField
   const catalogue = resolvePivotFields({ ...spec, fields });
   const info = (field: string) => catalogue.find((f) => f.field === field) ?? fieldInfo([], field);
   const filtered = new Set((spec.filters ?? []).filter(isPivotFilterActive).map((f) => f.field));
+  const dateOf = (field: string): Pick<PivotFieldListItem, "dateSource" | "dateGroup"> => {
+    const i = info(field);
+    if (i.source && i.dateGroup) return info(i.source).dateGroups?.length ? { dateSource: i.source, dateGroup: i.dateGroup } : {};
+    return i.dateGroups?.length ? { dateSource: field } : {};
+  };
   const dimItem = (area: PivotFieldArea, d: PivotDimension): PivotFieldListItem => ({
     key: `${area}:${d.field}`,
     area,
@@ -288,6 +390,7 @@ export function pivotFieldListState(spec: PivotSpec, fields: readonly PivotField
     ...(filtered.has(d.field) ? { filtered: true } : {}),
     ...(area === "rows" && (d.sortBy || d.sort === "asc" || d.sort === "desc") ? { sorted: true } : {}),
     ...(area === "rows" && d.topN ? { topN: true } : {}),
+    ...dateOf(d.field),
   });
 
   const rows = spec.rows.map((d) => dimItem("rows", d));
@@ -304,7 +407,16 @@ export function pivotFieldListState(spec: PivotSpec, fields: readonly PivotField
   }
   const filters = pivotFilterAreaFields(spec).map((field): PivotFieldListItem => {
     const label = spec.filters?.find((f) => f.field === field && f.label)?.label ?? info(field).label;
-    return { key: `filters:${field}`, area: "filters", field, sourceField: field, label, type: info(field).type, ...(filtered.has(field) ? { filtered: true } : {}) };
+    return {
+      key: `filters:${field}`,
+      area: "filters",
+      field,
+      sourceField: field,
+      label,
+      type: info(field).type,
+      ...(filtered.has(field) ? { filtered: true } : {}),
+      ...dateOf(field),
+    };
   });
   const valueIds = pivotValueIds(spec);
   const values = valueIds.flatMap((id): PivotFieldListItem[] => {
@@ -368,6 +480,11 @@ export interface PivotFieldMove {
 export interface PivotFieldMoveOptions {
   /** Catalogue for labels, types, allowed areas and default aggregates (default: `resolvePivotFields(spec)`). */
   readonly fields?: readonly PivotFieldSpec[];
+  /**
+   * Groups applied when a date field with `dateGroups` is dropped from the field list into Rows,
+   * Columns or Filters (default `PIVOT_DEFAULT_DATE_GROUPING`); `false` places the raw field.
+   */
+  readonly dateGrouping?: Partial<Record<"rows" | "columns" | "filters", readonly PivotDateGroup[]>> | false;
 }
 
 export type PivotFieldMoveRefusal =
@@ -383,8 +500,10 @@ export interface PivotFieldMovePlan {
   readonly spec: PivotSpec;
   readonly changed: boolean;
   readonly reason?: PivotFieldMoveRefusal;
-  /** A column field pushed out by the one-column-field limit, and where it went. */
+  /** A column field pushed out by `PIVOT_MAX_COLUMN_FIELDS`, and where it went. */
   readonly displaced?: { readonly field: string; readonly to: PivotFieldLocation };
+  /** Date fields placed instead of the raw date field (`orderDate:year`, `orderDate:quarter`). */
+  readonly grouped?: readonly string[];
   /** Measure id created or reused when the move added to Values. */
   readonly measureId?: string;
 }
@@ -397,7 +516,9 @@ function omitKeys<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Om
   return out;
 }
 
+/** A dimension on its way into Columns (no `sortBy` / `topN`) or Rows (no `subtotal`). */
 const stripColumnOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "sortBy", "topN");
+const stripRowOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "subtotal");
 const clamp = (i: number | undefined, max: number) => (i === undefined ? max : Math.max(0, Math.min(max, Math.floor(i))));
 
 /** Working copy of the layout parts a move touches. */
@@ -552,6 +673,11 @@ export function planPivotFieldMove(spec: PivotSpec, move: PivotFieldMove, option
   if (from === "unused" && to !== "values" && to !== "unused") {
     const current = (["rows", "columns", "filters"] as const).find((a) => indexIn(spec, layout, a, field) >= 0);
     if (current) from = current;
+    // A date field dropped from the field list gets its default grouping (Excel's auto-grouping).
+    else if (options.dateGrouping !== false && !isCalculated) {
+      const groups = defaultDateGroups(spec, fields, field, to, options.dateGrouping);
+      if (groups.length) return planDateGroupDrop(spec, groups, to, move.index, { ...options, fields });
+    }
   }
 
   const fromIndex = from === "unused" ? -1 : indexIn(spec, layout, from, from === "values" ? field : sourceField);
@@ -595,7 +721,7 @@ export function planPivotFieldMove(spec: PivotSpec, move: PivotFieldMove, option
       if (same && from === "rows") {
         layout.rows.splice(target(layout.rows.length), 0, carried!);
       } else {
-        layout.rows.splice(target(layout.rows.length), 0, newDim());
+        layout.rows.splice(target(layout.rows.length), 0, stripRowOnly(newDim()));
         if (from === "filters") layout.filters = layout.filters.filter((f) => f.field !== sourceField || isPivotFilterActive(f));
         if (from === "values") layout.filters = layout.filters.filter((f) => f.field !== sourceField || isPivotFilterActive(f));
       }
@@ -606,15 +732,15 @@ export function planPivotFieldMove(spec: PivotSpec, move: PivotFieldMove, option
       const at = target(layout.columns.length);
       layout.columns.splice(at, 0, { kind: "dim", dim });
       if (from === "filters") layout.filters = layout.filters.filter((f) => f.field !== sourceField || isPivotFilterActive(f));
-      // One column field for now: the newcomer stays, the other one swaps into the source area.
+      // Columns full: the newcomer stays, the innermost other column field swaps into the source area.
       const dims = layout.columns.filter((c): c is Extract<ColumnEntry, { kind: "dim" }> => c.kind === "dim");
       if (dims.length > PIVOT_MAX_COLUMN_FIELDS) {
-        const out = dims.find((c) => c.dim !== dim)!;
+        const out = [...dims].reverse().find((c) => c.dim !== dim)!;
         layout.columns = layout.columns.filter((c) => c !== out);
         const dest: PivotFieldLocation = from === "rows" || from === "filters" ? from : "unused";
         displaced = { field: out.dim.field, to: dest };
         if (dest === "rows") {
-          layout.rows.splice(Math.min(fromIndex, layout.rows.length), 0, out.dim);
+          layout.rows.splice(Math.min(fromIndex, layout.rows.length), 0, stripRowOnly(out.dim));
         } else if (dest === "filters") {
           const areaFields = filterAreaBefore.filter((f) => f !== sourceField);
           const placeholder: PivotFilter = { field: out.dim.field, ...(out.dim.label ? { label: out.dim.label } : {}) };
@@ -699,13 +825,13 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   if (headerCharts?.measure) referenced.add(headerCharts.measure);
   const measures = layout.measures.filter((m) => !removed.has(m.id) || referenced.has(m.id));
 
-  // Columns: the list (with Σ Values) back to the single `columns` dimension + `valuesIndex`.
+  // Columns: the list (with Σ Values) back to `columns` (one object for one field) + `valuesIndex`.
   const columnDims = layout.columns.flatMap((c) => (c.kind === "dim" ? [c.dim] : []));
   const sigma = layout.columns.findIndex((c) => c.kind === "values");
   const valuesIndex = sigma < 0 || layout.values.length < 2 || columnDims.length === 0 ? undefined : layout.columns.slice(0, sigma).filter((c) => c.kind === "dim").length;
 
   let next: PivotSpec = { ...spec, rows, measures };
-  next = columnDims.length ? { ...next, columns: columnDims[0]! } : omitKeys(next, "columns");
+  next = withPivotColumnFields(next, columnDims);
   next = valuesIndex !== undefined && valuesIndex !== columnDims.length ? { ...next, valuesIndex } : omitKeys(next, "valuesIndex");
   // `values` stays implicit while it still equals "every measure, in order".
   const implicit = spec.values === undefined && layout.values.length === measures.length && layout.values.every((id, i) => measures[i]!.id === id);
@@ -713,7 +839,25 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   next = layout.filters.length ? { ...next, filters: layout.filters } : omitKeys(next, "filters");
   if (heat !== spec.heat) next = { ...next, heat };
   if (headerCharts !== spec.headerCharts) next = { ...next, headerCharts };
-  return withCleanExpanded(spec, next);
+  return withCleanColumnsExpanded(spec, withCleanExpanded(spec, next));
+}
+
+/**
+ * `withCleanExpanded` for column groups (`columnsExpanded`): a path survives while the column
+ * levels it spans keep their fields and order and it still names a group level.
+ */
+export function withCleanColumnsExpanded(prev: PivotSpec, next: PivotSpec): PivotSpec {
+  const expanded = next.columnsExpanded;
+  if (!Array.isArray(expanded)) return next;
+  const a = pivotColumnFields(prev);
+  const b = pivotColumnFields(next);
+  let prefix = 0;
+  while (prefix < a.length && prefix < b.length && a[prefix]!.field === b[prefix]!.field) prefix++;
+  const maxLen = Math.min(prefix, b.length - 1);
+  const kept = (expanded as readonly (readonly string[])[]).filter((p) => p.length > 0 && p.length <= maxLen);
+  if (kept.length === expanded.length) return next;
+  if (kept.length) return { ...next, columnsExpanded: kept };
+  return b.length > 1 ? { ...next, columnsExpanded: "all" } : omitKeys(next, "columnsExpanded");
 }
 
 /**
@@ -816,21 +960,186 @@ export function setPivotValuesPosition(spec: PivotSpec, index: number): PivotSpe
 }
 
 /**
- * Transpose (Excel's "switch row / column"): row fields become column fields and vice versa.
- * Column-only limits apply: with one column field, the innermost row field and the column field
- * trade places (`Department › Line × Month` → `Department › Month × Line`). Moving dimensions lose
- * `sortBy` / `topN` on the way into Columns. Refused (same spec) when Rows would end up empty.
+ * Transpose (Excel's "switch row / column"): row fields become column fields and vice versa
+ * (`Department › Line × Month` → `Month × Department › Line`), with expanded paths and column-group
+ * paths trading places. At most `PIVOT_MAX_COLUMN_FIELDS` row fields (the innermost) move; outer
+ * ones stay in Rows, in front of the former column fields. Dimensions lose `sortBy` / `topN` on the
+ * way into Columns and `subtotal` on the way into Rows. Refused (same spec) when Rows would end up empty.
  */
 export function swapPivotRowsColumns(spec: PivotSpec): PivotSpec {
   const columns = pivotColumnFields(spec);
   const intoColumns = spec.rows.slice(Math.max(0, spec.rows.length - PIVOT_MAX_COLUMN_FIELDS));
   const stay = spec.rows.slice(0, spec.rows.length - intoColumns.length);
-  const rows = [...stay, ...columns];
+  const rows = [...stay, ...columns.map(stripRowOnly)];
   if (rows.length === 0) return spec;
   const layout = layoutOf(spec);
   layout.rows = rows;
   layout.columns = intoColumns.map((d) => ({ kind: "dim" as const, dim: stripColumnOnly(d) }));
   if (pivotShowsValuesField(spec)) layout.columns.push({ kind: "values" });
+  if (layout.rows.length === 0 || layout.values.length === 0) return spec;
+  let next = applyLayout(spec, layout);
+  if (stay.length === 0) {
+    // Whole hierarchies swap, so their expanded paths do too.
+    next = omitKeys(next, "expanded", "columnsExpanded");
+    if (spec.columnsExpanded !== undefined && rows.length > 1) next = { ...next, expanded: spec.columnsExpanded };
+    if (spec.expanded !== undefined && intoColumns.length > 1) next = { ...next, columnsExpanded: spec.expanded };
+  }
+  return JSON.stringify(next) === JSON.stringify(spec) ? spec : next;
+}
+
+// ---------------------------------------------------------------------------
+// Date grouping
+// ---------------------------------------------------------------------------
+
+/** Name of `source`'s derived field for `group`: a catalogue entry with that source + group, else `source:group`. */
+export function pivotDateGroupField(fields: readonly PivotFieldSpec[], source: string, group: PivotDateGroup): string {
+  return fields.find((f) => f.source === source && f.dateGroup === group)?.field ?? pivotDateFieldName(source, group);
+}
+
+/** Default groups (as field names) for a date field dropped from the field list into `to`, or `[]`. */
+function defaultDateGroups(
+  spec: PivotSpec,
+  fields: readonly PivotFieldSpec[],
+  field: string,
+  to: "rows" | "columns" | "filters",
+  override: PivotFieldMoveOptions["dateGrouping"],
+): string[] {
+  const info = fieldInfo(fields, field);
+  if (!info.dateGroups?.length || info.source) return [];
+  const wanted = (override ? override[to] : undefined) ?? PIVOT_DEFAULT_DATE_GROUPING[to];
+  const placed = new Set([...spec.rows.map((d) => d.field), ...pivotColumnFields(spec).map((d) => d.field), ...pivotFilterAreaFields(spec)]);
+  return wanted.filter((g) => info.dateGroups!.includes(g)).map((g) => pivotDateGroupField(fields, field, g)).filter((f) => !placed.has(f));
+}
+
+/** Drop the derived fields `names` into `to` one after another (the auto-grouped date drop). */
+function planDateGroupDrop(
+  spec: PivotSpec,
+  names: readonly string[],
+  to: "rows" | "columns" | "filters",
+  index: number | undefined,
+  options: PivotFieldMoveOptions,
+): PivotFieldMovePlan {
+  let current = spec;
+  let at = index;
+  let displaced: PivotFieldMovePlan["displaced"];
+  const grouped: string[] = [];
+  let refusal: PivotFieldMovePlan | null = null;
+  for (const name of names) {
+    const plan = planPivotFieldMove(current, { field: name, from: "unused", to, index: at }, { ...options, dateGrouping: false });
+    if (!plan.changed) {
+      refusal ??= plan;
+      continue;
+    }
+    current = plan.spec;
+    displaced ??= plan.displaced;
+    grouped.push(name);
+    at = indexIn(current, layoutOf(current), to, name) + 1;
+  }
+  if (!grouped.length) return refusal ? { ...refusal, spec } : { spec, changed: false, reason: "unchanged" };
+  return { spec: current, changed: true, grouped, ...(displaced ? { displaced } : {}) };
+}
+
+/** Where a date field is grouped: the area holding it or its derived fields, and the groups there. */
+export interface PivotDateGrouping {
+  readonly area: "rows" | "columns" | "filters" | null;
+  /** Groups in that area, in area order (`[]` when the raw field sits there, or nowhere). */
+  readonly groups: readonly PivotDateGroup[];
+  /** The raw date field itself sits in `area`. */
+  readonly raw: boolean;
+}
+
+/**
+ * Current grouping of the date field `source` (see `setPivotDateGrouping`): in `options.area`, else
+ * in the first of Rows, Columns, Filters that holds it.
+ */
+export function pivotDateGroupingOf(
+  spec: PivotSpec,
+  source: string,
+  options: PivotFieldMoveOptions & { readonly area?: "rows" | "columns" | "filters" } = {},
+): PivotDateGrouping {
+  const fields = options.fields ?? resolvePivotFields(spec);
+  const groupOf = (f: string): PivotDateGroup | null => {
+    const info = f === source ? null : fieldInfo(fields, f);
+    return info?.source === source ? info.dateGroup! : null;
+  };
+  const areas: ["rows" | "columns" | "filters", string[]][] = [
+    ["rows", spec.rows.map((d) => d.field)],
+    ["columns", pivotColumnFields(spec).map((d) => d.field)],
+    ["filters", pivotFilterAreaFields(spec)],
+  ];
+  for (const [area, list] of areas) {
+    if (options.area && area !== options.area) continue;
+    const raw = list.includes(source);
+    const groups = list.flatMap((f) => {
+      const g = groupOf(f);
+      return g ? [g] : [];
+    });
+    if (raw || groups.length) return { area, groups, raw };
+  }
+  return { area: options.area ?? null, groups: [], raw: false };
+}
+
+/**
+ * Excel's "Group by…" for a date field: replace `source` and its derived fields in `options.area`
+ * (default: the first of Rows, Columns, Filters that holds them, else Rows) with
+ * the derived fields of `groups`, in `PIVOT_DATE_GROUPS` order (coarse to fine), at the same position.
+ * Groups placed in another area move here; fields that leave the layout lose their filters; Columns
+ * keep at most `PIVOT_MAX_COLUMN_FIELDS` fields (the finest groups are dropped). `groups: []`
+ * ungroups, putting the raw date field back. Returns the same spec when nothing changes.
+ */
+export function setPivotDateGrouping(
+  spec: PivotSpec,
+  source: string,
+  groups: readonly PivotDateGroup[],
+  options: PivotFieldMoveOptions & { readonly area?: "rows" | "columns" | "filters" } = {},
+): PivotSpec {
+  const fields = options.fields ?? resolvePivotFields(spec);
+  const ordered = PIVOT_DATE_GROUPS.filter((g) => groups.includes(g));
+  const names = ordered.map((g) => pivotDateGroupField(fields, source, g));
+  const family = (f: string) => f === source || fieldInfo(fields, f).source === source;
+  const area = options.area ?? pivotDateGroupingOf(spec, source, { fields }).area ?? "rows";
+  const wanted = names.length ? names : fieldInfo(fields, source).areas.includes(area) ? [source] : [];
+  const layout = layoutOf(spec);
+  const isDim = (c: ColumnEntry): c is Extract<ColumnEntry, { kind: "dim" }> => c.kind === "dim";
+  const keepDim = (d: PivotDimension) => !family(d.field) && !wanted.includes(d.field);
+  const labelOf = (f: string) => fieldInfo(fields, f).label;
+  const existing = new Map<string, PivotDimension>();
+  for (const d of [...layout.rows, ...layout.columns.filter(isDim).map((c) => c.dim)]) existing.set(d.field, d);
+  const dimFor = (f: string): PivotDimension => existing.get(f) ?? { field: f, label: labelOf(f) };
+  const filterAreaBefore = pivotFilterAreaFields(spec);
+
+  if (area === "rows") {
+    const at = layout.rows.findIndex((d) => family(d.field));
+    const before = at < 0 ? layout.rows.length : layout.rows.slice(0, at).filter(keepDim).length;
+    layout.rows = layout.rows.filter(keepDim);
+    layout.rows.splice(before, 0, ...wanted.map((f) => stripRowOnly(dimFor(f))));
+    layout.columns = layout.columns.filter((c) => !isDim(c) || keepDim(c.dim));
+  } else if (area === "columns") {
+    const at = layout.columns.findIndex((c) => isDim(c) && family(c.dim.field));
+    const before = at < 0 ? layout.columns.length : layout.columns.slice(0, at).filter((c) => !isDim(c) || keepDim(c.dim)).length;
+    layout.columns = layout.columns.filter((c) => !isDim(c) || keepDim(c.dim));
+    const room = Math.max(0, PIVOT_MAX_COLUMN_FIELDS - layout.columns.filter(isDim).length);
+    layout.columns.splice(before, 0, ...wanted.slice(0, room).map((f) => ({ kind: "dim" as const, dim: stripColumnOnly(dimFor(f)) })));
+    layout.rows = layout.rows.filter(keepDim);
+  } else {
+    const at = filterAreaBefore.findIndex(family);
+    const others = filterAreaBefore.filter((f) => !family(f) && !wanted.includes(f));
+    const position = at < 0 ? others.length : filterAreaBefore.slice(0, at).filter((f) => !family(f) && !wanted.includes(f)).length;
+    layout.filters = layout.filters.filter((f) => !(family(f.field) && filterAreaBefore.includes(f.field) && !wanted.includes(f.field)));
+    let areaFields = others;
+    wanted.forEach((f, i) => {
+      layout.filters = placeFilterField(layout.filters, areaFields, f, position + i, { field: f, label: labelOf(f) });
+      areaFields = [...areaFields.slice(0, position + i), f, ...areaFields.slice(position + i)];
+    });
+    layout.rows = layout.rows.filter(keepDim);
+    layout.columns = layout.columns.filter((c) => !isDim(c) || keepDim(c.dim));
+  }
+  // Family fields that left Rows / Columns (and did not move to Filters) lose their filters, like a removal.
+  const placed = new Set([...layout.rows.map((d) => d.field), ...layout.columns.filter(isDim).map((c) => c.dim.field)]);
+  const removed = new Set(
+    [...spec.rows, ...pivotColumnFields(spec)].map((d) => d.field).filter((f) => family(f) && !placed.has(f) && !(area === "filters" && wanted.includes(f))),
+  );
+  layout.filters = layout.filters.filter((f) => !removed.has(f.field));
   return finish(spec, layout).spec;
 }
 
@@ -865,6 +1174,6 @@ export function togglePivotField(spec: PivotSpec, field: string, checked: boolea
 /** Keep `field` in the Filters area after its filter was cleared (adds a `{ field }` placeholder). */
 export function ensurePivotFilterField(spec: PivotSpec, field: string, label?: string): PivotSpec {
   if (spec.filters?.some((f) => f.field === field)) return spec;
-  if (spec.rows.some((d) => d.field === field) || spec.columns?.field === field) return spec;
+  if (spec.rows.some((d) => d.field === field) || pivotColumnFields(spec).some((d) => d.field === field)) return spec;
   return { ...spec, filters: [...(spec.filters ?? []), { field, ...(label && label !== field ? { label } : {}) }] };
 }

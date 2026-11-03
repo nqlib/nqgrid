@@ -63,7 +63,11 @@ export interface PivotDimension {
   readonly order?: readonly string[];
   /** Default `none` (first-seen order). */
   readonly sort?: "asc" | "desc" | "none";
-  /** Column dimension only: keep keys from `order` even when no record has them (e.g. fiscal months). */
+  /**
+   * Column dimensions only: keep keys from `order` even when no record has them (e.g. fiscal months).
+   * Date-grouped fields also fill gaps: every period between the first and last key with data
+   * (every month / quarter for `month` / `quarter`), nested consistently under date parents.
+   */
   readonly keepEmpty?: boolean;
   /** Label for the empty key (default `(blank)`). */
   readonly blankLabel?: string;
@@ -76,6 +80,12 @@ export interface PivotDimension {
   readonly sortBy?: PivotSortBySpec;
   /** Row dimensions only: keep the top / bottom `count` keys within each parent group. */
   readonly topN?: PivotTopNSpec;
+  /**
+   * Column dimensions with an inner column field: where each group's subtotal column goes —
+   * `end` (default, after its children, like Excel), `start` or `none`. A collapsed group always
+   * shows its total column.
+   */
+  readonly subtotal?: "end" | "start" | "none";
 }
 
 /** Sort sibling keys by an aggregated measure (raw value, before `showAs`). */
@@ -144,6 +154,13 @@ export type PivotFieldType = "dimension" | "measure" | "date" | "number" | "text
 export type PivotFieldArea = "rows" | "columns" | "values" | "filters";
 
 /**
+ * Date grouping of a derived date field: `year`, `quarter` (Q1–Q4, any year), `month` (Jan–Dec,
+ * any year), `week` (ISO week), `day`, `yearMonth` (`2026-01`) and `yearQuarter` (`2026-Q1`).
+ * Year and quarter keys follow `fiscalYearStartMonth`.
+ */
+export type PivotDateGroup = "year" | "quarter" | "month" | "week" | "day" | "yearMonth" | "yearQuarter";
+
+/**
  * One entry of the field catalogue (`spec.fields`), used by the field list and the move helpers
  * (`movePivotField`, …). Metadata only: it does not change the computed model.
  */
@@ -160,6 +177,32 @@ export interface PivotFieldSpec {
   readonly format?: PivotNumberFormat;
   /** Shown as a tooltip in the field list and to agents (MCP `describe_pivot_spec`). */
   readonly description?: string;
+  /**
+   * Derived date field: the record field holding the dates (with `dateGroup`). Names like
+   * `orderDate:year` are derived from `orderDate` without an entry; declare one to rename or relabel.
+   * Unlike other catalogue properties, the date properties below change the model.
+   */
+  readonly source?: string;
+  /** Derived date field: how `source` is grouped. */
+  readonly dateGroup?: PivotDateGroup;
+  /**
+   * Date fields: first month of the fiscal year (1–12, default 1 = calendar year). Fiscal years are
+   * named by the year they end in (`11` → Nov 2025 – Oct 2026 is `FY26`). Set it on the source field
+   * to apply it to every grouping of that field.
+   */
+  readonly fiscalYearStartMonth?: number;
+  /**
+   * Date fields: fixed offset (minutes, −840…840) applied to instants (epoch ms, `Date`, ISO strings
+   * with `Z` / an offset) before taking the calendar day. Default 0 (UTC); never the runtime's zone.
+   */
+  readonly timeZoneOffsetMinutes?: number;
+  /** Date fields: 12 month labels (default `Jan` … `Dec`), e.g. for another language. */
+  readonly monthNames?: readonly string[];
+  /**
+   * Date fields: "Group by…" choices in the field list, also used when the field is dropped into
+   * Rows / Columns / Filters. Default: every group when the values parse as dates. `[]` turns it off.
+   */
+  readonly dateGroups?: readonly PivotDateGroup[];
 }
 
 export type PivotBuiltInAggregate = "sum" | "avg" | "min" | "max" | "count" | "first" | "last";
@@ -182,6 +225,7 @@ export type PivotShowAs =
   | "value"
   | "percentOfColumnTotal"
   | "percentOfParentRow"
+  | "percentOfParentColumn"
   | "percentOfRowTotal"
   | "percentOfGrandTotal";
 
@@ -246,10 +290,15 @@ export interface PivotTotalsSpec {
   readonly grandTotalPosition?: "top" | "bottom";
   /** Default `Grand Total`. */
   readonly grandTotalLabel?: string;
-  /** Append a total column per value measure (default false). */
+  /**
+   * Append the grand total column(s), one per value measure (default false). With several column
+   * fields this is the total across every column group.
+   */
   readonly rowTotal?: boolean;
   /** Default `Total`. */
   readonly rowTotalLabel?: string;
+  /** Label of column subtotals; `{label}` is the group label (default `{label} Total`). */
+  readonly subtotalLabel?: string;
 }
 
 export interface PivotSpec {
@@ -259,8 +308,11 @@ export interface PivotSpec {
   readonly subtitle?: string;
   /** Row hierarchy, outermost first. Every level but the last becomes a collapsible group. */
   readonly rows: readonly PivotDimension[];
-  /** Optional column dimension (e.g. month). */
-  readonly columns?: PivotDimension;
+  /**
+   * Column dimension (e.g. month), or column hierarchy outermost first (e.g. Year → Quarter →
+   * Month). A single object and a one-element array are equivalent.
+   */
+  readonly columns?: PivotDimension | readonly PivotDimension[];
   /** All measures referenced anywhere (grid values, KPIs, charts). */
   readonly measures: readonly PivotMeasure[];
   /** Measure ids shown as grid columns (default: all measures). */
@@ -268,6 +320,11 @@ export interface PivotSpec {
   readonly totals?: PivotTotalsSpec;
   /** `all` (default), `none`, or the key paths of expanded groups, e.g. `[["Camp"]]`. */
   readonly expanded?: "all" | "none" | readonly (readonly string[])[];
+  /**
+   * Column groups (every column level but the innermost): `all` (default), `none`, or the key paths
+   * of expanded groups, e.g. `[["2026"]]`. A collapsed group shows only its total column.
+   */
+  readonly columnsExpanded?: "all" | "none" | readonly (readonly string[])[];
   readonly heat?: PivotHeatSpec | null;
   readonly headerCharts?: PivotHeaderChartSpec | null;
   readonly kpis?: readonly PivotKpiSpec[];
@@ -305,7 +362,11 @@ export interface PivotKey {
 
 export interface PivotValueColumn {
   readonly id: string;
-  /** Column-dimension key; `null` for row-total columns or when there is no column dimension. */
+  /**
+   * Column-dimension key; `null` for row-total columns or when there is no column dimension. With
+   * several column fields, the key path joined by `/` (each key URI-encoded, e.g. `2026/Q1`); a
+   * subtotal or collapsed group carries its group's path (`2026`).
+   */
   readonly columnKey: string | null;
   readonly columnLabel: string | null;
   readonly measureId: string;
@@ -316,13 +377,29 @@ export interface PivotValueColumn {
   readonly percentFormat: PivotNumberFormat;
   readonly excelNumFmt: string;
   readonly excelPercentNumFmt: string;
+  /** Several column fields: key path of the leaf, subtotal or collapsed group (absent for the grand total). */
+  readonly columnPath?: readonly string[];
+  /** Total of a column group: its subtotal column, or the group itself when collapsed. */
+  readonly subtotal?: true;
+  /** The group is collapsed (`columnsExpanded`), so this total column stands for all of it. */
+  readonly collapsed?: true;
 }
 
 export interface PivotHeaderCell {
   readonly label: string;
   readonly colSpan: number;
+  /** Header rows covered (present when > 1, e.g. a subtotal under several column levels). */
+  readonly rowSpan?: number;
   readonly columnKey?: string | null;
   readonly measureId?: string;
+  /** Several column fields: key path of the group / leaf this cell names. */
+  readonly columnPath?: readonly string[];
+  /** Several column fields: column-field index of this cell (absent for measure and grand-total cells). */
+  readonly columnLevel?: number;
+  /** Collapsible column group: `true` over its expanded children, `false` on its collapsed total column. */
+  readonly expanded?: boolean;
+  /** Subtotal column of a column group. */
+  readonly subtotal?: true;
 }
 
 export interface PivotCell {
@@ -386,9 +463,14 @@ export interface PivotHeaderSeriesPoint {
 export interface PivotHeaderSeries {
   readonly measureId: string;
   readonly type: "bar" | "line";
+  /** One point per leaf column (and per collapsed column group), in column order. Subtotals are left out. */
   readonly points: readonly PivotHeaderSeriesPoint[];
   /** Max of point values (or stacked breakdown totals) for scaling, `null` if no data. */
   readonly max: number | null;
+  /** Several column fields: one point per outermost column group (e.g. per year), with its total. */
+  readonly groups?: readonly PivotHeaderSeriesPoint[];
+  /** Max of `groups` values, `null` if no data. */
+  readonly groupMax?: number | null;
 }
 
 /** Row dimension as the model reports it; sort / filter keys appear only when active (header indicators). */
@@ -442,7 +524,14 @@ export interface PivotModel {
   readonly subtitle?: string;
   readonly layout: "tabular" | "compact";
   readonly rowDimensions: readonly PivotModelDimension[];
+  /** The column field (with several, the outermost; see `columnDimensions`). */
   readonly columnDimension: { readonly field: string; readonly label: string } | null;
+  /** Several column fields: all of them, outermost first. */
+  readonly columnDimensions?: readonly { readonly field: string; readonly label: string }[];
+  /**
+   * Column keys in display order. With several column fields: one per leaf column and collapsed
+   * group (`key` as in `PivotValueColumn.columnKey`, `label` the labels joined by spaces).
+   */
   readonly columnKeys: readonly PivotKey[];
   readonly columns: readonly PivotValueColumn[];
   /** Value-column header rows (outermost first); row-dimension headers come from `rowDimensions`. */

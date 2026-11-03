@@ -60,10 +60,34 @@ export interface GeneratePlanningPivotRowsOptions {
    * `planning.*` goldens do not change).
    */
   readonly extraFields?: boolean;
+  /**
+   * Two fiscal years (FY25 and FY26, November to October) instead of one, each record with an ISO
+   * `orderDate` (`2025-11-14`) in its fiscal month and a `fiscalYear` (`FY25`). Prior-year actuals
+   * are about 6 % lower. For the date-grouping demo (golden `planning-dates.*`).
+   */
+  readonly orderDates?: boolean;
 }
+
+/** Extra fields added by `generatePlanningPivotRows(seed, { orderDates: true })`. */
+export interface PlanningPivotDateFields {
+  /** ISO date (`YYYY-MM-DD`) within the record's fiscal month. */
+  readonly orderDate: string;
+  readonly fiscalYear: "FY25" | "FY26";
+}
+
+/** Calendar month (1–12) of each fiscal month (Nov → Oct). */
+const FISCAL_MONTH_NUMBERS = [11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 /** One record per department × line × fiscal month. */
 export function generatePlanningPivotRows(seed?: number): PlanningPivotRow[];
+export function generatePlanningPivotRows(
+  seed: number | undefined,
+  options: GeneratePlanningPivotRowsOptions & { readonly extraFields: true; readonly orderDates: true },
+): (PlanningPivotRow & PlanningPivotExtraFields & PlanningPivotDateFields)[];
+export function generatePlanningPivotRows(
+  seed: number | undefined,
+  options: GeneratePlanningPivotRowsOptions & { readonly orderDates: true },
+): (PlanningPivotRow & PlanningPivotDateFields)[];
 export function generatePlanningPivotRows(
   seed: number | undefined,
   options: GeneratePlanningPivotRowsOptions & { readonly extraFields: true },
@@ -72,10 +96,12 @@ export function generatePlanningPivotRows(seed?: number, options?: GeneratePlann
 export function generatePlanningPivotRows(seed = 7, options: GeneratePlanningPivotRowsOptions = {}): PlanningPivotRow[] {
   const rand = lcg(seed);
   const extra = options.extraFields ? lcg(seed ^ 0x5eed) : null;
+  const days = options.orderDates ? lcg(seed ^ 0xda7e) : null;
+  const years = options.orderDates ? ([25, 26] as const) : ([null] as const);
   const rows: PlanningPivotRow[] = [];
-  for (const dept of DEPARTMENTS) {
+  for (const fy of years) for (const dept of DEPARTMENTS) {
     dept.lines.forEach((line, li) => {
-      const base = 60_000 + 260_000 * dept.scale * (1 - li * 0.15);
+      const base = (60_000 + 260_000 * dept.scale * (1 - li * 0.15)) * (fy === 25 ? 0.94 : 1);
       PLANNING_FISCAL_MONTHS.forEach((month, mi) => {
         const actual = Math.round(base * SEASONALITY[mi]! * (0.85 + rand() * 0.3));
         const plan = Math.round(actual * (0.95 + rand() * 0.1));
@@ -96,6 +122,14 @@ export function generatePlanningPivotRows(seed = 7, options: GeneratePlanningPiv
                 channel: PLANNING_CHANNELS[Math.floor(extra() * PLANNING_CHANNELS.length)]!,
                 units: Math.round(actual / (UNIT_PRICE[dept.name]! * (0.9 + extra() * 0.2))),
               }
+            : {}),
+          ...(days && fy !== null
+            ? (() => {
+                const m = FISCAL_MONTH_NUMBERS[mi]!;
+                const year = 2000 + fy - (m >= 11 ? 1 : 0);
+                const day = 1 + Math.floor(days() * 28);
+                return { orderDate: `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`, fiscalYear: `FY${fy}` };
+              })()
             : {}),
         });
       });
@@ -206,5 +240,68 @@ export const planningFieldsPivotSpec: PivotSpec = {
   values: ["actual", "units"],
   valuesIndex: 0,
   filters: [{ field: "region", label: "Region", exclude: ["West"] }],
+  fields: planningFieldCatalog,
+};
+
+/** Field catalogue for `generatePlanningPivotRows(seed, { extraFields: true, orderDates: true })`. */
+export const planningDateFieldCatalog: readonly PivotFieldSpec[] = [
+  { field: "department", label: "Department", type: "dimension" },
+  { field: "line", label: "Line", type: "dimension" },
+  { field: "orderDate", label: "Order date", type: "date", fiscalYearStartMonth: 11, description: "Fiscal year starts in November" },
+  { field: "month", label: "Fiscal month", type: "dimension", areas: ["rows", "columns", "filters"] },
+  { field: "fiscalYear", label: "Fiscal year", type: "dimension" },
+  { field: "region", label: "Region", type: "dimension" },
+  { field: "channel", label: "Channel", type: "dimension" },
+  { field: "owner", label: "Owner", type: "text", areas: ["rows", "filters"], description: "Department owner" },
+  { field: "actual", label: "Actual", type: "measure", format: usdCompact },
+  { field: "plan", label: "Plan", type: "measure", format: usdCompact },
+  { field: "forecast", label: "Forecast", type: "measure", format: usdCompact },
+  { field: "outlook", label: "Outlook", type: "measure", format: usdCompact },
+  { field: "priorYear", label: "Prior year", type: "measure", format: usdCompact },
+  { field: "units", label: "Units", type: "measure", format: { decimals: 0, compact: true } },
+];
+
+/**
+ * Date grouping (golden `planning-dates.*`, rows from
+ * `generatePlanningPivotRows(7, { extraFields: true, orderDates: true })`): Department → Line ×
+ * fiscal Year → Quarter of `orderDate` (fiscal year from November), FY25 collapsed to its total,
+ * FY26 expanded with a subtotal, and a grand total column.
+ */
+export const planningDatesPivotSpec: PivotSpec = {
+  ...planningPivotSpec,
+  id: "planning-fy25-fy26-dates",
+  title: "Sales by fiscal quarter",
+  subtitle: "Order date grouped by fiscal year and quarter",
+  columns: [{ field: "orderDate:year" }, { field: "orderDate:quarter" }],
+  columnsExpanded: [["2026"]],
+  totals: { rowTotal: true },
+  measures: planningPivotSpec.measures.map((m) => (m.id === "actual" ? { ...m, groupShowAs: undefined } : m)),
+  fields: planningDateFieldCatalog,
+};
+
+/**
+ * Several column fields (golden `planning-multicol.*`, rows from
+ * `generatePlanningPivotRows(7, { extraFields: true })`): Region → Channel in Columns with Σ Values
+ * between them, Actual plus its share of the region (`percentOfParentColumn`), region subtotals and a
+ * grand total column, heat per column.
+ */
+export const planningMultiColumnPivotSpec: PivotSpec = {
+  ...planningPivotSpec,
+  id: "planning-fy26-multicol",
+  title: "FY26 Sales by region and channel",
+  subtitle: "Region › Σ Values › Channel",
+  columns: [
+    { field: "region", label: "Region", order: [...PLANNING_REGIONS] },
+    { field: "channel", label: "Channel", order: [...PLANNING_CHANNELS] },
+  ],
+  measures: [
+    ...planningPivotSpec.measures.map((m) => (m.id === "actual" ? { ...m, groupShowAs: undefined } : m)),
+    { id: "share", field: "actual", label: "Share of region", showAs: "percentOfParentColumn", percentFormat: { style: "percent", decimals: 1 } },
+  ],
+  values: ["actual", "share"],
+  valuesIndex: 1,
+  totals: { rowTotal: true },
+  expanded: [["Camp"]],
+  heat: { measure: "actual", scope: "column", applyTo: "leaf" },
   fields: planningFieldCatalog,
 };

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   generatePlanningPivotRows,
+  planningDatesPivotSpec,
   planningFieldsPivotSpec,
   planningFilteredPivotSpec,
+  planningMultiColumnPivotSpec,
   planningPivotSpec,
 } from "../../fixtures/planning-pivot-mock";
 import { buildPivotModel } from "./build-model";
@@ -63,5 +65,29 @@ describe("pivot golden contract", () => {
       state: pivotFieldListState(planningFieldsPivotSpec, resolvePivotFields(planningFieldsPivotSpec, fieldsRows)),
     };
     await expect(json(catalog)).toMatchFileSnapshot(`${dir}/planning-fields.catalog.json`);
+  });
+
+  // Several column fields: Region › Σ Values › Channel, region subtotals, a grand total column and
+  // "% of parent column" (rows: the planning-fields rows).
+  const multiModel = buildPivotModel(planningMultiColumnPivotSpec, fieldsRows);
+
+  it("planning-multicol example (column hierarchy, subtotals, percentOfParentColumn)", async () => {
+    await expect(json(planningMultiColumnPivotSpec)).toMatchFileSnapshot(`${dir}/planning-multicol.spec.json`);
+    await expect(json(multiModel)).toMatchFileSnapshot(`${dir}/planning-multicol.model.json`);
+    await expect(json(pivotModelToSheet(multiModel))).toMatchFileSnapshot(`${dir}/planning-multicol.sheet.json`);
+    expect(JSON.parse(JSON.stringify(multiModel))).toEqual(multiModel);
+  });
+
+  // Date grouping: fiscal Year → Quarter of an ISO `orderDate` over two fiscal years, FY25 collapsed
+  // (rows: generatePlanningPivotRows(7, { extraFields: true, orderDates: true })).
+  const datesRows = generatePlanningPivotRows(7, { extraFields: true, orderDates: true });
+  const datesModel = buildPivotModel(planningDatesPivotSpec, datesRows);
+
+  it("planning-dates example (date grouping, fiscal years, collapsed column group)", async () => {
+    await expect(json(planningDatesPivotSpec)).toMatchFileSnapshot(`${dir}/planning-dates.spec.json`);
+    await expect(json(datesRows)).toMatchFileSnapshot(`${dir}/planning-dates.rows.json`);
+    await expect(json(datesModel)).toMatchFileSnapshot(`${dir}/planning-dates.model.json`);
+    await expect(json(pivotModelToSheet(datesModel))).toMatchFileSnapshot(`${dir}/planning-dates.sheet.json`);
+    expect(JSON.parse(JSON.stringify(datesModel))).toEqual(datesModel);
   });
 });

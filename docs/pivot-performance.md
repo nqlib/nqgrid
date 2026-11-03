@@ -1,8 +1,9 @@
 # Pivot performance
 
 `buildPivotModel` benchmarks before and after the filters / Top N / sort-by-value work (Excel parity, step 1), plus the
-field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)).
-The harness is `bench/pivot.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
+field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)) and the column-hierarchy /
+date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)).
+The harness is `bench/pivot.bench.ts` plus `bench/pivot-columns.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
 
 ## Setup
 
@@ -74,6 +75,89 @@ samples at ±130 % rme), and 500k slicer click (32.4 → 36.5 ms). Re-running on
 scenarios, 4 interleaved runs per tree, gave 500k slicer click 35.1 → 34.7 ms (−1 %) and 10k / 100k slicer click −9 %
 each. The 500k view-only row stays at its noise floor (2.5 → 3.1 ms, 5 samples).
 
+## Step 3: several column fields and date grouping (Excel parity, step 3)
+
+`bench/pivot-columns.bench.ts` (its own file, so its rows never add GC pressure to the other scenarios) uses
+`generateBenchDateRows(n)`: the bench rows plus `year` (`FY25` / `FY26`), `quarter` (fiscal) and an ISO `orderDate`.
+
+- **2 column fields**: `year → month` (2 × 12 leaves, 2 year subtotals, grand total) × 3 values = 81 value columns.
+- **3 column fields**: `year → quarter → month` (2 × 4 × 3 leaves, 8 quarter and 2 year subtotals) = 105 value columns.
+- **Date grouping, cold**: `orderDate:year → orderDate:quarter` with `fiscalYearStartMonth: 11`, from ISO strings:
+  parse every record, period ids, key codes, aggregate, model.
+- **Date grouping, encoding reused**: slicer clicks on a builder (`maxCubes: 1`), so the parsed days and date codes
+  are reused and every click re-aggregates; next to the same clicks on the raw `year` / `quarter` keys.
+- **Toggle a column group**: collapse / expand FY25 on the 3-level layout (view only, cube reused).
+
+Medians in ms (median of the per-run medians over 2 runs; same machine and
+session as below):
+
+| Scenario | 100k | 500k |
+|---|---:|---:|
+| 2 column fields: year → month, cold | 66.7 | 236.9 |
+| 3 column fields: year → quarter → month, cold | 74.9 | 230.9 |
+| Date grouping from ISO strings (year → quarter), cold | 75.7 | 306.5 |
+| Date grouping, encoding reused: slicer click | 5.7 | 28.4 |
+| Same slicer click on raw year / quarter keys | 5.4 | 20.7 |
+| Toggle a column group (collapse / expand FY25) | 23.6 | 15.5 |
+
+Reading the numbers:
+
+- **Several column fields cost little in the cube.** Each record still updates two buckets (its leaf column and the
+  row total); column groups are rolled up per row node afterwards (nodes × groups, a few hundred thousand adds), and
+  combinations are found with a dense composite table. A 3-level cold build at 500k (231 ms) is within the noise of the
+  2-level one and about 20 % above the 12-column base spec (181 ms below), mostly the larger view stage (105 instead
+  of 39 columns to format).
+- **Parsing dates once.** The cold date build is about 75 ms (500k) above the raw-key build: the ISO strings are parsed
+  once per record (hand-written digit parsing and integer calendar math, consecutive equal values skipped), then one
+  period id per record and one key string per distinct period. With the encoding reused (the `usePivotGrid` path)
+  nothing is parsed again: a slicer click on the date layout and on raw keys cost the same (a direct 10-run cube
+  comparison after warm-up gave 21.7 vs 22.2 ms; the 28.4 vs 20.7 ms in the table is JIT warm-up within 5 samples).
+- **Toggling a column group is view-only** (no re-aggregation): 15–24 ms, dominated by formatting 105 columns × 343
+  rows (the view stage scales with visible cells; the base spec's 39 columns take about 16 ms at `expanded: "all"`).
+
+**Memory.** The cube holds `(column buckets + 1) × slots` doubles per row node, where buckets are the leaf and group
+columns seen in the data. Measured with `--expose-gc` (`heapUsed + arrayBuffers` after one cube, encoding warmed) at
+500k rows and 343 row nodes, 13 slots:
+
+| Columns | Leaves | Cube |
+|---|---:|---:|
+| month (1 field) | 12 | 0.7 MB |
+| year → quarter → month | 24 (34 buckets) | 1.4 MB |
+| orderDate:yearMonth | 24 | 1.1 MB |
+| orderDate:day | 730 | 21.6 MB |
+| orderDate:yearMonth → orderDate:day | 730 (+24 groups) | 26.2 MB |
+
+The parsed days plus one date grouping's codes take 8 bytes per record (3.9 MB at 500k). The per-record combination
+arrays of several column fields are released after the build (a closure held them in a first version: +4 MB at 500k).
+Day-level columns over years of data are the case to watch: 343 row nodes × 3,650 days would be about 130 MB, so
+aggregate upstream or group by week / month in such layouts.
+
+**Regression check (existing scenarios).** Medians of the per-run medians, 4 interleaved runs of HEAD `395d744`
+(step 2, temporary worktree) and of this tree:
+
+| Scenario | 10k step 2 | 10k step 3 | 100k step 2 | 100k step 3 | 500k step 2 | 500k step 3 |
+|---|---:|---:|---:|---:|---:|---:|
+| Base spec, cold | 17.7 | 18.6 | 45.3 | 45.1 | 192.5 | 181.4 |
+| 3 filters, cold | 12.6 | 11.7 | 39.4 | 38.5 | 177.8 | 191.9 |
+| Filters + label filter + 4 facets + Top 5 + sortBy, cold | 13.1 | 12.2 | 52.2 | 45.6 | 208.1 | 225.4 |
+| View-only change (means; medians are < 1 ms) | 2.9 | 3.2 | 2.6 | 2.6 | 2.4 | 3.1 |
+| Filter change: slicer click | 1.9 | 2.0 | 7.4 | 7.5 | 34.5 | 35.0 |
+| Move field: Line ↔ Columns | 29.5 | 26.0 | 39.3 | 33.6 | 91.8 | 93.0 |
+| Add measure: Units into Values | 12.1 | 13.3 | 22.7 | 22.2 | 69.1 | 69.3 |
+
+All cold and rebuild scenarios are within ±10 % (500k "3 filters" +8 %, 10k "add measure" +10 %, several are faster).
+The only larger figure is the view-only change, whose samples are sub-millisecond with GC outliers (±130 % rme at 500k).
+A direct measurement of the same three views (300 builds × 7 rounds per tree, interleaved twice) gave 2.03 / 2.26 / 1.94
+ms (step 2) against 2.18 / 2.08 / 2.00 ms (step 3) at 10k and 2.35 / 2.26 / 2.37 against 2.38 / 2.05 / 2.39 ms at 500k,
+i.e. equal within noise. Notes:
+
+- The step-2 "move field" scenario now makes two moves per iteration (Line into Columns before Month, then Month into
+  Rows), because Columns accept several fields since step 3; the layouts built are the step-2 ones.
+- A first step-3 run kept the 600k extra date rows alive in the same file while the existing scenarios ran; their means
+  rose 10–15 % at 500k from GC alone, which is why the step-3 scenarios moved to their own bench file.
+- The engine paths of single-column specs changed in three places: the column bucket per record may be `-1`, cells read
+  accumulators by bucket index (no key lookup per cell), and the model builds headers generically. None is measurable.
+
 ## What changed
 
 1. **Column encoding, once per field** (`createPivotRowEncoding`). Dimension, filter and facet fields become
@@ -112,7 +196,7 @@ each. The 500k view-only row stays at its noise floor (2.5 → 3.1 ms, 5 samples
   non-integer data this can differ from the old engine in the last floating-point bit (never in formatted text
   at the default precisions). For integer data, like the goldens, results are identical.
 - The encoding cache assumes records are not mutated in place. Pass a new array after changing data.
-- Memory: each node holds `(columnKeys + 1) × slots` doubles. For example, 100k leaves × 13 buckets × 12 slots is
+- Memory: each node holds `(column buckets + 1) × slots` doubles (buckets: leaf and group columns; see step 3). For example, 100k leaves × 13 buckets × 12 slots is
   about 125 MB. Very high-cardinality leaf levels should be aggregated upstream, as before.
 - Cold encoding is now the largest single stage at 500k. In a stage-timing run it took 130–150 ms, against about
   80 ms (base) to 110–150 ms (filtered) for the cube and 13–50 ms for the view, the higher end on cold JIT. That is

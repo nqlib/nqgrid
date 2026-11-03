@@ -10,6 +10,8 @@ import pytest
 from nqgrid_export import write_xlsx_from_sheet
 from nqgrid_export.xlsx import heat_fill_hex, heat_step, xlsx_sheet_name
 
+from .conftest import load_example
+
 openpyxl = pytest.importorskip("openpyxl")
 from openpyxl.cell.cell import MergedCell  # noqa: E402
 
@@ -121,3 +123,18 @@ def test_sheet_names() -> None:
     assert xlsx_sheet_name("FY26 / Q1: [draft]") == "FY26 Q1 draft"
     assert xlsx_sheet_name("x" * 40) == "x" * 31
     assert xlsx_sheet_name(None) == "Pivot"
+
+
+def test_multi_row_headers_keep_their_row_spanning_merges() -> None:
+    """Subtotal headers of several column fields span header rows; the openpyxl writer keeps those merges."""
+    sheet = load_example("planning-multicol.sheet.json")
+    ws = openpyxl.load_workbook(io.BytesIO(write_xlsx_from_sheet(sheet))).worksheets[0]
+    spans = [m for m in sheet["merges"] if m["rowSpan"] == 2 and m["colSpan"] == 2]
+    assert spans, "expected a region subtotal covering two header rows and two measures"
+    merged = {str(r) for r in ws.merged_cells.ranges}
+    for m in spans:
+        first = ws.cell(row=m["row"] + 1, column=m["col"] + 1)
+        last = ws.cell(row=m["row"] + m["rowSpan"], column=m["col"] + m["colSpan"])
+        assert f"{first.coordinate}:{last.coordinate}" in merged
+        assert first.value == sheet["cells"][m["row"]][m["col"]]["v"]
+    assert ws.freeze_panes == "C4"

@@ -14,8 +14,12 @@ import {
   canMovePivotField,
   ensurePivotFilterField,
   PIVOT_FIELD_AREAS,
+  pivotDateGroupField,
+  pivotDateGroupingOf,
   pivotFieldListState,
   planPivotFieldMove,
+  resolvePivotFields,
+  setPivotDateGrouping,
   setPivotMeasureAggregate,
   swapPivotRowsColumns,
   togglePivotField,
@@ -29,7 +33,8 @@ import {
   type PivotFieldMoveRefusal,
 } from "../core/pivot/fields";
 import { clearPivotFilter, setPivotFilterValues, setPivotSort, setPivotTopN } from "../core/pivot/interaction";
-import type { PivotBuiltInAggregate, PivotFacet, PivotFieldArea, PivotFieldSpec, PivotFieldType, PivotModel, PivotSpec } from "../core/pivot/types";
+import { PIVOT_DATE_GROUPS } from "../core/pivot/dates";
+import type { PivotBuiltInAggregate, PivotDateGroup, PivotFacet, PivotFieldArea, PivotFieldSpec, PivotFieldType, PivotModel, PivotSpec } from "../core/pivot/types";
 import {
   pivotFieldChipClass,
   pivotFieldChipLabelClass,
@@ -61,6 +66,7 @@ import { cx } from "./heat";
 import { PivotFilterMenu, type PivotFilterMenuProps } from "./pivot-filter-menu";
 import { PivotFilterIcon } from "./pivot-header-indicator";
 import type { PivotGridState } from "./use-pivot-grid";
+import type { PivotLayoutDraftState } from "./use-pivot-layout-draft";
 
 // ---------------------------------------------------------------------------
 // Labels
@@ -84,6 +90,11 @@ export interface PivotFieldListLabels {
   readonly filter: string;
   readonly summarizeBy: string;
   readonly aggregates: Readonly<Record<PivotBuiltInAggregate, string>>;
+  /** Date fields: heading of the grouping toggles. */
+  readonly groupBy: string;
+  readonly dateGroups: Readonly<Record<PivotDateGroup, string>>;
+  /** Date fields: back to the raw date field. */
+  readonly ungroup: string;
   readonly fieldOptions: (label: string) => string;
   readonly close: string;
   readonly back: string;
@@ -117,6 +128,9 @@ export const PIVOT_FIELD_LIST_LABELS: PivotFieldListLabels = {
   filter: "Filter…",
   summarizeBy: "Summarize values by",
   aggregates: { sum: "Sum", count: "Count", avg: "Average", min: "Min", max: "Max", first: "First", last: "Last" },
+  groupBy: "Group by",
+  dateGroups: { year: "Years", yearQuarter: "Year-Quarter", quarter: "Quarters", yearMonth: "Year-Month", month: "Months", week: "Weeks", day: "Days" },
+  ungroup: "Ungroup",
   fieldOptions: (label) => `${label} options`,
   close: "Close",
   back: "Back",
@@ -239,6 +253,12 @@ export interface PivotFieldListProps {
   readonly deferLayout?: boolean;
   readonly defaultDeferLayout?: boolean;
   readonly onDeferLayoutChange?: (deferred: boolean) => void;
+  /**
+   * Controlled deferred draft (with `onDraftChange`), so other editors such as grid header drags can
+   * share it: `usePivotLayoutDraft` + `pivotFieldListProps(grid, layout)`. Uncontrolled by default.
+   */
+  readonly draft?: PivotSpec | null;
+  readonly onDraftChange?: (draft: PivotSpec | null) => void;
   /** Show the defer checkbox and Update button (default true). */
   readonly showDeferLayout?: boolean;
   /** Search box above the field checklist (default true). */
@@ -343,6 +363,8 @@ export function PivotFieldList({
   deferLayout,
   defaultDeferLayout = false,
   onDeferLayoutChange,
+  draft: draftProp,
+  onDraftChange,
   showDeferLayout = true,
   search = true,
   title,
@@ -359,7 +381,12 @@ export function PivotFieldList({
   const labels = { ...PIVOT_FIELD_LIST_LABELS, ...labelOverrides };
   const [deferState, setDeferState] = useState(defaultDeferLayout);
   const deferred = deferLayout ?? deferState;
-  const [draft, setDraft] = useState<PivotSpec | null>(null);
+  const [draftState, setDraftState] = useState<PivotSpec | null>(null);
+  const draft = draftProp !== undefined ? draftProp : draftState;
+  const setDraft = (next: PivotSpec | null) => {
+    if (draftProp === undefined) setDraftState(next);
+    onDraftChange?.(next);
+  };
   const spec = deferred && draft ? draft : specProp;
   const state = useMemo(() => pivotFieldListState(spec, fields), [spec, fields]);
   const [query, setQuery] = useState("");
@@ -525,7 +552,7 @@ export function PivotFieldList({
             else apply(next);
           }}
         />
-        <span className={pivotFieldListFieldTypeClass} aria-hidden>
+        <span className={pivotFieldListFieldTypeClass} aria-hidden style={f.source ? { marginLeft: 12 } : undefined}>
           {labels.types[f.type]}
         </span>
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{renderField ? renderField(f) : f.label}</span>
@@ -643,6 +670,27 @@ export function PivotFieldList({
   };
 
   const panelItem = panel ? itemByKey(panel.key) : undefined;
+  // ---- Date grouping ("Group by…" in the chip menu) ----
+  const catalogue = useMemo(() => fields ?? resolvePivotFields(spec), [fields, spec]);
+  const dateChoices = (item: PivotFieldListItem): readonly PivotDateGroup[] => {
+    if (!item.dateSource || item.area === "values") return [];
+    return catalogue.find((f) => f.field === item.dateSource)?.dateGroups ?? (fields ? [] : PIVOT_DATE_GROUPS);
+  };
+  const currentDateGroups = (item: PivotFieldListItem): readonly PivotDateGroup[] =>
+    item.dateSource && item.area !== "values" ? pivotDateGroupingOf(spec, item.dateSource, { fields: catalogue, area: item.area }).groups : [];
+  const regroup = (item: PivotFieldListItem, groups: readonly PivotDateGroup[]) => {
+    if (!item.dateSource || item.area === "values") return;
+    const area = item.area;
+    const source = item.dateSource;
+    const next = setPivotDateGrouping(latest(), source, groups, { fields: catalogue, area });
+    if (next === latest()) return;
+    apply(next);
+    // Keep the menu open on the source's first chip in the area (its key changes with the grouping).
+    const first = PIVOT_DATE_GROUPS.find((g) => groups.includes(g));
+    const field = first ? pivotDateGroupField(catalogue, source, first) : source;
+    setPanel({ key: `${area}:${field}`, view: "menu" });
+    setAnnouncement(`${labels.groupBy}: ${groups.length ? groups.map((g) => labels.dateGroups[g]).join(", ") : labels.ungroup}`);
+  };
   const closePanel = (refocus = true) => {
     const key = panel?.key;
     setPanel(null);
@@ -725,6 +773,9 @@ export function PivotFieldList({
           canMoveTo={(to) => canMovePivotField(latest(), { field: panelItem.field, from: panelItem.area, to }, moveOptions)}
           onMove={(move) => runMove(move, panelItem.label)}
           onAggregate={(aggregate) => update((s) => setPivotMeasureAggregate(s, panelItem.field, aggregate, moveOptions))}
+          dateGroups={dateChoices(panelItem)}
+          currentDateGroups={currentDateGroups(panelItem)}
+          onDateGrouping={(groups) => regroup(panelItem, groups)}
           onUpdate={update}
           onView={(view) => setPanel({ key: panel.key, view })}
           onClose={closePanel}
@@ -787,6 +838,10 @@ interface FieldPanelProps {
   readonly canMoveTo: (to: PivotFieldLocation) => boolean;
   readonly onMove: (move: PivotFieldMove) => PivotFieldMovePlan;
   readonly onAggregate: (aggregate: PivotBuiltInAggregate) => void;
+  /** Date grouping choices of the chip's source date field (`[]` hides the section). */
+  readonly dateGroups: readonly PivotDateGroup[];
+  readonly currentDateGroups: readonly PivotDateGroup[];
+  readonly onDateGrouping: (groups: readonly PivotDateGroup[]) => void;
   readonly onUpdate: (fn: (s: PivotSpec) => PivotSpec) => void;
   readonly onView: (view: "menu" | "filter") => void;
   readonly onClose: (refocus?: boolean) => void;
@@ -809,6 +864,9 @@ function FieldPanel({
   canMoveTo,
   onMove,
   onAggregate,
+  dateGroups,
+  currentDateGroups,
+  onDateGrouping,
   onUpdate,
   onView,
   onClose,
@@ -905,6 +963,33 @@ function FieldPanel({
             </div>
           </div>
         ) : null}
+        {dateGroups.length ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }} role="group" aria-label={labels.groupBy} data-nqg-date-groups="">
+            <span className={heading}>{labels.groupBy}</span>
+            <div style={row}>
+              {dateGroups.map((g) => {
+                const on = currentDateGroups.includes(g);
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    className={buttonClassName}
+                    aria-pressed={on}
+                    data-nqg-date-group={g}
+                    onClick={() => onDateGrouping(on ? currentDateGroups.filter((x) => x !== g) : [...currentDateGroups, g])}
+                  >
+                    {labels.dateGroups[g]}
+                  </button>
+                );
+              })}
+              {currentDateGroups.length ? (
+                <button type="button" className={buttonClassName} onClick={() => onDateGrouping([])}>
+                  {labels.ungroup}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         {canFilter ? (
           <div style={row}>
             <button type="button" className={buttonClassName} onClick={() => onView("filter")}>
@@ -938,7 +1023,15 @@ function FieldPanel({
   );
 }
 
-/** `PivotFieldList` props bound to a `usePivotGrid` state. */
-export function pivotFieldListProps(grid: PivotGridState): Pick<PivotFieldListProps, "spec" | "fields" | "onSpecChange" | "getFacet" | "model"> {
-  return { spec: grid.spec, fields: grid.fields, onSpecChange: grid.setSpec, getFacet: grid.facet, model: grid.model };
+/**
+ * `PivotFieldList` props bound to a `usePivotGrid` state. Pass the grid's `usePivotLayoutDraft` as
+ * `layout` to share "Defer layout update" with other editors (e.g. header drags).
+ */
+export function pivotFieldListProps(
+  grid: PivotGridState,
+  layout?: PivotLayoutDraftState,
+): Pick<PivotFieldListProps, "spec" | "fields" | "onSpecChange" | "getFacet" | "model" | "deferLayout" | "onDeferLayoutChange" | "draft" | "onDraftChange"> {
+  const base = { spec: grid.spec, fields: grid.fields, onSpecChange: grid.setSpec, getFacet: grid.facet, model: grid.model };
+  if (!layout) return base;
+  return { ...base, deferLayout: layout.deferred, onDeferLayoutChange: layout.setDeferred, draft: layout.draft, onDraftChange: layout.setDraft };
 }

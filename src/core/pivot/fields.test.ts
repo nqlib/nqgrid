@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { pivotColumnFields } from "./columns";
 import {
   generatePlanningPivotRows,
   planningFieldCatalog,
   planningFieldsPivotSpec,
   planningFilteredPivotSpec,
   planningPivotSpec,
+  planningDateFieldCatalog,
 } from "../../fixtures/planning-pivot-mock";
 import { buildPivotModel, createPivotModelBuilder } from "./build-model";
 import {
@@ -27,10 +29,12 @@ import {
   togglePivotField,
   type PivotFieldLocation,
   type PivotFieldMove,
+  setPivotDateGrouping,
+  PIVOT_MAX_COLUMN_FIELDS,
 } from "./fields";
-import { setPivotFilterValues } from "./interaction";
+import { setPivotColumnsExpandedAll, setPivotFilterValues, togglePivotColumnGroup } from "./interaction";
 import { pivotModelToSheet } from "./to-sheet";
-import type { PivotSpec } from "./types";
+import type { PivotDimension, PivotSpec } from "./types";
 import { validatePivotSpec } from "./validate";
 
 const rows = generatePlanningPivotRows(7, { extraFields: true });
@@ -128,16 +132,26 @@ describe("field catalogue", () => {
 });
 
 describe("movePivotField", () => {
-  it("Line → Columns swaps with Month (one column field)", () => {
+  it("Line → Columns adds a second column field; a full Columns area displaces the innermost one", () => {
     const plan = planPivotFieldMove(base, { field: "line", from: "rows", to: "columns" }, opts);
-    expect(plan.displaced).toEqual({ field: "month", to: "rows" });
-    expect(areaFields(plan.spec)).toEqual({ filters: [], columns: ["line"], rows: ["department", "month"], values: ["actual"] });
-    expect(plan.spec.expanded).toEqual([["Camp"], ["Packs"]]); // department level unchanged → paths stay
-    expect(plan.spec.columns).toEqual({ field: "line", label: "Line" });
-    expect(plan.spec.rows[1]).toEqual(planningPivotSpec.columns);
+    expect(plan.displaced).toBeUndefined();
+    expect(areaFields(plan.spec)).toEqual({ filters: [], columns: ["month", "line"], rows: ["department"], values: ["actual"] });
+    expect(plan.spec.columns).toEqual([planningPivotSpec.columns, { field: "line", label: "Line" }]);
+    expect(plan.spec.expanded).toBe("all"); // department is now the leaf level: no group paths left
     const m = buildPivotModel(plan.spec, rows);
-    expect(m.columnDimension).toEqual({ field: "line", label: "Line" });
-    expect(m.grandTotal.cells.reduce((s, c) => s + (c.raw ?? 0), 0)).toBe(rows.reduce((s, r) => s + r.actual, 0));
+    expect(m.columnDimensions).toEqual([{ field: "month", label: "Month" }, { field: "line", label: "Line" }]);
+    expect(m.grandTotal.cells.filter((_, i) => !m.columns[i]!.subtotal).reduce((s, c) => s + (c.raw ?? 0), 0)).toBe(rows.reduce((s, r) => s + r.actual, 0));
+    // Back to one column field: the original single-object shape.
+    expect(movePivotField(plan.spec, { field: "line", from: "columns", to: "rows" }, opts).columns).toEqual(planningPivotSpec.columns);
+    // Four column fields is the cap: a fifth swaps the innermost other one into its source area.
+    let full = movePivotField(plan.spec, { field: "region", from: "unused", to: "columns" }, opts);
+    full = movePivotField(full, { field: "channel", from: "unused", to: "columns" }, opts);
+    expect(areaFields(full).columns).toEqual(["month", "line", "region", "channel"]);
+    const fifth = planPivotFieldMove(full, { field: "department", from: "rows", to: "columns", index: 0 }, opts);
+    expect(fifth.displaced).toEqual({ field: "channel", to: "rows" });
+    expect(areaFields(fifth.spec)).toMatchObject({ columns: ["department", "month", "line", "region"], rows: ["channel"] });
+    expectValid(fifth.spec);
+    expect(buildPivotModel(fifth.spec, rows).headerRows).toHaveLength(4);
   });
 
   it("reorders rows: expanded paths whose levels changed are dropped", () => {
@@ -160,7 +174,7 @@ describe("movePivotField", () => {
     const reordered = movePivotField(spec, { field: "line", from: "rows", to: "rows", index: 0 }, opts);
     expect(reordered.rows[0]).toEqual(spec.rows[1]);
     const inColumns = movePivotField(spec, { field: "line", from: "rows", to: "columns" }, opts);
-    expect(inColumns.columns).toEqual({ field: "line", label: "Line" });
+    expect(pivotColumnFields(inColumns)[1]).toEqual({ field: "line", label: "Line" });
     expectValid(inColumns);
     // Filters on the moved dimension stay (they still filter records).
     expect(inColumns.filters).toEqual(spec.filters);
@@ -270,15 +284,22 @@ describe("movePivotField", () => {
     expect(removePivotField(outer, { field: "units", from: "values" }, opts).valuesIndex).toBeUndefined();
   });
 
-  it("swapPivotRowsColumns: innermost row ↔ column field, refused when rows would empty", () => {
+  it("swapPivotRowsColumns transposes rows and columns (with their expanded paths)", () => {
     const swapped = swapPivotRowsColumns(base);
-    expect(swapped.rows.map((d) => d.field)).toEqual(["department", "month"]);
-    expect(swapped.columns?.field).toBe("line");
-    expect(swapped.expanded).toEqual(base.expanded);
-    expect(swapPivotRowsColumns(swapped)).toEqual({ ...base, rows: [base.rows[0]!, { field: "line", label: "Line" }] });
+    expect(swapped.rows.map((d) => d.field)).toEqual(["month"]);
+    expect(pivotColumnFields(swapped).map((d) => d.field)).toEqual(["department", "line"]);
+    expect(swapped.expanded).toBeUndefined();
+    expect(swapped.columnsExpanded).toEqual(base.expanded); // the department groups stay expanded, now as column groups
+    const back = swapPivotRowsColumns(swapped);
+    expect(back.rows.map((d) => d.field)).toEqual(["department", "line"]);
+    expect(back.expanded).toEqual(base.expanded);
+    expect(back.columns).toEqual(base.columns);
     const oneRow: PivotSpec = { ...base, rows: [base.rows[0]!], columns: undefined };
     expect(swapPivotRowsColumns(oneRow)).toBe(oneRow);
     expectValid(swapPivotRowsColumns({ ...planningFilteredPivotSpec, fields: planningFieldCatalog }));
+    // Column subtotal placement does not travel into Rows.
+    const sub: PivotSpec = { ...base, columns: [{ field: "region", subtotal: "start" }, planningPivotSpec.columns as PivotDimension] };
+    expect(swapPivotRowsColumns(sub).rows).toEqual([{ field: "region" }, planningPivotSpec.columns]);
   });
 
   it("checkbox toggling uses default areas and removes from every area", () => {
@@ -369,5 +390,55 @@ describe("random move sequences (property test)", () => {
       spec = next;
     }
     expect(applied).toBeGreaterThan(25);
+  });
+});
+
+describe("random sequences with dates and column groups (property test)", () => {
+  const dateRows = generatePlanningPivotRows(7, { extraFields: true, orderDates: true });
+  const dateSpec: PivotSpec = { ...planningPivotSpec, fields: planningDateFieldCatalog };
+  const dateFields = resolvePivotFields(dateSpec, dateRows);
+  const dateOpts = { fields: dateFields };
+  const locations: PivotFieldLocation[] = ["rows", "columns", "values", "filters", "unused"];
+  const groups = ["year", "yearQuarter", "quarter", "yearMonth", "month", "week", "day"] as const;
+  const builder = createPivotModelBuilder();
+
+  it.each([11, 12, 13, 14])("seed %i: 100 random steps (moves, Group by, column toggles) stay valid", (seed) => {
+    const rand = mulberry32(seed * 104729);
+    const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)]!;
+    let spec: PivotSpec = dateSpec;
+    let applied = 0;
+    let model = builder.build(spec, dateRows);
+    for (let step = 0; step < 100; step++) {
+      const state = pivotFieldListState(spec, dateFields);
+      const r = rand();
+      let next: PivotSpec;
+      if (r < 0.2) {
+        const chosen = groups.filter(() => rand() < 0.3);
+        next = setPivotDateGrouping(spec, "orderDate", chosen, { ...dateOpts, area: pick(["rows", "columns", "filters"] as const) });
+      } else if (r < 0.35) {
+        const groupCells = model.headerRows.flat().filter((h) => h.expanded !== undefined && h.columnPath);
+        next = groupCells.length ? togglePivotColumnGroup(spec, model, pick(groupCells).columnPath!) : setPivotColumnsExpandedAll(spec, rand() < 0.5);
+      } else if (r < 0.42) {
+        next = swapPivotRowsColumns(spec);
+      } else {
+        const from = pick(locations);
+        const items = from === "unused" ? state.unused.map((f) => f.field) : state[from].map((i) => i.field);
+        if (!items.length) continue;
+        next = movePivotField(spec, { field: pick(items), from, to: pick(locations), index: Math.floor(rand() * 5) }, dateOpts);
+      }
+      if (next !== spec) applied++;
+      const v = validatePivotSpec(next);
+      expect(v.ok ? [] : v.errors).toEqual([]);
+      expect(pivotColumnFields(next).length).toBeLessThanOrEqual(PIVOT_MAX_COLUMN_FIELDS);
+      if (Array.isArray(next.columnsExpanded)) for (const p of next.columnsExpanded) expect(p.length).toBeLessThan(pivotColumnFields(next).length);
+      model = builder.build(next, dateRows);
+      // Totals stay complete whatever the column layout: the grand total column (or the sum of leaves) is every record.
+      if (step % 10 === 0) {
+        expect(() => pivotModelToSheet(model)).not.toThrow();
+        expect(model.headerRows.every((row) => row.reduce((s, h) => s + h.colSpan * (h.rowSpan ?? 1), 0) > 0 || model.columns.length === 0)).toBe(true);
+      }
+      spec = next;
+    }
+    expect(applied).toBeGreaterThan(20);
   });
 });

@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { buildPivotModel } from "../core/pivot/build-model";
 import type { PivotSpec } from "../core/pivot/types";
-import { generatePlanningPivotRows, planningFieldsPivotSpec, planningFilteredPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
+import {
+  generatePlanningPivotRows,
+  planningDatesPivotSpec,
+  planningFieldsPivotSpec,
+  planningFilteredPivotSpec,
+  planningMultiColumnPivotSpec,
+  planningPivotSpec,
+} from "../fixtures/planning-pivot-mock";
 import { pivotBodyGroups, pivotKpiPanelHeight } from "../pivot/layout";
 import { PIVOT_SERIES_COLORS } from "../styles";
 import {
@@ -39,6 +46,26 @@ describe("renderPivotHtml", () => {
     expect(filtered).toContain('aria-sort="descending"');
     expect(html).not.toContain("data-nqg-filters");
     expect(renderPivotHtmlFromSpec(planningFilteredPivotSpec, rows, { generatedAt, locale: { filters: "Filter" } })).toContain(">Filter: Department");
+  });
+
+  it("renders several column fields (golden planning-multicol.html: row-spanning subtotals, Σ Values between levels)", async () => {
+    const fieldsRows = generatePlanningPivotRows(7, { extraFields: true });
+    const out = renderPivotHtmlFromSpec(planningMultiColumnPivotSpec, fieldsRows, { generatedAt });
+    await expect(out).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-multicol.html");
+    expect(out).toContain('rowSpan="2"');
+    // 34 value columns do not fit one page: chunks follow the regions, never splitting one.
+    const model = buildPivotModel(planningMultiColumnPivotSpec, fieldsRows);
+    const chunks = pivotStaticLayout(model).chunks;
+    expect(chunks.length).toBeGreaterThan(1);
+    const regionEdges = new Set([0, 8, 16, 24, 32, 34]);
+    for (const c of chunks) expect(regionEdges.has(c.start) && regionEdges.has(c.end)).toBe(true);
+  });
+
+  it("renders date groups (golden planning-dates.html: fiscal years, a collapsed year)", async () => {
+    const datesRows = generatePlanningPivotRows(7, { extraFields: true, orderDates: true });
+    const out = renderPivotHtmlFromSpec(planningDatesPivotSpec, datesRows, { generatedAt });
+    await expect(out).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-dates.html");
+    expect(out).toContain(">FY26 Total<");
   });
 
   it("renders a spec rearranged in the field list (golden planning-fields.html: Σ Values outermost, 3 row levels)", async () => {

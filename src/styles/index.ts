@@ -149,7 +149,7 @@ const pivotHeadCellBaseClass =
 export const pivotHeadCellClass = `${pivotHeadCellBaseClass} text-left`;
 
 /** Value-column header cell. */
-export const pivotHeadValueCellClass = `nqg-pivot-head-value ${pivotHeadCellBaseClass} text-right`;
+export const pivotHeadValueCellClass = `nqg-pivot-head-value ${pivotHeadCellBaseClass} overflow-hidden text-ellipsis whitespace-nowrap text-right`;
 
 /** Header chart band cell (one per column key). */
 export const pivotBandCellClass = "nqg-pivot-band border-b border-border/60 bg-card px-0 pb-0 pt-2 align-bottom";

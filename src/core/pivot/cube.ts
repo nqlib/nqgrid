@@ -1,5 +1,13 @@
 import { aggregatePivotRows, type PivotAggregatorRegistry } from "./aggregate";
-import { createPivotRowEncoding, type PivotRowEncoding } from "./encode";
+import { pivotColumnFields, pivotColumnKeyOf, pivotDimensionOf } from "./columns";
+import {
+  pivotDateFillKeys,
+  pivotDateKeyComparator,
+  pivotDateKeyWithin,
+  resolvePivotDateField,
+  type PivotDateFieldDef,
+} from "./dates";
+import { createPivotRowEncoding, pivotSpecEncoding, type PivotFieldCodes, type PivotRowEncoding } from "./encode";
 import { compilePivotFilters, runPivotFilterPass, type PivotFacetCounts } from "./filter";
 import { toPivotNumber } from "./format";
 import type { PivotDataRow, PivotDimension, PivotFacetSpec, PivotMeasure, PivotSpec } from "./types";
@@ -88,19 +96,46 @@ interface MutableNode extends PivotCubeNode {
   attrPending: number;
 }
 
+/** One column group / leaf of the aggregated column tree (or its root). */
+export interface PivotCubeColumn {
+  readonly key: string;
+  /** Keys outermost first. */
+  readonly path: readonly string[];
+  /** `PivotValueColumn.columnKey` of this column (`pivotColumnKeyOf(path)`); `""` for the root. */
+  readonly columnKey: string;
+  /** Column level (`0` = outermost column field); `-1` for the root. */
+  readonly depth: number;
+  readonly parent: PivotCubeColumn | null;
+  /** Ordered children (`order` / `sort` / chronological for dates, plus `keepEmpty` keys). */
+  readonly children: readonly PivotCubeColumn[];
+  /** Accumulator bucket for `valueAt`: `-1` when no record has this column (`keepEmpty`); the root's is the total. */
+  readonly bucket: number;
+}
+
 /**
  * The expensive, view-independent half of a pivot: filtered records aggregated into a tree, with
- * every measure accumulated per node × column key (+ row total). `pivotModelFromCube` turns it into
- * a `PivotModel` for the current view state (expanded groups, heat, labels, formats) cheaply.
+ * every measure accumulated per node × column (leaves and column groups, + row total).
+ * `pivotModelFromCube` turns it into a `PivotModel` for the current view state (expanded groups and
+ * column groups, heat, labels, formats) cheaply.
  */
 export interface PivotCube {
   readonly root: PivotCubeNode;
   /** Every non-root node, pre-order in display order. */
   readonly nodes: readonly PivotCubeNode[];
-  /** Ordered column-dimension keys (seen in matching records, plus `order` keys with `keepEmpty`). */
+  /**
+   * Ordered column keys (seen in matching records, plus `keepEmpty` keys): the keys of the column
+   * field, or with several column fields the `columnKey` of every leaf of `columnRoot`.
+   */
   readonly columnKeys: readonly string[];
-  /** Aggregated raw value; `columnKey === null` → across all columns. `null` when there is no value. */
+  /** Column tree (one level per column field; the root alone without columns). */
+  readonly columnRoot: PivotCubeColumn;
+  /**
+   * Aggregated raw value; `columnKey === null` → across all columns, otherwise a leaf or column-group
+   * key (`PivotValueColumn.columnKey`). `null` when there is no value.
+   */
   valueOf(node: PivotCubeNode, measureId: string, columnKey: string | null): number | null;
+  /** `valueOf` by accumulator bucket (`PivotCubeColumn.bucket`; `-1` → `null`). */
+  valueAt(node: PivotCubeNode, measureId: string, bucket: number): number | null;
   /** Records before / after report, label and Top-N filters. */
   readonly recordCount: { readonly total: number; readonly matched: number };
   /** Cross-filtered counts for `spec.facets`, in facet order. */
@@ -135,30 +170,63 @@ export function comparePivotKeys(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** `order` keys first (all of them with `keepEmpty`), then the rest by `sort` (default first-seen). */
-export function orderPivotKeys(seen: readonly string[], dim: PivotDimension, keepEmpty: boolean): string[] {
+/**
+ * `order` keys first (all of them with `keepEmpty`), then the rest by `sort` (default first-seen).
+ * With `compare` (date-grouped fields), the rest is chronological: `asc` / `none` ascending, `desc`
+ * descending, the blank key last either way.
+ */
+export function orderPivotKeys(
+  seen: readonly string[],
+  dim: PivotDimension,
+  keepEmpty: boolean,
+  compare?: (a: string, b: string) => number,
+): string[] {
   const seenSet = new Set(seen);
   const order = [...new Set(dim.order ?? [])];
   const orderSet = new Set(order);
   const head = order.filter((k) => keepEmpty || seenSet.has(k));
   let rest = seen.filter((k) => !orderSet.has(k));
-  if (dim.sort === "asc") rest = [...rest].sort(comparePivotKeys);
+  if (compare) {
+    rest = [...rest].sort(compare);
+    if (dim.sort === "desc") {
+      const blank = rest.length && rest[rest.length - 1] === "" ? rest.pop() : undefined;
+      rest.reverse();
+      if (blank !== undefined) rest.push(blank);
+    }
+  } else if (dim.sort === "asc") rest = [...rest].sort(comparePivotKeys);
   else if (dim.sort === "desc") rest = [...rest].sort((a, b) => comparePivotKeys(b, a));
   return [...head, ...rest];
 }
 
+/** Chronological comparator for a date-grouped field, else `undefined`. */
+function dateCompare(def: PivotDateFieldDef | null): ((a: string, b: string) => number) | undefined {
+  return def ? pivotDateKeyComparator(def) : undefined;
+}
+
 /**
  * The spec slices a cube depends on, as a string: equal keys (and the same rows / aggregators)
- * give the same cube, so view-only changes (expanded, heat, labels, formats, KPIs, totals) can
- * reuse it.
+ * give the same cube, so view-only changes (expanded / column groups, heat, labels, formats, KPIs,
+ * totals, subtotal placement) can reuse it.
  */
 export function pivotSpecDataKey(spec: PivotSpec): string {
+  const columns = pivotColumnFields(spec);
+  const keyFields = new Set([
+    ...spec.rows.map((d) => d.field),
+    ...columns.map((d) => d.field),
+    ...(spec.filters ?? []).map((f) => f.field),
+    ...(spec.facets ?? []).map(pivotFacetField),
+  ]);
+  const dates = [...keyFields].flatMap((field) => {
+    const def = resolvePivotDateField(spec, field);
+    return def ? [[field, def.source, def.group, def.fiscalYearStartMonth, def.timeZoneOffsetMinutes]] : [];
+  });
   return JSON.stringify([
     spec.rows.map((d) => [d.field, d.order, d.sort, d.sortBy, d.topN && { ...d.topN, otherLabel: undefined }, d.attributes]),
-    spec.columns ? [spec.columns.field, spec.columns.order, spec.columns.sort, spec.columns.keepEmpty] : null,
+    columns.length ? columns.map((c) => [c.field, c.order, c.sort, c.keepEmpty]) : null,
     spec.measures.map((m) => [m.id, m.field, m.aggregate]),
     (spec.filters ?? []).map((f) => [f.field, f.include, f.exclude, f.match]),
     (spec.facets ?? []).map(pivotFacetField),
+    ...(dates.length ? [dates] : []),
   ]);
 }
 
@@ -214,9 +282,12 @@ interface TreeInput {
   readonly mask: Uint8Array | null;
   readonly levelCodes: readonly Int32Array[];
   readonly levelKeys: readonly (readonly string[])[];
+  /** Column bucket per record (`-1`: none). */
   readonly colCodes: Int32Array | null;
   /** Number of column buckets (the total bucket is index `buckets`). */
   readonly buckets: number;
+  /** Column-group buckets rolled up from their children after accumulation (post-order). */
+  readonly colGroups: readonly ColumnGroupBucket[];
   readonly measures: readonly CompiledMeasure[];
   readonly slots: number;
   readonly maxDepth: number;
@@ -225,6 +296,12 @@ interface TreeInput {
   readonly custom: boolean;
   /** When set, receives each record's node id at `maxDepth` (`-1` for filtered-out records). */
   readonly nodeAtMaxDepth?: Int32Array;
+}
+
+/** A column group's bucket and its children's buckets (rolled up inner groups first). */
+interface ColumnGroupBucket {
+  readonly bucket: number;
+  readonly children: readonly number[];
 }
 
 /** Largest composite leaf key that stays an exact integer. */
@@ -328,7 +405,7 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
     }
 
     const acc = leaf.acc;
-    const colBase = colCodes === null ? -1 : colCodes[i]! * S;
+    const colBase = colCodes === null || colCodes[i]! < 0 ? -1 : colCodes[i]! * S;
     if (custom) {
       leaf.rowIdx![buckets]!.push(i);
       if (colBase >= 0) leaf.rowIdx![colBase / S]!.push(i);
@@ -429,52 +506,67 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
       }
     }
   }
+  // Column groups: roll each node's leaf-column partials up into its group columns.
+  if (t.colGroups.length) {
+    for (const node of nodes) {
+      for (const g of t.colGroups) {
+        const io = g.bucket * S;
+        for (const c of g.children) {
+          mergeBucket(node.acc, io, node.acc, c * S, measures);
+          if (custom) node.rowIdx![g.bucket] = mergeSorted(node.rowIdx![g.bucket]!, node.rowIdx![c]!);
+        }
+      }
+    }
+  }
   for (const node of nodes) node.rowCount = node.acc[totalBase]!;
   return { root, nodes };
 }
 
 /** Merge one node's accumulators into its parent's (per aggregation kind). */
 function mergeInto(into: Float64Array, from: Float64Array, buckets: number, S: number, measures: readonly CompiledMeasure[]): void {
-  for (let b = 0; b <= buckets; b++) {
-    const o = b * S;
-    if (from[o] === 0) continue;
-    into[o] += from[o]!;
-    for (const m of measures) {
-      const x = o + m.off;
-      switch (m.kind) {
-        case Kind.Sum:
-        case Kind.Avg:
-        case Kind.WeightedAvg:
-          into[x] += from[x]!;
-          into[x + 1] += from[x + 1]!;
-          break;
-        case Kind.Ratio:
-          into[x] += from[x]!;
-          into[x + 1] += from[x + 1]!;
-          into[x + 2] += from[x + 2]!;
-          into[x + 3] += from[x + 3]!;
-          break;
-        case Kind.CountField:
-          into[x] += from[x]!;
-          break;
-        case Kind.Min:
-        case Kind.Max:
-          if (from[x + 1] === 0) break;
-          if (into[x + 1] === 0 || (m.kind === Kind.Min ? from[x]! < into[x]! : from[x]! > into[x]!)) into[x] = from[x]!;
-          into[x + 1] += from[x + 1]!;
-          break;
-        case Kind.First:
-        case Kind.Last:
-          if (from[x + 1] === 0) break;
-          if (into[x + 1] === 0 || (m.kind === Kind.First ? from[x + 2]! < into[x + 2]! : from[x + 2]! > into[x + 2]!)) {
-            into[x] = from[x]!;
-            into[x + 2] = from[x + 2]!;
-          }
-          into[x + 1] += from[x + 1]!;
-          break;
-        default:
-          break;
-      }
+  for (let b = 0; b <= buckets; b++) mergeBucket(into, b * S, from, b * S, measures);
+}
+
+/** Merge the bucket at offset `fo` of `from` into the bucket at offset `io` of `into`. */
+function mergeBucket(into: Float64Array, io: number, from: Float64Array, fo: number, measures: readonly CompiledMeasure[]): void {
+  if (from[fo] === 0) return;
+  into[io] += from[fo]!;
+  for (const m of measures) {
+    const x = io + m.off;
+    const y = fo + m.off;
+    switch (m.kind) {
+      case Kind.Sum:
+      case Kind.Avg:
+      case Kind.WeightedAvg:
+        into[x] += from[y]!;
+        into[x + 1] += from[y + 1]!;
+        break;
+      case Kind.Ratio:
+        into[x] += from[y]!;
+        into[x + 1] += from[y + 1]!;
+        into[x + 2] += from[y + 2]!;
+        into[x + 3] += from[y + 3]!;
+        break;
+      case Kind.CountField:
+        into[x] += from[y]!;
+        break;
+      case Kind.Min:
+      case Kind.Max:
+        if (from[y + 1] === 0) break;
+        if (into[x + 1] === 0 || (m.kind === Kind.Min ? from[y]! < into[x]! : from[y]! > into[x]!)) into[x] = from[y]!;
+        into[x + 1] += from[y + 1]!;
+        break;
+      case Kind.First:
+      case Kind.Last:
+        if (from[y + 1] === 0) break;
+        if (into[x + 1] === 0 || (m.kind === Kind.First ? from[y + 2]! < into[x + 2]! : from[y + 2]! > into[x + 2]!)) {
+          into[x] = from[y]!;
+          into[x + 2] = from[y + 2]!;
+        }
+        into[x + 1] += from[y + 1]!;
+        break;
+      default:
+        break;
     }
   }
 }
@@ -535,11 +627,15 @@ function readValue(
   }
 }
 
-/** Ordered sibling keys for `dim`: `sortBy` (value) wins; `order`, then `sort`, then first-seen break ties. */
+/**
+ * Ordered sibling keys for `dim`: `sortBy` (value) wins; `order`, then `sort` (chronological for
+ * date fields), then first-seen break ties.
+ */
 function orderChildren(
   parent: MutableNode,
   dim: PivotDimension,
   value: (node: MutableNode, measureId: string, columnKey: string | null) => number | null,
+  compare?: (a: string, b: string) => number,
 ): MutableNode[] {
   const byKey = new Map<string, MutableNode>();
   let other: MutableNode | null = null;
@@ -547,7 +643,7 @@ function orderChildren(
     if (c.key === PIVOT_OTHER_KEY) other = c;
     else byKey.set(c.key, c);
   }
-  let ordered = orderPivotKeys([...byKey.keys()], dim, false).map((k) => byKey.get(k)!);
+  let ordered = orderPivotKeys([...byKey.keys()], dim, false, compare).map((k) => byKey.get(k)!);
   if (dim.sortBy) ordered = rankNodes(ordered, dim.sortBy.measure, dim.sortBy.direction ?? "desc", dim.sortBy.columnKey ?? null, value);
   if (other) ordered.push(other);
   return ordered;
@@ -570,6 +666,213 @@ function rankNodes(
   return keyed.map((k) => k.node);
 }
 
+/** Largest dense composite table for column combinations (else a `Map`). */
+const MAX_DENSE_COMBOS = 1 << 22;
+
+/**
+ * Column buckets for the accumulators. One column field: one bucket per key code. Several: every
+ * distinct key combination in the data is a leaf, and every prefix a column group, each with a
+ * bucket; leaves are accumulated per record and groups rolled up afterwards (`colGroups`).
+ */
+interface ColumnPlan {
+  readonly levels: number;
+  readonly fields: readonly PivotFieldCodes[];
+  /** Leaf bucket per record (`-1` none), `null` without columns. */
+  readonly codes: Int32Array | null;
+  readonly buckets: number;
+  readonly groups: readonly ColumnGroupBucket[];
+  /** `PivotValueColumn.columnKey` → bucket (leaves and groups). */
+  readonly bucketOfKey: ReadonlyMap<string, number>;
+  /** Several column fields: key-code tuple of each combination, and each record's combination. */
+  readonly comboLevels: readonly Int32Array[] | null;
+  readonly comboOf: Int32Array | null;
+  readonly comboCount: number;
+}
+
+function planColumns(fields: readonly PivotFieldCodes[], n: number): ColumnPlan {
+  const levels = fields.length;
+  if (levels === 0) {
+    return { levels, fields, codes: null, buckets: 0, groups: [], bucketOfKey: new Map(), comboLevels: null, comboOf: null, comboCount: 0 };
+  }
+  if (levels === 1) {
+    const f = fields[0]!;
+    return { levels, fields, codes: f.codes, buckets: f.keys.length, groups: [], bucketOfKey: f.index, comboLevels: null, comboOf: null, comboCount: 0 };
+  }
+  // Distinct key combinations in record order (dense composite table when small).
+  const strides: number[] = new Array(levels);
+  let product = 1;
+  for (let j = levels - 1; j >= 0; j--) {
+    strides[j] = product;
+    product *= Math.max(1, fields[j]!.keys.length);
+  }
+  const dense = product <= MAX_DENSE_COMBOS ? new Int32Array(product).fill(-1) : null;
+  const sparse = dense ? null : new Map<number, number>();
+  const comboOf = new Int32Array(n);
+  const comboCodes: number[][] = Array.from({ length: levels }, () => []);
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    let comp = 0;
+    for (let j = 0; j < levels; j++) comp += fields[j]!.codes[i]! * strides[j]!;
+    let c = dense ? dense[comp]! : (sparse!.get(comp) ?? -1);
+    if (c < 0) {
+      c = count++;
+      if (dense) dense[comp] = c;
+      else sparse!.set(comp, c);
+      for (let j = 0; j < levels; j++) comboCodes[j]!.push(fields[j]!.codes[i]!);
+    }
+    comboOf[i] = c;
+  }
+  const comboLevels = comboCodes.map((c) => Int32Array.from(c));
+
+  // Full tree over every combination: one bucket per node.
+  interface Node {
+    readonly bucket: number;
+    readonly children: Map<number, Node>;
+  }
+  let buckets = 0;
+  const bucketOfKey = new Map<string, number>();
+  const root: Node = { bucket: -1, children: new Map() };
+  const leafBucket = new Int32Array(count);
+  for (let c = 0; c < count; c++) {
+    let node = root;
+    const path: string[] = [];
+    for (let j = 0; j < levels; j++) {
+      const code = comboLevels[j]![c]!;
+      path.push(fields[j]!.keys[code]!);
+      let child = node.children.get(code);
+      if (!child) {
+        child = { bucket: buckets++, children: new Map() };
+        node.children.set(code, child);
+        bucketOfKey.set(pivotColumnKeyOf(path, levels), child.bucket);
+      }
+      node = child;
+    }
+    leafBucket[c] = node.bucket;
+  }
+  const groups: ColumnGroupBucket[] = [];
+  const post = (node: Node, depth: number) => {
+    if (depth >= levels - 1) return;
+    for (const child of node.children.values()) post(child, depth + 1);
+    if (depth >= 0) groups.push({ bucket: node.bucket, children: [...node.children.values()].map((x) => x.bucket) });
+  };
+  post(root, -1);
+  const codes = new Int32Array(n);
+  for (let i = 0; i < n; i++) codes[i] = leafBucket[comboOf[i]!]!;
+  return { levels, fields, codes, buckets, groups, bucketOfKey, comboLevels, comboOf, comboCount: count };
+}
+
+interface MutableColumn extends PivotCubeColumn {
+  readonly parent: MutableColumn | null;
+  children: MutableColumn[];
+}
+
+/**
+ * The visible column tree: keys seen in matching records, ordered per level (`order`, `sort`,
+ * chronological for dates), plus `keepEmpty` keys (`order` keys, date gaps) consistent with their
+ * date parents.
+ */
+function columnTree(
+  plan: ColumnPlan,
+  dims: readonly PivotDimension[],
+  defs: readonly (PivotDateFieldDef | null)[],
+  mask: Uint8Array | null,
+  n: number,
+): { root: MutableColumn; keys: string[] } {
+  const levels = plan.levels;
+  const root: MutableColumn = { key: "", path: [], columnKey: "", depth: -1, parent: null, children: [], bucket: plan.buckets };
+  if (levels === 0) return { root, keys: [] };
+
+  // Seen key tuples among matching records, in first-seen order.
+  const seenTuples: number[][] = [];
+  if (levels === 1) {
+    const f = plan.fields[0]!;
+    const seen = new Uint8Array(f.keys.length);
+    for (let i = 0; i < n && seenTuples.length < f.keys.length; i++) {
+      if (mask !== null && mask[i] === 0) continue;
+      const c = f.codes[i]!;
+      if (seen[c] === 0) {
+        seen[c] = 1;
+        seenTuples.push([c]);
+      }
+    }
+  } else {
+    const seen = new Uint8Array(plan.comboCount);
+    for (let i = 0, found = 0; i < n && found < plan.comboCount; i++) {
+      if (mask !== null && mask[i] === 0) continue;
+      const c = plan.comboOf![i]!;
+      if (seen[c] === 0) {
+        seen[c] = 1;
+        found++;
+        seenTuples.push(plan.comboLevels!.map((l) => l[c]!));
+      }
+    }
+  }
+
+  // Seen children per parent (by key, first-seen order) and seen keys per level (for date gap fills).
+  interface Seen {
+    readonly children: Map<string, Seen>;
+  }
+  const seenRoot: Seen = { children: new Map() };
+  const levelKeys: Set<string>[] = Array.from({ length: levels }, () => new Set());
+  for (const tuple of seenTuples) {
+    let node = seenRoot;
+    for (let j = 0; j < levels; j++) {
+      const key = plan.fields[j]!.keys[tuple[j]!]!;
+      levelKeys[j]!.add(key);
+      let child = node.children.get(key);
+      if (!child) node.children.set(key, (child = { children: new Map() }));
+      node = child;
+    }
+  }
+  const fills = dims.map((d, j) => (d.keepEmpty && defs[j] ? pivotDateFillKeys([...levelKeys[j]!], defs[j]!) : []));
+
+  const build = (parent: MutableColumn, seen: Seen | undefined) => {
+    const j = parent.depth + 1;
+    if (j >= levels) return;
+    const dim = dims[j]!;
+    const def = defs[j] ?? null;
+    const keepEmpty = dim.keepEmpty === true;
+    const seenKeys = seen ? [...seen.children.keys()] : [];
+    let candidates = seenKeys;
+    if (keepEmpty && fills[j]!.length) {
+      const within = (key: string) => {
+        for (let p: MutableColumn | null = parent; p !== null && p.depth >= 0; p = p.parent) {
+          const pd = defs[p.depth];
+          if (def && pd && !pivotDateKeyWithin(pd, p.key, def, key)) return false;
+        }
+        return true;
+      };
+      const seenSet = new Set(seenKeys);
+      candidates = [...seenKeys, ...fills[j]!.filter((k) => !seenSet.has(k) && within(k))];
+    }
+    const ordered = orderPivotKeys(candidates, dim, keepEmpty, dateCompare(def));
+    for (const key of ordered) {
+      const path = [...parent.path, key];
+      const columnKey = pivotColumnKeyOf(path, levels);
+      const node: MutableColumn = {
+        key,
+        path,
+        columnKey,
+        depth: j,
+        parent,
+        children: [],
+        bucket: plan.bucketOfKey.get(columnKey) ?? -1,
+      };
+      parent.children.push(node);
+      build(node, seen?.children.get(key));
+    }
+  };
+  build(root, seenRoot);
+
+  const keys: string[] = [];
+  const leaves = (node: MutableColumn) => {
+    if (node.depth === levels - 1) keys.push(levels === 1 ? node.key : node.columnKey);
+    else for (const c of node.children) leaves(c);
+  };
+  leaves(root);
+  return { root, keys };
+}
+
 /**
  * Filter, rank and aggregate `rows` for `spec` (see `PivotCube`). The spec is not validated here;
  * `buildPivotModel` / `createPivotModelBuilder` validate first.
@@ -578,12 +881,13 @@ function rankNodes(
  * each ranked on what the levels above kept → aggregation → sibling ordering.
  */
 export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], options: BuildPivotCubeOptions = {}): PivotCube {
-  const enc = options.encoding && options.encoding.rows === rows ? options.encoding : createPivotRowEncoding(rows);
+  const base = options.encoding && options.encoding.rows === rows ? options.encoding : createPivotRowEncoding(rows);
+  const enc = pivotSpecEncoding(base, spec);
   const registry = options.aggregators ?? {};
   const n = enc.length;
   const dims = spec.rows;
   const leafDepth = dims.length - 1;
-  const colDim = spec.columns ?? null;
+  const colDims = pivotColumnFields(spec);
 
   // ---- Filters + facets (one pass) ----------------------------------------
   const compiled = compilePivotFilters(spec.filters, enc);
@@ -595,9 +899,11 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   const levelEnc = dims.map((d) => enc.codes(d.field));
   const levelCodes: Int32Array[] = levelEnc.map((e) => e.codes);
   const levelKeys: (readonly string[])[] = levelEnc.map((e) => e.keys);
-  const colEnc = colDim ? enc.codes(colDim.field) : null;
-  const colCodes = colEnc ? colEnc.codes : null;
-  const buckets = colEnc ? colEnc.keys.length : 0;
+  const rowDefs = dims.map((d) => resolvePivotDateField(spec, d.field));
+  const colDefs = colDims.map((d) => resolvePivotDateField(spec, d.field));
+  const plan = planColumns(colDims.map((d) => enc.codes(d.field)), n);
+  const colCodes = plan.codes;
+  const buckets = plan.buckets;
   const attributeFields = dims.map((d) => d.attributes);
 
   // ---- Measures ---------------------------------------------------------------
@@ -609,9 +915,12 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     compiledMeasures.set(m.id, cm);
   }
   const custom = [...compiledMeasures.values()].some((m) => m.kind === Kind.Custom);
+  // Only the key → bucket map outlives the build (the per-record combination arrays are released).
+  const columnLevels = plan.levels;
+  const bucketOfKey = plan.bucketOfKey;
   const bucketOf = (columnKey: string | null): number => {
-    if (columnKey === null || !colEnc) return buckets;
-    const c = colEnc.index.get(columnKey);
+    if (columnKey === null || columnLevels === 0) return buckets;
+    const c = bucketOfKey.get(columnKey);
     return c === undefined ? -1 : c;
   };
   const valueFor =
@@ -636,6 +945,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
       levelKeys,
       colCodes,
       buckets,
+      colGroups: top.columnKey !== undefined ? plan.groups : [],
       measures: [rankMeasure],
       slots: S,
       maxDepth: d,
@@ -649,7 +959,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     let any = false;
     const visit = (parent: MutableNode) => {
       if (parent.depth === d - 1) {
-        const natural = orderChildren(parent, { ...dims[d]!, sortBy: undefined }, value);
+        const natural = orderChildren(parent, { ...dims[d]!, sortBy: undefined }, value, dateCompare(rowDefs[d]!));
         if (natural.length > top.count) {
           const ranked = rankNodes(natural, top.measure, top.direction ?? "top", top.columnKey ?? null, value);
           for (let k = top.count; k < ranked.length; k++) excluded[ranked[k]!.id] = 1;
@@ -684,6 +994,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     levelKeys,
     colCodes,
     buckets,
+    colGroups: plan.groups,
     measures: [...compiledMeasures.values()],
     slots: S,
     maxDepth: leafDepth,
@@ -694,9 +1005,8 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   const value = valueFor(S, compiledMeasures);
 
   const ordered: MutableNode[] = [];
-  const seenColumns = new Uint8Array(buckets);
   const walk = (node: MutableNode) => {
-    if (node.depth < leafDepth) node.children = orderChildren(node, dims[node.depth + 1]!, value);
+    if (node.depth < leafDepth) node.children = orderChildren(node, dims[node.depth + 1]!, value, dateCompare(rowDefs[node.depth + 1]!));
     for (const c of node.children) {
       if (c.key === PIVOT_OTHER_KEY) c.otherCount = otherCounts.get(JSON.stringify(node.path));
       ordered.push(c);
@@ -705,25 +1015,8 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   };
   walk(root);
 
-  // Column keys in first-seen order among matching records.
-  let columnKeys: string[] = [];
-  if (colDim && colCodes) {
-    const firstSeen: number[] = [];
-    for (let i = 0; i < n; i++) {
-      if (mask !== null && mask[i] === 0) continue;
-      const c = colCodes[i]!;
-      if (seenColumns[c] === 0) {
-        seenColumns[c] = 1;
-        firstSeen.push(c);
-        if (firstSeen.length === buckets) break;
-      }
-    }
-    columnKeys = orderPivotKeys(
-      firstSeen.map((c) => colEnc!.keys[c]!),
-      colDim,
-      colDim.keepEmpty === true,
-    );
-  }
+  // ---- Column tree (keys seen among matching records, plus keepEmpty keys) ---------
+  const columns = columnTree(plan, colDims, colDefs, mask, n);
 
   // ---- Facets -------------------------------------------------------------------
   const facets = facetFields.map((field) => facetOf(field, pass.facets.get(field)!, spec));
@@ -731,8 +1024,11 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   return {
     root,
     nodes: ordered,
-    columnKeys,
+    columnKeys: columns.keys,
+    columnRoot: columns.root,
     valueOf: (node, measureId, columnKey) => value(node as MutableNode, measureId, columnKey),
+    valueAt: (node, measureId, bucket) =>
+      bucket < 0 ? null : readValue(node as MutableNode, compiledMeasures.get(measureId)!, bucket, S, rows, registry),
     recordCount: { total: n, matched: root.rowCount },
     facets,
   };
@@ -749,15 +1045,17 @@ export function computePivotFacet(
   field: string,
   options: { readonly encoding?: PivotRowEncoding } = {},
 ): PivotCubeFacet {
-  const enc = options.encoding && options.encoding.rows === rows ? options.encoding : createPivotRowEncoding(rows);
+  const base = options.encoding && options.encoding.rows === rows ? options.encoding : createPivotRowEncoding(rows);
+  const enc = pivotSpecEncoding(base, spec);
   const pass = runPivotFilterPass(compilePivotFilters(spec.filters, enc), [field], enc);
   return facetOf(field, pass.facets.get(field)!, spec);
 }
 
 function facetOf(field: string, counts: PivotFacetCounts, spec: PivotSpec): PivotCubeFacet {
-  const dim = spec.rows.find((d) => d.field === field) ?? (spec.columns?.field === field ? spec.columns : undefined);
+  const dim = pivotDimensionOf(spec, field);
+  const compare = dateCompare(resolvePivotDateField(spec, field));
   const keys = counts.codes.keys;
-  const ordered = dim ? orderPivotKeys(keys, dim, false) : [...keys].sort(comparePivotKeys);
+  const ordered = dim ? orderPivotKeys(keys, dim, false, compare) : [...keys].sort(compare ?? comparePivotKeys);
   const codeOf = counts.codes.index;
   return {
     field,

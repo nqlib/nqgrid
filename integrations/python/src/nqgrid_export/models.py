@@ -18,7 +18,14 @@ class Totals(BaseModel):
     grandTotalPosition: Literal["top", "bottom"] | None = None
     grandTotalLabel: str | None = None
     rowTotal: bool | None = None
+    """
+    Grand total column(s), one per value measure (across every column group with several column fields).
+    """
     rowTotalLabel: str | None = None
+    subtotalLabel: str | None = None
+    """
+    Label of column subtotals; {label} is the group label (default "{label} Total").
+    """
 
 
 class Heat(BaseModel):
@@ -180,32 +187,6 @@ class FacetWithLabel(BaseModel):
     label: str | None = None
 
 
-class PivotFieldSpec(BaseModel):
-    """
-    One field catalogue entry (field list metadata).
-    """
-
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    field: Annotated[str, Field(min_length=1)]
-    label: str | None = None
-    type: Literal["dimension", "measure", "date", "number", "text"] | None = None
-    """
-    dimension = categorical keys, text = free text, date, number = numeric values that can also be keys, measure = numeric, aggregated in Values only.
-    """
-    areas: list[Literal["rows", "columns", "values", "filters"]] | None = None
-    """
-    Areas the field may be placed in (default: values for measures, every area otherwise).
-    """
-    aggregate: Literal["sum", "avg", "min", "max", "count", "first", "last"] | None = None
-    """
-    Aggregate of a measure created by dropping the field into Values (default sum for numeric types, else count).
-    """
-    format: NumberFormat | None = None
-    description: str | None = None
-
-
 class PositiveNumber(RootModel[float]):
     root: Annotated[float, Field(gt=0.0)]
 
@@ -257,10 +238,17 @@ class Dimension(BaseModel):
     order: list[str] | None = None
     sort: Literal["asc", "desc", "none"] | None = None
     keepEmpty: bool | None = None
+    """
+    Column dimensions: keep order keys without data; date-grouped fields also fill gaps between the first and last period with data.
+    """
     blankLabel: str | None = None
     attributes: list[Attribute] | None = None
     sortBy: SortBy | None = None
     topN: TopN | None = None
+    subtotal: Literal["end", "start", "none"] | None = None
+    """
+    Column dimensions with an inner column field: subtotal column per group at the end (default), the start, or none.
+    """
 
 
 class Measure(BaseModel):
@@ -280,13 +268,79 @@ class Measure(BaseModel):
     format: NumberFormat | None = None
     percentFormat: NumberFormat | None = None
     showAs: (
-        Literal["value", "percentOfColumnTotal", "percentOfParentRow", "percentOfRowTotal", "percentOfGrandTotal"]
+        Literal[
+            "value",
+            "percentOfColumnTotal",
+            "percentOfParentRow",
+            "percentOfParentColumn",
+            "percentOfRowTotal",
+            "percentOfGrandTotal",
+        ]
         | None
     ) = None
     groupShowAs: (
-        Literal["value", "percentOfColumnTotal", "percentOfParentRow", "percentOfRowTotal", "percentOfGrandTotal"]
+        Literal[
+            "value",
+            "percentOfColumnTotal",
+            "percentOfParentRow",
+            "percentOfParentColumn",
+            "percentOfRowTotal",
+            "percentOfGrandTotal",
+        ]
         | None
     ) = None
+
+
+class PivotFieldSpec(BaseModel):
+    """
+    One field catalogue entry (field list metadata). Entries with source + dateGroup define derived date fields; date settings (fiscalYearStartMonth, timeZoneOffsetMinutes, monthNames) change the model.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    label: str | None = None
+    type: Literal["dimension", "measure", "date", "number", "text"] | None = None
+    """
+    dimension = categorical keys, text = free text, date, number = numeric values that can also be keys, measure = numeric, aggregated in Values only.
+    """
+    areas: list[Literal["rows", "columns", "values", "filters"]] | None = None
+    """
+    Areas the field may be placed in (default: values for measures, every area otherwise).
+    """
+    aggregate: Literal["sum", "avg", "min", "max", "count", "first", "last"] | None = None
+    """
+    Aggregate of a measure created by dropping the field into Values (default sum for numeric types, else count).
+    """
+    format: NumberFormat | None = None
+    description: str | None = None
+    source: Annotated[str | None, Field(min_length=1)] = None
+    """
+    Derived date field: the record field holding the dates (with dateGroup). Names like "orderDate:year" are derived without an entry.
+    """
+    dateGroup: Annotated[
+        Literal["year", "quarter", "month", "week", "day", "yearMonth", "yearQuarter"] | None, Field(title="DateGroup")
+    ] = None
+    """
+    year, quarter (Q1–Q4 of any year), month (Jan–Dec of any year), week (ISO week), day, yearMonth (2026-01), yearQuarter (2026-Q1). Year and quarter keys follow fiscalYearStartMonth.
+    """
+    fiscalYearStartMonth: Annotated[int | None, Field(ge=1, le=12)] = None
+    """
+    Date fields: first month of the fiscal year (default 1). Fiscal years are named by the year they end in.
+    """
+    timeZoneOffsetMinutes: Annotated[int | None, Field(ge=-840, le=840)] = None
+    """
+    Date fields: fixed offset applied to instants (epoch ms, ISO strings with a zone) before taking the day. Default 0 (UTC).
+    """
+    monthNames: Annotated[list[str] | None, Field(max_length=12, min_length=12)] = None
+    """
+    Date fields: month labels (default Jan … Dec).
+    """
+    dateGroups: list[Literal["year", "quarter", "month", "week", "day", "yearMonth", "yearQuarter"]] | None = None
+    """
+    Date fields: "Group by" choices in the field list (default: every group when the values parse as dates; [] turns grouping off).
+    """
 
 
 class Margins(BaseModel):
@@ -345,9 +399,16 @@ class Options(BaseModel):
     table: Table | None = None
 
 
+class Columns(RootModel[list[Dimension]]):
+    root: Annotated[list[Dimension], Field(min_length=1)]
+    """
+    Column dimension, or the column hierarchy outermost first (e.g. year → quarter → month). A single dimension (the original v1 shape) and a one-element array are equivalent.
+    """
+
+
 class PivotSpec(BaseModel):
     """
-    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, unique facets and fields) are done by validatePivotSpec().
+    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, subtotal only on column dimensions, a field used at most once across rows and columns, unique facets and fields) are done by validatePivotSpec().
     """
 
     model_config = ConfigDict(
@@ -358,11 +419,18 @@ class PivotSpec(BaseModel):
     title: str | None = None
     subtitle: str | None = None
     rows: Annotated[list[Dimension], Field(min_length=1)]
-    columns: Dimension | None = None
+    columns: Dimension | Columns | None = None
+    """
+    Column dimension, or the column hierarchy outermost first (e.g. year → quarter → month). A single dimension (the original v1 shape) and a one-element array are equivalent.
+    """
     measures: Annotated[list[Measure], Field(min_length=1)]
     values: Annotated[list[Value] | None, Field(min_length=1)] = None
     totals: Totals | None = None
     expanded: Literal["all", "none"] | list[list[str]] | None = None
+    columnsExpanded: Literal["all", "none"] | list[list[str]] | None = None
+    """
+    Column groups (every column level but the innermost): "all" (default), "none", or key paths of expanded groups, e.g. [["2026"]]. A collapsed group shows only its total column.
+    """
     heat: Heat | None = None
     headerCharts: HeaderCharts | None = None
     kpis: list[Kpi] | None = None

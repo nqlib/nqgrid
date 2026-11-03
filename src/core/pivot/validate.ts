@@ -1,5 +1,8 @@
 import { PIVOT_SPEC_VERSION, type PivotSpec } from "./types";
 
+const isPathList = (v: unknown): boolean =>
+  v === "all" || v === "none" || (Array.isArray(v) && v.every((p) => Array.isArray(p) && p.every((k) => typeof k === "string")));
+
 export type PivotSpecValidation =
   | { readonly ok: true; readonly spec: PivotSpec }
   | { readonly ok: false; readonly errors: readonly string[] };
@@ -9,9 +12,12 @@ const SHOW_AS = new Set([
   "value",
   "percentOfColumnTotal",
   "percentOfParentRow",
+  "percentOfParentColumn",
   "percentOfRowTotal",
   "percentOfGrandTotal",
 ]);
+const DATE_GROUPS = new Set(["year", "quarter", "month", "week", "day", "yearMonth", "yearQuarter"]);
+const SUBTOTALS = new Set(["end", "start", "none"]);
 const HEAT_SCOPES = new Set(["all", "column", "row", "group"]);
 const MATCH_OPS = new Set(["contains", "notContains", "beginsWith", "endsWith", "equals", "notEquals"]);
 const FIELD_TYPES = new Set(["dimension", "measure", "date", "number", "text"]);
@@ -26,8 +32,9 @@ const isNonEmptyString = (v: unknown): v is string => typeof v === "string" && v
  * Structural + referential validation for specs arriving over the wire (e.g. from Python).
  * The JSON Schema in `contract/pivot/v1` covers structure; this also checks that measure ids
  * referenced by `values`, `heat`, `headerCharts`, `kpis`, `sortBy` and `topN` exist, that
- * `sortBy` / `topN` sit on row dimensions, that filters / facets are well-formed, and that the
- * field catalogue (`fields`, `fieldLabels`) and `valuesIndex` are well-formed.
+ * `sortBy` / `topN` sit on row dimensions and `subtotal` on column dimensions, that a field is not
+ * used twice across rows and columns, that filters / facets are well-formed, and that the field
+ * catalogue (`fields`, `fieldLabels`, date grouping) and `valuesIndex` are well-formed.
  */
 export function validatePivotSpec(input: unknown): PivotSpecValidation {
   const errors: string[] = [];
@@ -75,14 +82,42 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     if (d.sort !== undefined && !["asc", "desc", "none"].includes(d.sort as string)) {
       errors.push(`${where}.sort must be "asc" | "desc" | "none"`);
     }
+    if (d.subtotal !== undefined) {
+      if (isRow) errors.push(`${where}.subtotal is only supported on column dimensions`);
+      else if (!SUBTOTALS.has(d.subtotal as string)) errors.push(`${where}.subtotal must be "end" | "start" | "none"`);
+    }
   };
 
+  const dimensionFields: [string, string][] = [];
+  const collect = (d: unknown, where: string) => {
+    if (isObject(d) && isNonEmptyString(d.field)) dimensionFields.push([d.field, where]);
+  };
   if (!Array.isArray(input.rows) || input.rows.length === 0) {
     errors.push("rows must be a non-empty array of dimensions");
   } else {
-    input.rows.forEach((d, i) => checkDimension(d, `rows[${i}]`, true));
+    input.rows.forEach((d, i) => {
+      checkDimension(d, `rows[${i}]`, true);
+      collect(d, `rows[${i}]`);
+    });
   }
-  if (input.columns !== undefined) checkDimension(input.columns, "columns", false);
+  if (input.columns !== undefined) {
+    if (Array.isArray(input.columns)) {
+      if (input.columns.length === 0) errors.push("columns must be a dimension or a non-empty array of dimensions");
+      input.columns.forEach((d, i) => {
+        checkDimension(d, `columns[${i}]`, false);
+        collect(d, `columns[${i}]`);
+      });
+    } else {
+      checkDimension(input.columns, "columns", false);
+      collect(input.columns, "columns");
+    }
+  }
+  const firstUse = new Map<string, string>();
+  for (const [field, where] of dimensionFields) {
+    const prev = firstUse.get(field);
+    if (prev !== undefined) errors.push(`${where}.field "${field}" is already used by ${prev}`);
+    else firstUse.set(field, where);
+  }
 
   const measureIds = new Set<string>();
   if (!Array.isArray(input.measures) || input.measures.length === 0) {
@@ -151,17 +186,11 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     }
   }
 
-  const expanded = input.expanded;
-  if (
-    expanded !== undefined &&
-    expanded !== "all" &&
-    expanded !== "none" &&
-    !(
-      Array.isArray(expanded) &&
-      expanded.every((p) => Array.isArray(p) && p.every((k) => typeof k === "string"))
-    )
-  ) {
+  if (input.expanded !== undefined && !isPathList(input.expanded)) {
     errors.push('expanded must be "all", "none", or an array of string key paths');
+  }
+  if (input.columnsExpanded !== undefined && !isPathList(input.columnsExpanded)) {
+    errors.push('columnsExpanded must be "all", "none", or an array of string key paths');
   }
 
   if (isObject(input.heat)) {
@@ -254,6 +283,26 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
         }
         if (f.aggregate !== undefined && !BUILT_IN_AGGREGATES.has(f.aggregate as string)) {
           errors.push(`${where}.aggregate "${String(f.aggregate)}" is not supported`);
+        }
+        if (f.dateGroup !== undefined && !DATE_GROUPS.has(f.dateGroup as string)) {
+          errors.push(`${where}.dateGroup must be one of ${[...DATE_GROUPS].join(" | ")}`);
+        }
+        if (f.source !== undefined && !isNonEmptyString(f.source)) errors.push(`${where}.source must be a non-empty string`);
+        if ((f.source === undefined) !== (f.dateGroup === undefined)) errors.push(`${where}: source and dateGroup go together`);
+        if (f.source !== undefined && f.source === f.field) errors.push(`${where}.source must differ from field`);
+        const fy = f.fiscalYearStartMonth;
+        if (fy !== undefined && !(Number.isInteger(fy) && (fy as number) >= 1 && (fy as number) <= 12)) {
+          errors.push(`${where}.fiscalYearStartMonth must be an integer between 1 and 12`);
+        }
+        const tz = f.timeZoneOffsetMinutes;
+        if (tz !== undefined && !(Number.isInteger(tz) && Math.abs(tz as number) <= 840)) {
+          errors.push(`${where}.timeZoneOffsetMinutes must be an integer between -840 and 840`);
+        }
+        if (f.monthNames !== undefined && !(isStringArray(f.monthNames) && f.monthNames.length === 12)) {
+          errors.push(`${where}.monthNames must be an array of 12 strings`);
+        }
+        if (f.dateGroups !== undefined && !(Array.isArray(f.dateGroups) && f.dateGroups.every((g) => DATE_GROUPS.has(g as string)))) {
+          errors.push(`${where}.dateGroups must be an array of ${[...DATE_GROUPS].join(" | ")}`);
         }
       });
     }

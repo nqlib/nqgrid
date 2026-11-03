@@ -3,10 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { buildPivotModel } from "../core/pivot/build-model";
-import { generatePlanningPivotRows, planningPivotSpec } from "../fixtures/planning-pivot-mock";
+import type { PivotSpec } from "../core/pivot/types";
+import { generatePlanningPivotRows, planningDatesPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
+import { reducePivotGridSpec } from "./grid-state";
+import { pivotColumnHeaderRole } from "./layout";
 import { PivotHeaderChartBand } from "./pivot-header-chart";
 import { PivotKpiPanel } from "./pivot-kpi-panel";
-import { PivotTable } from "./pivot-table";
+import { PivotTable, type PivotColumnHeaderContext } from "./pivot-table";
 
 /** Components render from the model alone, so `renderToStaticMarkup` (Phase 3 PDF path) sees the full grid. */
 const rows = generatePlanningPivotRows();
@@ -95,5 +98,55 @@ describe("standalone pieces", () => {
     const out = html(createElement("table", null, createElement("thead", null, createElement(PivotHeaderChartBand, { model, mode: "static" }))));
     expect(count(out, /<tr/g)).toBe(1);
     expect(out).toContain('colSpan="2"');
+  });
+});
+
+describe("PivotTable with several column fields", () => {
+  const dateRows = generatePlanningPivotRows(7, { extraFields: true, orderDates: true });
+  const dates = buildPivotModel(planningDatesPivotSpec, dateRows);
+
+  it("renders row-spanning subtotal headers and column-group toggles", () => {
+    const interactive = html(createElement(PivotTable, { model: dates, onToggleColumnGroup: () => {} }));
+    expect(interactive).toContain('aria-label="Expand FY25"');
+    expect(interactive).toContain('aria-label="Collapse FY26"');
+    expect(count(interactive, /data-nqg-column-toggle=""/g)).toBe(2);
+    expect(interactive).toMatch(/rowSpan="2"[^>]*data-nqg-subtotal=""/);
+    const plain = html(createElement(PivotTable, { model: dates, mode: "static" }));
+    expect(plain).not.toContain("data-nqg-column-toggle");
+    // Header bars: FY25 (collapsed) and the four FY26 quarters, none over subtotals / the total.
+    expect(count(plain, /data-nqg-bar="/g)).toBe(5);
+  });
+
+  it("renderColumnHeader gets each cell's role, field and Columns-area position", () => {
+    const seen: PivotColumnHeaderContext[] = [];
+    html(createElement(PivotTable, { model: dates, renderColumnHeader: (ctx: PivotColumnHeaderContext) => (seen.push(ctx), ctx.label) }));
+    expect(seen.map((c) => [c.label, c.kind, c.level, c.areaIndex, c.dimension?.field ?? null])).toEqual([
+      ["FY25", "dimension", 0, 0, "orderDate:year"],
+      ["FY26", "dimension", 0, 0, "orderDate:year"],
+      ["FY26 Total", "subtotal", 0, 0, "orderDate:year"],
+      ["Total", "total", null, 2, null],
+      ["Q1", "dimension", 1, 1, "orderDate:quarter"],
+      ["Q2", "dimension", 1, 1, "orderDate:quarter"],
+      ["Q3", "dimension", 1, 1, "orderDate:quarter"],
+      ["Q4", "dimension", 1, 1, "orderDate:quarter"],
+    ]);
+    // One column field with Σ Values outermost: measures are row 0 (area index 0), months row 1.
+    const two = buildPivotModel({ ...planningPivotSpec, values: ["actual", "plan"], valuesIndex: 0, totals: { rowTotal: true } }, rows);
+    const roles = two.headerRows.map((r, i) => r.map((h) => pivotColumnHeaderRole(two, i, h)));
+    expect(roles[0]![0]).toEqual({ kind: "measure", level: null, areaIndex: 0 });
+    expect(roles[0]!.at(-1)!.kind).toBe("total");
+    expect(roles[1]![0]).toEqual({ kind: "dimension", level: 0, areaIndex: 1 });
+    expect(roles[1]!.at(-1)!.kind).toBe("measure");
+  });
+
+  it("reducer: column-group toggles and date grouping", () => {
+    const spec: PivotSpec = { ...planningDatesPivotSpec, columnsExpanded: undefined };
+    const model = buildPivotModel(spec, dateRows);
+    const collapsed = reducePivotGridSpec(spec, model, { type: "toggleColumnGroup", path: ["2025"] });
+    expect(collapsed.columnsExpanded).toEqual([["2026"]]);
+    expect(reducePivotGridSpec(spec, model, { type: "collapseAllColumns" }).columnsExpanded).toBe("none");
+    expect(reducePivotGridSpec(collapsed, model, { type: "expandAllColumns" }).columnsExpanded).toBe("all");
+    const months = reducePivotGridSpec(spec, model, { type: "setDateGrouping", field: "orderDate", groups: ["year", "month"] });
+    expect(months.columns).toEqual([{ field: "orderDate:year" }, { field: "orderDate:month", label: "Month (Order date)" }]);
   });
 });

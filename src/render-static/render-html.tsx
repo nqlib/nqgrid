@@ -6,7 +6,7 @@ import { pivotTableGeometry } from "../pivot/layout";
 import { PivotHeaderSummary } from "../pivot/pivot-header-chart";
 import { PivotTable, type PivotTableProps } from "../pivot/pivot-table";
 import { PIVOT_STATIC_PALETTE, type PivotStaticTheme } from "./color";
-import { PIVOT_STATIC_CSS } from "./css";
+import { PIVOT_STATIC_CSS, PIVOT_STATIC_NESTED_HEADER_CSS } from "./css";
 import {
   pivotColumnChunks,
   pivotColumnsPerPage,
@@ -224,7 +224,8 @@ export function renderPivotHtml(model: PivotModel, options: RenderPivotHtmlOptio
   const body = lineBreaks(keepSemanticClasses(renderToStaticMarkup(<PivotStaticReport model={model} options={options} layout={layout} />)));
   // The page background also covers the margins (Chromium otherwise paints its default canvas there).
   const pageCss = `${layout.page.css}\n@page { background: ${PIVOT_STATIC_PALETTE[theme].page}; }`;
-  const css = `${PIVOT_STATIC_CSS}${pageCss}\n${options.css ? `${options.css}\n` : ""}`;
+  const nested = model.columnDimensions ? PIVOT_STATIC_NESTED_HEADER_CSS : "";
+  const css = `${PIVOT_STATIC_CSS}${pageCss}\n${nested}${options.css ? `${options.css}\n` : ""}`;
   return [
     "<!DOCTYPE html>",
     `<html lang="${escapeHtml(lang)}" data-theme="${theme}"${theme === "dark" ? ' class="dark"' : ""}>`,

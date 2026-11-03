@@ -25,6 +25,7 @@ from .request import build_export_request
 from .subprocess_exporter import SubprocessExporter
 from .validation import (
     check_fields,
+    date_field_source,
     export_request_schema,
     humanize_pivot_field,
     infer_pivot_fields,
@@ -56,6 +57,7 @@ __all__ = [
     "__version__",
     "build_export_request",
     "check_fields",
+    "date_field_source",
     "export_filename",
     "export_request_schema",
     "humanize_pivot_field",

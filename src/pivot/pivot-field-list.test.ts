@@ -2,14 +2,17 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { pivotColumnFields } from "../core/pivot/columns";
 import { buildPivotModel, createPivotModelBuilder } from "../core/pivot/build-model";
 import { PIVOT_VALUES_FIELD, resolvePivotFields } from "../core/pivot/fields";
 import type { PivotSpec } from "../core/pivot/types";
-import { generatePlanningPivotRows, planningFieldCatalog, planningFieldsPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
+import { generatePlanningPivotRows, planningDatesPivotSpec, planningFieldCatalog, planningFieldsPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
 import { pivotAutoScrollStep, pivotDropIndex, pivotDropZoneProps, pivotFieldDragHandleProps } from "./field-drag";
 import { reducePivotGridSpec } from "./grid-state";
-import { PivotFieldList, pivotKeyboardDragStep, pivotKeyboardDropIndex, type PivotKeyboardDrag } from "./pivot-field-list";
+import { PivotFieldList, pivotFieldListProps, pivotKeyboardDragStep, pivotKeyboardDropIndex, type PivotKeyboardDrag } from "./pivot-field-list";
 import { PivotTable } from "./pivot-table";
+import type { PivotGridState } from "./use-pivot-grid";
+import type { PivotLayoutDraftState } from "./use-pivot-layout-draft";
 
 const rows = generatePlanningPivotRows(7, { extraFields: true });
 const spec: PivotSpec = { ...planningPivotSpec, fields: planningFieldCatalog };
@@ -20,13 +23,13 @@ const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 describe("reducePivotGridSpec: field-list actions", () => {
   it("routes to the core move helpers", () => {
     const moved = reducePivotGridSpec(spec, model, { type: "moveField", move: { field: "line", from: "rows", to: "columns" }, fields });
-    expect(moved.columns?.field).toBe("line");
+    expect(pivotColumnFields(moved).map((d) => d.field)).toEqual(["month", "line"]);
     const added = reducePivotGridSpec(spec, model, { type: "addMeasure", field: "units", fields });
     expect(added.values).toEqual(["actual", "units"]);
     const avg = reducePivotGridSpec(added, model, { type: "setMeasureAggregate", measureId: "units", aggregate: "avg", fields });
     expect(avg.measures.at(-1)!.aggregate).toBe("avg");
     expect(reducePivotGridSpec(added, model, { type: "setValuesPosition", index: 0 }).valuesIndex).toBe(0);
-    expect(reducePivotGridSpec(spec, model, { type: "swapRowsColumns" }).columns?.field).toBe("line");
+    expect(pivotColumnFields(reducePivotGridSpec(spec, model, { type: "swapRowsColumns" })).at(-1)?.field).toBe("line");
     expect(reducePivotGridSpec(spec, model, { type: "toggleField", field: "region", checked: true, fields }).rows.at(-1)!.field).toBe("region");
     expect(reducePivotGridSpec(spec, model, { type: "reorderField", area: "rows", field: "line", index: 0, fields }).rows[0]!.field).toBe("line");
     expect(reducePivotGridSpec(added, model, { type: "removeField", field: "units", from: "values", fields }).values).toEqual(["actual"]);
@@ -156,5 +159,32 @@ describe("PivotFieldList markup", () => {
     expect(table).toContain('data-nqg-drop-zone="rows" data-nqg-drop-axis="x" data-nqg-drop-item=""');
     expect(table).toContain('data-nqg-drop-offset="1"');
     expect(table).toContain('data-nqg-drag-source="line"');
+  });
+});
+
+describe("PivotFieldList: shared deferred draft and date fields", () => {
+  it("a controlled draft (usePivotLayoutDraft) is what the areas show while deferred", () => {
+    const draft = reducePivotGridSpec(spec, model, { type: "moveField", move: { field: "region", from: "unused", to: "columns" }, fields });
+    const deferred = renderToStaticMarkup(createElement(PivotFieldList, { spec, fields, onSpecChange: () => {}, deferLayout: true, draft }));
+    expect(deferred).toContain('data-nqg-chip-key="columns:region"');
+    expect(deferred).toMatch(/data-nqg-update=""(?![^>]*disabled)/);
+    const live = renderToStaticMarkup(createElement(PivotFieldList, { spec, fields, onSpecChange: () => {}, deferLayout: false, draft }));
+    expect(live).not.toContain('data-nqg-chip-key="columns:region"');
+  });
+
+  it("pivotFieldListProps(grid, layout) binds the layout draft", () => {
+    const grid = { spec, fields, setSpec: () => {}, facet: () => undefined, model } as unknown as PivotGridState;
+    const layout = { deferred: true, draft: spec, setDeferred: () => {}, setDraft: () => {} } as unknown as PivotLayoutDraftState;
+    expect(pivotFieldListProps(grid, layout)).toMatchObject({ deferLayout: true, draft: spec, onDeferLayoutChange: layout.setDeferred, onDraftChange: layout.setDraft });
+    expect(pivotFieldListProps(grid)).not.toHaveProperty("draft");
+  });
+
+  it("derived date chips are labelled from their source field", () => {
+    const dateRows = generatePlanningPivotRows(7, { extraFields: true, orderDates: true });
+    const dateFields = resolvePivotFields(planningDatesPivotSpec, dateRows);
+    const out = renderToStaticMarkup(createElement(PivotFieldList, { spec: planningDatesPivotSpec, fields: dateFields, onSpecChange: () => {} }));
+    expect(out).toContain('data-nqg-chip-key="columns:orderDate:year"');
+    expect(out).toContain(">Year (Order date)<");
+    expect(out).toContain(">Quarter (Order date)<");
   });
 });

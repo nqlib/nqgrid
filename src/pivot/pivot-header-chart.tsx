@@ -132,10 +132,20 @@ export function PivotHeaderChartBand({
   const sticky = mode === "interactive";
   const rowStyle: CSSProperties = { height };
   const first = model.headerRows[0] ?? [];
-  // Σ Values outermost (`valuesIndex: 0`): the top row holds measures, so bars go under the
-  // column-key cells of the last header row that belong to the series measure.
+  // One band cell per run of adjacent columns with the same column key (a leaf with its measures, a
+  // subtotal, the grand total), so bars sit over their columns. With Σ Values outermost
+  // (`valuesIndex: 0`) every column is its own cell and only the series measure gets bars.
   const byMeasure = !first.every((h) => h.columnKey !== undefined);
-  const top = byMeasure ? (model.headerRows[model.headerRows.length - 1] ?? []) : first;
+  const runs: { columnKey: string | null; colSpan: number; hasMeasure: boolean; subtotal: boolean }[] = [];
+  for (const c of model.columns) {
+    const last = runs[runs.length - 1];
+    if (!byMeasure && last && last.columnKey === c.columnKey && last.subtotal === (c.subtotal === true && !c.collapsed)) {
+      last.colSpan++;
+      last.hasMeasure ||= c.measureId === series.measureId;
+    } else {
+      runs.push({ columnKey: c.columnKey, colSpan: 1, hasMeasure: c.measureId === series.measureId, subtotal: c.subtotal === true && !c.collapsed });
+    }
+  }
   return (
     <tr className={className} style={rowStyle} data-nqg-band="">
       <th
@@ -146,16 +156,13 @@ export function PivotHeaderChartBand({
       >
         {summary === undefined ? <PivotHeaderSummary model={model} /> : summary}
       </th>
-      {top.map((h, i) => {
-        const point =
-          h.columnKey === null || h.columnKey === undefined || (byMeasure && h.measureId !== series.measureId)
-            ? undefined
-            : pointByKey.get(h.columnKey);
-        const width = geometry.valueWidth * h.colSpan;
+      {runs.map((run, i) => {
+        const point = run.columnKey === null || run.subtotal || !run.hasMeasure ? undefined : pointByKey.get(run.columnKey);
+        const width = geometry.valueWidth * run.colSpan;
         return (
           <th
-            key={`${h.columnKey ?? "total"}:${i}`}
-            colSpan={h.colSpan}
+            key={`${run.columnKey ?? "total"}:${i}`}
+            colSpan={run.colSpan}
             className={cx(pivotBandCellClass, sticky && pivotStickyHeadClass)}
             style={sticky ? { top: 0 } : undefined}
           >

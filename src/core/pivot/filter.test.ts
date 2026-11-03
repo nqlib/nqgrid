@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { pivotColumnFields } from "./columns";
 import { generatePlanningPivotRows, planningPivotSpec } from "../../fixtures/planning-pivot-mock";
 import { aggregatePivotRows } from "./aggregate";
 import { buildPivotModel, createPivotModelBuilder, describePivotFilters, pivotModelFromCube } from "./build-model";
@@ -370,7 +371,7 @@ describe("spec helpers", () => {
     const l = setPivotSort(v, "line", { by: "label", direction: "desc" });
     expect(l.rows[1]).toEqual({ field: "line", label: "Line", sort: "desc" });
     expect(setPivotSort(l, "line", null).rows[1]).toEqual({ field: "line", label: "Line" });
-    expect(setPivotSort(base, "month", { by: "label", direction: "asc" }).columns!.sort).toBe("asc");
+    expect(pivotColumnFields(setPivotSort(base, "month", { by: "label", direction: "asc" }))[0]!.sort).toBe("asc");
     expect(() => setPivotSort(base, "month", { by: "value", measure: "actual" })).toThrow(/not supported/);
     expect(setPivotSort(base, "nope", null)).toBe(base);
     const t = setPivotTopN(base, "line", { measure: "actual", count: 3 });

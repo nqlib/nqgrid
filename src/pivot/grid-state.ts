@@ -1,12 +1,14 @@
 import {
   clearPivotFilter,
   clearPivotFilters,
+  setPivotColumnsExpandedAll,
   setPivotExpandedAll,
   setPivotFilter,
   setPivotFilterValues,
   setPivotHeatScope,
   setPivotSort,
   setPivotTopN,
+  togglePivotColumnGroup,
   togglePivotFilterValue,
   togglePivotGroup,
   type PivotSortRequest,
@@ -16,6 +18,7 @@ import {
   movePivotField,
   removePivotField,
   reorderPivotField,
+  setPivotDateGrouping,
   setPivotMeasureAggregate,
   setPivotValuesPosition,
   swapPivotRowsColumns,
@@ -24,6 +27,7 @@ import {
 } from "../core/pivot/fields";
 import type {
   PivotBuiltInAggregate,
+  PivotDateGroup,
   PivotFieldArea,
   PivotFieldSpec,
   PivotFilter,
@@ -38,6 +42,9 @@ export type PivotGridAction =
   | { readonly type: "toggleGroup"; readonly path: readonly string[] }
   | { readonly type: "expandAll" }
   | { readonly type: "collapseAll" }
+  | { readonly type: "toggleColumnGroup"; readonly path: readonly string[] }
+  | { readonly type: "expandAllColumns" }
+  | { readonly type: "collapseAllColumns" }
   | { readonly type: "setHeatScope"; readonly scope: PivotHeatScope }
   | { readonly type: "setFilter"; readonly filter: PivotFilter }
   | { readonly type: "setFilterValues"; readonly field: string; readonly allKeys: readonly string[]; readonly selected: readonly string[] }
@@ -61,11 +68,18 @@ export type PivotGridAction =
     }
   | { readonly type: "setMeasureAggregate"; readonly measureId: string; readonly aggregate: PivotBuiltInAggregate; readonly fields?: readonly PivotFieldSpec[] }
   | { readonly type: "setValuesPosition"; readonly index: number }
-  | { readonly type: "swapRowsColumns" };
+  | { readonly type: "swapRowsColumns" }
+  | {
+      readonly type: "setDateGrouping";
+      readonly field: string;
+      readonly groups: readonly PivotDateGroup[];
+      readonly area?: "rows" | "columns" | "filters";
+      readonly fields?: readonly PivotFieldSpec[];
+    };
 
 /**
  * Pure spec transition behind `usePivotGrid`. `model` must be built from `spec`
- * (`togglePivotGroup` reads it to materialize `expanded: "all"`).
+ * (`togglePivotGroup` / `togglePivotColumnGroup` read it to materialize `"all"`).
  */
 export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: PivotGridAction): PivotSpec {
   switch (action.type) {
@@ -75,6 +89,12 @@ export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: 
       return setPivotExpandedAll(spec, true);
     case "collapseAll":
       return setPivotExpandedAll(spec, false);
+    case "toggleColumnGroup":
+      return togglePivotColumnGroup(spec, model, action.path);
+    case "expandAllColumns":
+      return setPivotColumnsExpandedAll(spec, true);
+    case "collapseAllColumns":
+      return setPivotColumnsExpandedAll(spec, false);
     case "setHeatScope":
       return setPivotHeatScope(spec, action.scope);
     case "setFilter":
@@ -109,5 +129,7 @@ export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: 
       return setPivotValuesPosition(spec, action.index);
     case "swapRowsColumns":
       return swapPivotRowsColumns(spec);
+    case "setDateGrouping":
+      return setPivotDateGrouping(spec, action.field, action.groups, { fields: action.fields, area: action.area });
   }
 }

@@ -1,6 +1,7 @@
 import { formatPivotNumber } from "../core/pivot/format";
 import type {
   PivotBodyRow,
+  PivotHeaderCell,
   PivotHeaderSeriesPoint,
   PivotKpiValue,
   PivotModel,
@@ -46,6 +47,52 @@ export function pivotTableGeometry(
   const valueWidth = options.valueWidth ?? PIVOT_DEFAULT_VALUE_WIDTH;
   const width = dimensionWidths.reduce((a, b) => a + b, 0) + valueWidth * model.columns.length;
   return { dimensionColumns, dimensionWidths, dimensionOffsets, valueWidth, width };
+}
+
+// ---------------------------------------------------------------------------
+// Column headers
+// ---------------------------------------------------------------------------
+
+/** What a value-column header cell names (see `pivotColumnHeaderRole`). */
+export interface PivotColumnHeaderRole {
+  /**
+   * `dimension` — a key of column field `level` (a group over its children, a leaf, or a collapsed
+   * group); `subtotal` — a column group's subtotal; `measure` — a value measure (the Σ Values level);
+   * `total` — the grand total column(s).
+   */
+  readonly kind: "dimension" | "subtotal" | "measure" | "total";
+  /** Column-field index for `dimension` / `subtotal`, else `null`. */
+  readonly level: number | null;
+  /**
+   * Position of this level among the field list's Columns chips (Σ Values included), i.e. the
+   * `PivotFieldMove.index` before it: use it as `pivotDropZoneProps("columns", { axis: "x", offset })`.
+   */
+  readonly areaIndex: number;
+}
+
+/** The column fields of a model, outermost first (`columnDimensions`, else `[columnDimension]`). */
+export function pivotModelColumnDimensions(model: PivotModel): readonly { readonly field: string; readonly label: string }[] {
+  return model.columnDimensions ?? (model.columnDimension ? [model.columnDimension] : []);
+}
+
+/** Role of header cell `cell` in header row `row` (for render slots, drag handles and drop zones). */
+export function pivotColumnHeaderRole(model: PivotModel, row: number, cell: PivotHeaderCell): PivotColumnHeaderRole {
+  const levels = pivotModelColumnDimensions(model).length;
+  const multi = new Set(model.columns.map((c) => c.measureId)).size > 1;
+  if (levels > 1) {
+    // Σ Values position: where the measure sits in a leaf column's header path (innermost by default).
+    const leaf = model.columns.find((c) => c.columnPath?.length === levels && !c.subtotal);
+    const sigma = !multi ? -1 : leaf ? leaf.headerPath.indexOf(leaf.measureLabel) : levels;
+    const at = (level: number) => level + (sigma >= 0 && sigma <= level ? 1 : 0);
+    if (cell.columnLevel !== undefined) return { kind: cell.subtotal ? "subtotal" : "dimension", level: cell.columnLevel, areaIndex: at(cell.columnLevel) };
+    if (cell.columnKey === null && (!multi || cell.measureId === undefined)) return { kind: "total", level: null, areaIndex: levels + (multi ? 1 : 0) };
+    return { kind: "measure", level: null, areaIndex: Math.max(0, sigma) };
+  }
+  if (levels === 0) return { kind: "measure", level: null, areaIndex: row };
+  if (cell.columnKey === null) return { kind: multi && row > 0 ? "measure" : "total", level: null, areaIndex: row };
+  // One column field: with several measures the Σ row is first when its cells carry no column key.
+  const sigmaRow = !multi ? -1 : (model.headerRows[0] ?? []).every((h) => h.columnKey !== undefined) ? 1 : 0;
+  return row === sigmaRow ? { kind: "measure", level: null, areaIndex: row } : { kind: "dimension", level: 0, areaIndex: row };
 }
 
 // ---------------------------------------------------------------------------

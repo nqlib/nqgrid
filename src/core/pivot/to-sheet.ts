@@ -54,7 +54,9 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
   const cells: PivotSheetCell[][] = [];
   const merges: PivotSheetMerge[] = [];
 
-  // Header rows: row-dimension labels sit in the last header row (merged upward).
+  // Header rows: row-dimension labels sit in the last header row (merged upward). Cells covered
+  // by a header spanning down from an earlier row (column subtotals) stay empty.
+  const covered = model.headerRows.map(() => new Set<number>());
   model.headerRows.forEach((headerRow, r) => {
     const out: PivotSheetCell[] = [];
     const last = r === headerCount - 1;
@@ -63,11 +65,20 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
     } else {
       out.push({ v: last ? model.rowDimensions.map((d) => d.label).join(" / ") : null, role: "corner", bold: true });
     }
+    const skip = () => {
+      while (covered[r]!.has(out.length - dimCols)) out.push({ v: null, role: "header" });
+    };
     for (const h of headerRow) {
-      if (h.colSpan > 1) merges.push({ row: r, col: out.length, rowSpan: 1, colSpan: h.colSpan });
+      skip();
+      const rowSpan = h.rowSpan ?? 1;
+      if (h.colSpan > 1 || rowSpan > 1) merges.push({ row: r, col: out.length, rowSpan, colSpan: h.colSpan });
+      for (let below = 1; below < rowSpan && r + below < headerCount; below++) {
+        for (let i = 0; i < h.colSpan; i++) covered[r + below]!.add(out.length - dimCols + i);
+      }
       out.push({ v: h.label, role: "header", bold: true });
       for (let i = 1; i < h.colSpan; i++) out.push({ v: null, role: "header" });
     }
+    skip();
     cells.push(out);
   });
   if (headerCount > 1) {

@@ -77,3 +77,44 @@ export const benchFilteredSpec: PivotSpec = {
   ],
   facets: ["region", "department", "line", "month"],
 };
+
+/** Calendar month (1–12) of each fiscal month in `BENCH_MONTHS`. */
+const BENCH_MONTH_NUMBERS = [11, 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+/**
+ * `generateBenchRows` plus two fiscal years: `year` (`FY25` / `FY26`), `quarter` (`Q1`–`Q4`, fiscal) and an
+ * ISO `orderDate` (`2025-11-14`) in the record's fiscal month. The other fields are unchanged.
+ */
+export function generateBenchDateRows(count: number, seed = 11): PivotDataRow[] {
+  return generateBenchRows(count, seed).map((r, i) => {
+    const mi = i % 12;
+    const fy = Math.floor(i / 12) % 2 === 0 ? 25 : 26;
+    const m = BENCH_MONTH_NUMBERS[mi]!;
+    const y = 2000 + fy - (m >= 11 ? 1 : 0);
+    return {
+      ...r,
+      year: `FY${fy}`,
+      quarter: `Q${Math.floor(mi / 3) + 1}`,
+      orderDate: `${y}-${String(m).padStart(2, "0")}-${String(1 + ((i * 7) % 28)).padStart(2, "0")}`,
+    };
+  });
+}
+
+/** `benchBaseSpec` with 2 column fields: year → month (2 × 12 leaves, year subtotals, grand total). */
+export const benchTwoColumnSpec: PivotSpec = {
+  ...benchBaseSpec,
+  columns: [{ field: "year" }, { field: "month", order: [...BENCH_MONTHS], keepEmpty: true }],
+};
+
+/** `benchBaseSpec` with 3 column fields: year → quarter → month (2 × 4 × 3 leaves, two subtotal levels). */
+export const benchThreeColumnSpec: PivotSpec = {
+  ...benchBaseSpec,
+  columns: [{ field: "year" }, { field: "quarter" }, { field: "month", order: [...BENCH_MONTHS] }],
+};
+
+/** Date grouping from ISO strings: fiscal year → quarter of `orderDate` (fiscal year from November). */
+export const benchDateSpec: PivotSpec = {
+  ...benchBaseSpec,
+  columns: [{ field: "orderDate:year" }, { field: "orderDate:quarter" }],
+  fields: [{ field: "orderDate", type: "date", fiscalYearStartMonth: 11 }],
+};

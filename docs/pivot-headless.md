@@ -48,14 +48,18 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
 
 - `rows` — row hierarchy, outermost first; every level except the last is a collapsible group.
   `attributes` copies fields (e.g. `owner`) onto that level's rows.
-- `columns` — optional column dimension. `order` + `keepEmpty` keep fiscal months stable.
+- `columns` — optional column dimension, or a list of them (Year → Quarter → Month), with subtotal columns per group,
+  a grand total column and collapsible column groups (`columnsExpanded`): see
+  [Several column fields](#several-column-fields-excel-parity-step-3). `order` + `keepEmpty` keep fiscal months stable.
+- Date fields group by naming a derived field (`orderDate:year`, `orderDate:quarter`, …): see
+  [Date grouping](#date-grouping-excel-parity-step-3).
 - `measures` — `aggregate`: `sum | avg | min | max | count | first | last`,
   `{ type: "weightedAvg", weightField }`, `{ type: "ratio", numeratorField, denominatorField, offset }`
   (`offset: -1` = growth), or `{ type: "custom", name }` resolved from `options.aggregators`.
-- `showAs` / `groupShowAs` — Excel-style `percentOfColumnTotal`, `percentOfParentRow`,
+- `showAs` / `groupShowAs` — Excel-style `percentOfColumnTotal`, `percentOfParentRow`, `percentOfParentColumn`,
   `percentOfRowTotal`, `percentOfGrandTotal`. Cells keep both `raw` and the displayed `value`.
 - `values` — measure ids shown as grid columns; other measures can still feed KPIs/charts.
-- `heat` — discrete levels (default 9) by `scope`: `all`, `column`, `row`, or `group` (siblings).
+- `heat` — discrete levels (default 9) by `scope`: `all`, `column` (each leaf column), `row`, or `group` (siblings).
   Levels — not colors — cross the wire; each renderer maps them to its palette
   (e.g. `--nqg-heat-0 … --nqg-heat-8`).
 - `headerCharts` — per-column series for the chart band above the header (`breakdown` for stacks).
@@ -195,7 +199,8 @@ The golden example is `contract/pivot/v1/examples/planning-fields.*` (rows from
 **Catalogue.** `fields` entries have `field`, `label?`, `type?` (`dimension | text | date | number | measure`),
 `areas?` (default: `["values"]` for measures, every area otherwise), `aggregate?` (for measures created in Values:
 default `sum` for `measure` / `number`, `count` otherwise), `format?` and `description?`. They never change the model
-(`pivotSpecDataKey` ignores them). Without `fields`, `inferPivotFields(rows, { sample })` reads `sample` records (default 500,
+(`pivotSpecDataKey` ignores them), except the date properties of step 3 (`source`, `dateGroup`,
+`fiscalYearStartMonth`, `timeZoneOffsetMinutes`; see [Date grouping](#date-grouping-excel-parity-step-3)). Without `fields`, `inferPivotFields(rows, { sample })` reads `sample` records (default 500,
 spread evenly) and classifies numbers as `measure` (or `number` for integers with ≤ 12 distinct values, e.g. a year),
 `Date` / ISO-8601 strings as `date`, mostly unique strings with more than 50 values as `text`, everything else as
 `dimension`. Numeric strings stay dimensions; declare serialized decimals as measures. `resolvePivotFields(spec, rows?)`
@@ -209,7 +214,7 @@ calculated measures (no source field, e.g. ratios):
 | Area | Comes from |
 |------|------------|
 | Rows | `spec.rows` |
-| Columns | `spec.columns` (a list internally) plus the **Σ Values** chip at `valuesIndex` when there are 2+ values |
+| Columns | `spec.columns` (one object or a list) plus the **Σ Values** chip at `valuesIndex` when there are 2+ values |
 | Values | `spec.values` (default: every measure), as measure ids |
 | Filters | fields with an entry in `spec.filters` that are not row / column fields, in filter order. `{ "field": "region" }` (no include / exclude / match) is an inactive placeholder that keeps a field in the area. |
 
@@ -244,16 +249,17 @@ indicator), so dragging a chip below its neighbour is `index = position + 2`. `r
 | Topic | Rule |
 |-------|------|
 | One area per field | A field sits in at most one of Rows / Columns / Filters (plus any number of Values). Moving it from the field list (`from: "unused"`) moves it from wherever it is. |
-| One column field (for now) | The spec supports one column dimension. Moving a second field into Columns keeps the newcomer and **swaps** the old one into the source area when that was Rows (same index) or Filters; from Values or the field list it **replaces** it (the old field leaves the layout and loses its filters). `plan.displaced` reports it. `PIVOT_MAX_COLUMN_FIELDS` is the only cap: moves treat `columns` as a list and apply the cap last. |
-| `sortBy` / `topN` | Travel with a row field that is reordered. They are invalid on `columns`, so they are **stripped** on the way into Columns (and do not come back). A row field moved to Filters drops its dimension settings. |
+| Column fields | Up to `PIVOT_MAX_COLUMN_FIELDS` (4) column fields (step 3; it was 1 in step 2). A field dropped into a full Columns area stays, and the **innermost** other column field **swaps** into the source area when that was Rows (same index) or Filters; from Values or the field list it **leaves** the layout and loses its filters. `plan.displaced` reports it. One column field is written as an object, several as an array, none removes the key. |
+| `sortBy` / `topN` / `subtotal` | `sortBy` / `topN` travel with a row field that is reordered. They are invalid on `columns`, so they are **stripped** on the way into Columns (and do not come back); a column field's `subtotal` is stripped on the way into Rows. A row field moved to Filters drops its dimension settings. |
 | Filters | Moving to Filters keeps the field's filters (they become report filters), or adds a placeholder. Moving from Filters to Rows / Columns keeps active filters and drops the placeholder. Removing a field from Rows / Columns / Filters, or moving it to Values, clears its filters (like Excel). `ensurePivotFilterField` re-adds the placeholder after a filter menu clears the filter of a Filters-area field. |
-| `expanded` | Paths survive while the levels they span keep their fields and order and still name a group level. When structural changes drop every path, `expanded` returns to `"all"` (Excel opens new layouts expanded). |
+| `expanded` / `columnsExpanded` | Paths survive while the levels they span keep their fields and order and still name a group level. When structural changes drop every path, `expanded` returns to `"all"` (Excel opens new layouts expanded); `columnsExpanded` does the same (`withCleanColumnsExpanded`), or disappears below two column fields. |
 | Values | Dropping a field reuses an identical hidden measure (same field and aggregate, e.g. the planning `plan` measure kept for KPIs) or creates `{ id, field, label, aggregate?, format? }` with a unique id. A field can be added twice (`units_2`). Dimensions count (`Count of Region`). Calculated measures (ratio, custom) can be added / removed but never become dimensions (`noSourceField`). |
 | Measure references | A measure that leaves Values: `sortBy` / `topN` on it are dropped (Excel drops value filters on removed fields); `heat.measure` / `headerCharts.measure` repoint to the first remaining value; the measure itself is deleted unless a KPI (or a remaining sort / Top N) references it, so KPIs always stay valid. |
 | Aggregates | `setPivotMeasureAggregate(spec, id, sum | count | avg | min | max | first | last)`. Auto labels follow (`Units` → `Average of Units`), custom labels stay. Switching to `count` drops the format; switching back restores the catalogue format. Calculated measures only accept `count`. |
 | Σ Values | Shown in Columns with 2+ values. `valuesIndex: 0` puts measures outermost: `headerRows[0]` holds measure cells spanning the months, header bars sit under the series measure's months, row totals stay last. `valuesIndex` is dropped when it is the default, with fewer than 2 values or without a column field. Σ Values cannot leave Columns (Excel's "Σ Values in Rows" is not supported yet). |
-| Transpose | `swapPivotRowsColumns` turns row fields into column fields and vice versa; with one column field the innermost row field and the column field trade places (`Department › Line × Month` → `Department › Month × Line`). |
-| Refusals | `planPivotFieldMove` never produces an invalid spec: the last row field or value cannot leave (`rowsRequired`, `valuesRequired`), catalogue `areas` are enforced (`notAllowed`), plus `notFound` and `unchanged`. A seeded property test runs 1,200 random steps (moves, toggles, aggregate changes, transposes, filters) through `validatePivotSpec` and the model builder. |
+| Transpose | `swapPivotRowsColumns` turns row fields into column fields and vice versa (`Department › Line × Month` → `Month × Department › Line`), and `expanded` / `columnsExpanded` trade places with them. With more than 4 row fields, the outer ones stay in Rows. |
+| Dates | A date field dropped from the field list is grouped by default (Year → Quarter in Columns, Year → Month in Rows, Year in Filters; `plan.grouped`); see [Date grouping](#date-grouping-excel-parity-step-3). |
+| Refusals | `planPivotFieldMove` never produces an invalid spec: the last row field or value cannot leave (`rowsRequired`, `valuesRequired`), catalogue `areas` are enforced (`notAllowed`), plus `notFound` and `unchanged`. Seeded property tests run 1,200 random steps (moves, toggles, aggregate changes, transposes, filters) and 400 more with a date field (Group by, column-group toggles, up to 4 column fields) through `validatePivotSpec` and the model builder. |
 
 **React** (`@nqlib/nqgrid/pivot`):
 
@@ -291,11 +297,171 @@ const grid = usePivotGrid({ ...spec, fields: catalogue }, rows);   // grid.field
   Delete removes a chip; Shift+F10 opens its menu.
 - **Grid headers.** `renderDimensionHeader` can make each row header a handle (drag it onto a field-list area) and a
   one-item horizontal zone (`pivotDropZoneProps("rows", { axis: "x", offset: level })`), so dropping on another header
-  reorders the row levels. The playground does both. Column headers have no render slot yet (follow-up).
+  reorders the row levels. Since step 3, `renderColumnHeader` does the same for column headers (`context.areaIndex` is
+  the offset; measure cells drag Σ Values). The playground does both, through `usePivotLayoutDraft` so that header
+  drags made while "Defer layout update" is on join the same draft and wait for Update.
 
 **Exports.** Rearranged specs export like any other: the PDF / XLSX test in `packages/nqgrid-export` exports a spec
 after a sequence of moves (swap, added measures, Σ Values outermost, a report filter, a new row field, an aggregate
 change). With Σ Values outermost the static renderer names column chunks by measure ("Actual · Columns 1–12 of 24").
+
+## Several column fields (Excel parity, step 3)
+
+`columns` takes a list of dimensions, outermost first; a single object (the original v1 shape) stays valid forever, and a
+one-element list builds the same model. The golden example is `contract/pivot/v1/examples/planning-multicol.*`.
+
+```jsonc
+{
+  "rows": [{ "field": "department" }, { "field": "line" }],
+  "columns": [
+    { "field": "region", "order": ["North", "South", "East", "West"], "subtotal": "end" },   // "end" (default) | "start" | "none"
+    { "field": "channel" }
+  ],
+  "measures": [
+    { "id": "actual", "field": "actual" },
+    { "id": "share", "field": "actual", "label": "Share of region", "showAs": "percentOfParentColumn" }
+  ],
+  "values": ["actual", "share"],
+  "valuesIndex": 1,                       // Region › Σ Values › Channel
+  "totals": { "rowTotal": true, "subtotalLabel": "{label} Total" },
+  "columnsExpanded": [["North"], ["South"]]   // "all" (default) | "none" | expanded group paths
+}
+```
+
+**Semantics**
+
+| Topic | Rule |
+|-------|------|
+| Column tree | Keys seen in the matching records, per parent group (Excel shows only combinations with data), ordered per level by `order` → `sort` → first seen (chronological for date fields). `keepEmpty` adds a level's `order` keys under every parent, and fills date gaps (below). |
+| Subtotals | Every level but the innermost gets a subtotal column per group, `subtotal: "end"` (default, Excel's position), `"start"` or `"none"`, set per column dimension. Labels follow `totals.subtotalLabel` (default `{label} Total`). |
+| Grand total | `totals.rowTotal` adds the grand total column(s), one per value measure, after every group (the generalized step-1 row total; label `rowTotalLabel`, default `Total`). |
+| Collapsing | `columnsExpanded` works like `expanded`: `"all"`, `"none"`, or key paths of expanded groups (`[["2026"]]`). A collapsed group shows a single total column (whatever its `subtotal` setting), labelled with the group key and marked `collapsed`. Collapsing is view state: the cube is reused. |
+| Σ Values | `valuesIndex` places the measures at any level: `0` outermost, `n` (the default) innermost, in between nests measures inside the outer groups. Subtotals and the grand total keep their measures below them. |
+| `showAs` | `percentOfColumnTotal` divides by the grand total of the **same** column (a leaf, subtotal or collapsed group). `percentOfParentColumn` (Excel's "% of Parent Column Total") divides by the same row's value in the enclosing column group; for the outermost level, subtotals and with a single column field that is the row total, so the grand total column shows 100 %. `percentOfRowTotal`, `percentOfParentRow` and `percentOfGrandTotal` are unchanged. |
+| Heat | `scope: "column"` gives every leaf column (and every subtotal / collapsed column) its own domain. The other scopes skip subtotal and collapsed columns, so group totals never flatten the leaf colours. The grand total column never gets heat. |
+| Sort / Top N | `sortBy.columnKey` / `topN.columnKey` accept a leaf or group column key (`"2026"`, `"2026/Q1"`). |
+| Header bars | `headerSeries.points` has one point per leaf column and per collapsed group (subtotals are left out), and with several column fields `groups` holds one point per outermost group (`groupMax`), e.g. per year. |
+
+**Model.** Present only with two or more column fields, so single-column models are byte-identical: `columnDimensions`
+(all column fields; `columnDimension` is the outermost), `PivotValueColumn.columnPath` / `subtotal` / `collapsed`,
+`PivotHeaderCell.rowSpan` (a subtotal under several levels), `columnPath`, `columnLevel`, `expanded` (`true` on an
+expanded group's header, `false` on a collapsed group) and `subtotal`, and `headerSeries.groups`. Column keys of leaves
+are the URI-encoded keys joined by `/` (`2026/Q1`); subtotal and collapsed columns carry their group's key path (`2026`,
+column id `s:2026:actual`). `columnKeys` lists the leaves and collapsed groups with labels joined by spaces (`FY26 Q1`).
+
+**Pure helpers** (`@nqlib/nqgrid/core`):
+
+```ts
+import { togglePivotColumnGroup, setPivotColumnsExpandedAll, pivotExpandedColumnGroups, pivotColumnFields } from "@nqlib/nqgrid/core";
+
+spec = togglePivotColumnGroup(spec, model, ["2025"]);   // materializes "all" from the visible groups, like togglePivotGroup
+spec = setPivotColumnsExpandedAll(spec, false);         // columnsExpanded: "none"
+pivotColumnFields(spec);                                // columns as a list, whatever the shape
+```
+
+**React.** `usePivotGrid` adds `toggleColumnGroup(path)`, `expandAllColumns()`, `collapseAllColumns()` (also
+`reducePivotGridSpec` actions). `PivotTable` renders multi-row headers with real `rowSpan`s and, with
+`onToggleColumnGroup={grid.toggleColumnGroup}`, a chevron on every column-group header (expanded groups) and collapsed
+total column (`aria-expanded`). `renderColumnHeader(context)` replaces a value header's content: the context has the
+cell, its `kind` (`dimension | subtotal | measure | total`), column-field `level`, `dimension`, `areaIndex` (its
+position among the Columns chips, for `pivotDropZoneProps("columns", { axis: "x", offset: context.areaIndex })`) and
+the default `toggle`. `pivotColumnHeaderRole(model, row, cell)` is the same classification as a pure function.
+
+```tsx
+const layout = usePivotLayoutDraft(grid);   // one "Defer layout update" draft for the field list and header drags
+const renderColumnHeader = useCallback((ctx: PivotColumnHeaderContext) => {
+  if (ctx.kind !== "dimension" || !ctx.dimension) return <>{ctx.toggle}{ctx.label}</>;
+  const source = { field: ctx.dimension.field, from: "columns" as const, label: ctx.dimension.label };
+  return (
+    <span {...pivotDropZoneProps("columns", { axis: "x", offset: ctx.areaIndex })} data-nqg-drop-item="">
+      {ctx.toggle}
+      <span {...pivotFieldDragHandleProps({ source, canDrop: (t) => layout.canMoveField({ ...source, ...t }), onDrop: (t) => layout.moveField({ ...source, ...t }) })}>
+        {ctx.label}
+      </span>
+    </span>
+  );
+}, [layout]);
+
+<PivotTable model={grid.model} onToggleColumnGroup={grid.toggleColumnGroup} renderColumnHeader={renderColumnHeader} />
+<PivotFieldList {...pivotFieldListProps(grid, layout)} />
+```
+
+`usePivotLayoutDraft(grid, { defaultDeferred })` returns `{ spec, deferred, draft, setDeferred, apply, moveField,
+canMoveField, update, discard, setDraft }`. `PivotFieldList` takes the controlled `draft` / `onDraftChange` from
+`pivotFieldListProps(grid, layout)`, so a header dragged while "Defer layout update" is on lands in the field list's
+draft (and the grid keeps the applied layout) instead of applying at once and being overwritten on Update.
+
+**Exports.** Static HTML and PDF print the multi-row header with the same `rowSpan`s (long leaf labels end in an
+ellipsis via an extra rule appended only to reports with several column fields, so other reports keep a byte-identical
+stylesheet). Column chunks never split a top-level group when it fits on a page; a group wider than a page is split
+along its next level (a fiscal year into its quarters, its subtotal staying one unit), and chunk captions carry the outer
+labels (`Year FY26 Q1 – FY26 Q4`). `pivotModelToSheet` places header cells around row spans and emits `rowSpan` merges
+(the `nqgrid-export` XLSX and the Python openpyxl writer merge them as is); frozen rows cover every header row.
+
+## Date grouping (Excel parity, step 3)
+
+Excel's "Group by Years / Quarters / Months / Days" without a second data pass. **Design:** a date field `orderDate`
+feeds derived key fields named **`orderDate:<group>`**, which work anywhere a key field does (rows, columns, filters,
+facets, `sortBy` keys, the field list) and need no declaration. One date can therefore feed Year in Columns and Month in
+Rows at the same time, and filters, slicers and the move helpers treat each grouping as an ordinary field. A catalogue
+entry with `source` + `dateGroup` declares a derived field under another name (`{ "field": "fy", "source":
+"orderDate", "dateGroup": "year" }`). The golden example is `contract/pivot/v1/examples/planning-dates.*`.
+
+```jsonc
+{
+  "columns": [{ "field": "orderDate:year" }, { "field": "orderDate:quarter" }],
+  "rows": [{ "field": "department" }, { "field": "orderDate:month" }],          // the same date, another grouping
+  "filters": [{ "field": "orderDate:year", "include": ["2026"] }],
+  "fields": [
+    { "field": "orderDate", "type": "date", "fiscalYearStartMonth": 11,          // FY26 = Nov 2025 – Oct 2026
+      "timeZoneOffsetMinutes": 0, "monthNames": ["Jan", "Feb", "…", "Dec"] }
+  ]
+}
+```
+
+| Group | Key | Label (calendar / fiscal) |
+|-------|-----|------|
+| `year` | `2026` | `2026` / `FY26` |
+| `quarter` | `Q1` … `Q4` (any year) | `Q1` |
+| `month` | `01` … `12` (any year; calendar month) | `Jan` (`monthNames`) |
+| `yearQuarter` | `2026-Q1` | `Q1 2026` / `Q1 FY26` |
+| `yearMonth` | `2026-01` | `Jan 2026` |
+| `week` | `2026-W03` (ISO 8601 week and week-year) | `W03 2026` |
+| `day` | `2026-01-15` | `15 Jan 2026` |
+
+**Rules**
+
+| Topic | Rule |
+|-------|------|
+| Parsing | Deterministic and in **UTC**, never the runtime's time zone. Numbers are epoch milliseconds and `Date`s are instants; ISO strings are `YYYY-MM`, `YYYY-MM-DD` or `YYYY-MM-DD[T ]HH:mm[:ss[.fff]]` with an optional `Z` / `±HH[:mm]`. Strings without a zone are wall-clock dates (taken as is); instants (numbers, `Date`s, zoned strings) are shifted by `timeZoneOffsetMinutes` (default 0, −840…840) before taking the calendar day. The calendar is computed with integer arithmetic (no `Date` methods, no `Intl`). |
+| Blanks | Missing, empty, unparseable or impossible dates (`2026-02-30`) and years outside 1–9999 get the key `""`, labelled by the dimension's `blankLabel` (default `(blank)`), always sorted last. |
+| Order | Keys sort chronologically, not alphabetically: keys with a year compare as strings (they are zero-padded), months follow the fiscal year (`fiscalYearStartMonth: 11` → Nov, Dec, Jan, …). `sort: "desc"` reverses (blank still last); `order` still wins. |
+| Fiscal years | `fiscalYearStartMonth` (1–12, default 1) moves year, quarter and year-quarter keys. Fiscal years are named by the **year they end in** (Nov 2025 – Oct 2026 is `2026`, labelled `FY26`). Months and days stay calendar keys. |
+| Settings | `fiscalYearStartMonth`, `timeZoneOffsetMinutes` and `monthNames` (12 labels) go on the source field's catalogue entry and apply to every grouping of it; a derived entry can override them. They are part of `pivotSpecDataKey` except `monthNames` (labels only). |
+| Gap filling | `keepEmpty: true` on a date-grouped column dimension fills every period between the first and last period with data (all 12 months / 4 quarters for `month` / `quarter`), at most `PIVOT_MAX_DATE_FILL` (10,000) keys. Nested levels only get keys inside their parent (`2025-Q1 › Jan, Feb, Mar`), when both group the same source with the same settings. Row dimensions do not fill gaps. |
+| Cost | Each source is parsed **once per record** per offset (`encoding.days(field, offset)`), and each (source, group, fiscal start, offset) gets one period id per record and one key string per distinct period (`encoding.dateCodes(def)`), both cached on the row encoding, so aggregation never re-parses and `createPivotModelBuilder` reuses them across filter changes. |
+
+**Field list.** `resolvePivotFields(spec, rows)` gives a `date` field `dateGroups` (its "Group by…" choices) when its
+sampled values parse as dates (≥ 90 %; `usePivotGrid` passes the rows), or from its catalogue entry (`dateGroups: []`
+turns grouping off). Derived fields are listed under their source as `Year (Order date)`. A date chip's menu shows
+**Group by** toggles (Years, Year-Quarter, Quarters, Year-Month, Months, Weeks, Days) and Ungroup, applied with
+`setPivotDateGrouping(spec, source, groups, { area })`: the source and its groupings in that area are replaced in place by
+the chosen groups (coarse to fine), groups placed elsewhere move here, fields leaving the layout lose their filters, and
+`[]` puts the raw date back. **Default grouping on drop:** a date field with `dateGroups` dragged from the field list into
+Columns becomes **Year → Quarter**, into Rows **Year → Month**, into Filters **Year** (`PIVOT_DEFAULT_DATE_GROUPING`),
+skipping groups already placed elsewhere, so dragging the same date into Rows after Columns adds just Month. Year →
+Quarter keeps a two-year column layout narrow and collapsible; override per call with `{ dateGrouping: { columns:
+["yearMonth"] } }`, or `dateGrouping: false` for the raw field.
+
+```ts
+import { setPivotDateGrouping, pivotDateGroupingOf, pivotDayOf, pivotDateLabel, resolvePivotDateField } from "@nqlib/nqgrid/core";
+
+spec = setPivotDateGrouping(spec, "orderDate", ["year", "month"], { fields, area: "columns" });
+pivotDateGroupingOf(spec, "orderDate", { fields });   // { area: "columns", groups: ["year", "month"], raw: false }
+pivotDayOf("2026-01-15T23:30:00-02:00");               // UTC day number of 2026-01-16
+```
+
+`usePivotGrid` adds `setDateGrouping(field, groups, area?)`.
 
 ### Formatting is deterministic
 
@@ -317,6 +483,8 @@ Everything a non-JS producer needs is in [`contract/pivot/v1`](../contract/pivot
 | `examples/planning-filtered.{spec,model,sheet}.json` + `.html` | Same rows with filters, a label filter, Top 3 + "Other", sort by value and facets. |
 | `examples/planning-fields.{spec,rows,model,sheet}.json` + `.html` | Rows with `region`, `channel`, `units`; a field catalogue, three row levels, Σ Values outermost and a report filter on a non-dimension field (the documented move sequence from `planning.spec.json`). |
 | `examples/planning-fields.catalog.json` | `inferPivotFields(rows)`, `resolvePivotFields(spec, rows)` and `pivotFieldListState` for that spec (Python checks its inference against it). |
+| `examples/planning-multicol.{spec,model,sheet}.json` + `.html` | Rows of `planning-fields`; Region → Channel in Columns with Σ Values between them, region subtotals, a grand total column, `percentOfParentColumn` and column-scoped heat (4 PDF chunks, one per region). |
+| `examples/planning-dates.{spec,rows,model,sheet}.json` + `.html` | Two fiscal years of rows with an ISO `orderDate`; `orderDate:year` → `orderDate:quarter` (fiscal year from November), FY25 collapsed, FY26 with a subtotal. |
 | `export-request.schema.json` + `examples/planning.request.json` | The export request `{ spec, rows \| dataset, format?, options? }` (CLI / `POST /export`, and app → backend with a `dataset` reference). TS: `buildPivotExportRequest`, `PIVOT_EXPORT_REQUEST_JSON_SCHEMA`; Python: [`integrations/python`](../integrations/python/README.md). |
 
 The golden files are regenerated by `src/core/pivot/contract.test.ts` and `src/render-static/render-static.test.ts` (`pnpm test -u`);
@@ -350,7 +518,7 @@ renderToStaticMarkup(<PivotTable model={model} mode="static" />);   // same layo
 | Export | Purpose |
 |--------|---------|
 | `usePivotGrid(spec, rows, options)` | Spec state (controlled via `onSpecChange`, otherwise uncontrolled) + memoized model (`createPivotModelBuilder`: view-only changes reuse the aggregation); actions `toggleGroup`, `expandAll`, `collapseAll`, `setHeatScope`, filter / sort / Top N actions, `setSpec`, `dispatch`. The pure transition is `reducePivotGridSpec(spec, model, action)`. |
-| `PivotTable` | Semantic `<table>` (memoized): header chart band, row-dimension columns, outer-dimension span cell with `PivotKpiPanel`, heat cells, sort / filter indicators. Props: `mode`, widths, `headerChart`, `headerSummary`, `kpiHeadlineId`, `kpiCaptionAttribute`, `renderSpanCell` (KPI side-panel slot), `renderDimensionHeader` (filter-menu slot). |
+| `PivotTable` | Semantic `<table>` (memoized): header chart band, row-dimension columns, outer-dimension span cell with `PivotKpiPanel`, heat cells, sort / filter indicators, multi-row column headers. Props: `mode`, widths, `headerChart`, `headerSummary`, `kpiHeadlineId`, `kpiCaptionAttribute`, `renderSpanCell` (KPI side-panel slot), `renderDimensionHeader` (filter-menu slot), `onToggleColumnGroup`, `renderColumnHeader`. |
 | `PivotHeaderChartBand`, `PivotHeaderBar`, `PivotHeaderSummary` | Inline-SVG header bars (stacked by top-level group when `headerCharts.breakdown`), as a `<thead>` row so bars align with their columns. |
 | `PivotKpiPanel`, `PivotKpiDelta` | Group KPIs: signed headline, label/value rows, "vs Plan" deltas (`PivotKpiValue.compareLabel`), owner caption. |
 | `pivotHeatCellProps(cell, levels)` | `nqg-heat-N` class, `data-heat` and `var(--nqg-heat-N, …)` background for your own cells. |
@@ -403,7 +571,7 @@ The golden output is `contract/pivot/v1/examples/planning.html`.
 |---------|-----------|
 | Page box | `@page { size; margin }` from `page` (A4 / A3 / Letter / Legal / Tabloid, landscape default); `@page` background follows the theme so dark PDFs have no white margins. |
 | Width | Print geometry (`[184, 152]` dimension columns, 76 px values). If the table is wider than the page it is zoomed down (`zoom`, ≥ `minScale` 0.7) — 12 months fit A4/Letter landscape. |
-| Column paging | Beyond that (or with `maxColumnsPerPage`), value columns split into **balanced chunks** that never split a top-level header (12 at 5/page → 4 + 4 + 4). Each chunk is its own table starting on a new page, repeats the dimension columns and the full-year band summary, keeps one header-bar scale, and is titled "… (cont.)" with "Month May – Oct · Columns 7–12 of 12". |
+| Column paging | Beyond that (or with `maxColumnsPerPage`), value columns split into **balanced chunks** that never split a top-level header (12 at 5/page → 4 + 4 + 4). With several column fields, a top-level group wider than a page is split along its next header level instead (`pivotColumnUnits(model, maxColumns)`). Each chunk is its own table starting on a new page, repeats the dimension columns and the full-year band summary, keeps one header-bar scale, and is titled "… (cont.)" with "Month May – Oct · Columns 7–12 of 12". |
 | Rows | `<thead>` (header chart band + column headers) repeats on every page; each top-level group is its own `<tbody>` with `break-inside: avoid` (a group taller than a page still breaks). |
 | Tall KPI panels | When a department's KPI panel is taller than its rows (`pivotKpiPanelHeight` vs `rowSpan × rowHeight`), static mode adds a blank filler row covered by the span cell, so data rows keep their height. |
 
@@ -481,6 +649,11 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
 7. **Excel parity, step 2 — done.** Field catalogue (`fields`, `fieldLabels`, inference), `valuesIndex` (Σ Values
    position), pure move helpers with documented rules, `PivotFieldList` with dependency-free pointer and keyboard
    drag-and-drop, draggable grid headers, "Defer layout update", MCP field catalogues per dataset.
-   Next (step 3): several column fields (`columns` as a list; the move helpers already treat it as one, only
-   `PIVOT_MAX_COLUMN_FIELDS` and the engine's column tree change), collapsible column groups, date grouping
-   (year / quarter / month from `date` fields), Σ Values in Rows.
+8. **Excel parity, step 3 — done.** Several column fields (`columns` as a list, `oneOf` in the schema, version 1),
+   subtotal columns per level (`end` / `start` / `none`), the generalized grand total column, collapsible column groups
+   (`columnsExpanded`, `togglePivotColumnGroup`), `percentOfParentColumn`, multi-row headers in React / HTML / PDF /
+   XLSX, `renderColumnHeader` with draggable column headers, one shared deferred-layout draft
+   (`usePivotLayoutDraft`), and Excel-style date grouping (`orderDate:year` …, UTC parsing, fiscal years, chronological
+   keys, gap filling, "Group by…" in the field list, default Year → Quarter on drop).
+   Next (step 4): calculated fields with a safe expression parser, drill-through to source records, per-level row
+   subtotal options, "difference from" / running-total `showAs`, distinct count, Σ Values in Rows.

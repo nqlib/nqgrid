@@ -6,9 +6,12 @@ import {
   pivotFacetField,
   pivotSpecDataKey,
   type PivotCube,
+  type PivotCubeColumn,
   type PivotCubeFacet,
   type PivotCubeNode,
 } from "./cube";
+import { pivotColumnFields, pivotDimensionOf } from "./columns";
+import { pivotDateGroupLabel, pivotDateLabel, resolvePivotDateField, type PivotDateFieldDef } from "./dates";
 import { createPivotRowEncoding, type PivotRowEncoding } from "./encode";
 import { describePivotFilter, isPivotFilterActive } from "./filter";
 import {
@@ -24,6 +27,7 @@ import {
   type PivotActiveFilter,
   type PivotBodyRow,
   type PivotCell,
+  type PivotHeaderSeriesPoint,
   type PivotDataRow,
   type PivotDimension,
   type PivotFacet,
@@ -61,8 +65,43 @@ export function pivotColumnId(columnKey: string | null, measureId: string, isRow
   return columnKey === null ? `m:${measureId}` : `c:${encodeURIComponent(columnKey)}:${measureId}`;
 }
 
-const labelOf = (key: string, dim: PivotDimension): string =>
-  key === PIVOT_OTHER_KEY ? (dim.topN?.otherLabel ?? "Other") : key === "" ? (dim.blankLabel ?? "(blank)") : key;
+const labelOf = (key: string, dim: PivotDimension, date: PivotDateFieldDef | null = null): string =>
+  key === PIVOT_OTHER_KEY
+    ? (dim.topN?.otherLabel ?? "Other")
+    : key === ""
+      ? (dim.blankLabel ?? "(blank)")
+      : date
+        ? pivotDateLabel(key, date)
+        : key;
+
+/** `priorYear` → `Prior Year` (same rule as `humanizePivotField`, duplicated to keep imports acyclic). */
+const humanize = (field: string): string =>
+  field
+    .replace(/[_\-.]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : w))
+    .join(" ") || field;
+
+/**
+ * Default label of a derived date field: its catalogue label, else `Year (Order Date)` from the
+ * group and the source field's label (`fieldLabels` › catalogue label › humanized name).
+ */
+export function pivotDateFieldLabel(spec: Pick<PivotSpec, "fields" | "fieldLabels">, def: PivotDateFieldDef): string {
+  const own = spec.fieldLabels?.[def.field] ?? spec.fields?.find((f) => f.field === def.field)?.label;
+  if (own) return own;
+  const source = spec.fieldLabels?.[def.source] ?? spec.fields?.find((f) => f.field === def.source)?.label ?? humanize(def.source);
+  return `${pivotDateGroupLabel(def.group)} (${source})`;
+}
+
+/** Header label of a dimension: its `label`, else the date-field label, else the field. */
+function dimensionLabel(spec: PivotSpec, d: PivotDimension, date: PivotDateFieldDef | null): string {
+  return d.label ?? (date ? pivotDateFieldLabel(spec, date) : d.field);
+}
+
+/** `{label} Total` → `FY26 Total`. */
+const subtotalText = (template: string, label: string) => template.split("{label}").join(label);
 
 function divide(a: number | null, b: number | null): number | null {
   if (a === null || b === null || b === 0) return null;
@@ -88,21 +127,30 @@ export function buildPivotModel(
   return pivotModelFromCube(buildPivotCube(spec, data, { aggregators: options.aggregators }), spec);
 }
 
-/** Label of a field for summaries / slicers: dimension label, facet label, filter label, else the field. */
+/**
+ * Label of a field for summaries / slicers: dimension label, facet label, filter label, the
+ * date-field label for derived date fields (`Year (Order Date)`), else the field.
+ */
 export function pivotFieldLabel(spec: PivotSpec, field: string): string {
-  const dim = spec.rows.find((d) => d.field === field) ?? (spec.columns?.field === field ? spec.columns : undefined);
+  const dim = pivotDimensionOf(spec, field);
   if (dim?.label) return dim.label;
   for (const f of spec.facets ?? []) if (typeof f !== "string" && f.field === field && f.label) return f.label;
   for (const f of spec.filters ?? []) if (f.field === field && f.label) return f.label;
-  return field;
+  const date = resolvePivotDateField(spec, field);
+  return date ? pivotDateFieldLabel(spec, date) : field;
 }
 
-/** Display label of a key of `field` (`""` → the dimension's `blankLabel`, default `(blank)`). */
-function keyLabeler(spec: PivotSpec, field: string): (key: string) => string {
-  const dim = spec.rows.find((d) => d.field === field) ?? (spec.columns?.field === field ? spec.columns : undefined);
+/**
+ * Display label of a key of `field`: `""` → the dimension's `blankLabel` (default `(blank)`), date
+ * keys → their date label (`2026-01` → `Jan 2026`), other keys unchanged.
+ */
+export function pivotKeyLabeler(spec: PivotSpec, field: string): (key: string) => string {
+  const dim = pivotDimensionOf(spec, field);
   const blank = dim?.blankLabel ?? "(blank)";
-  return (key) => (key === "" ? blank : key);
+  const date = resolvePivotDateField(spec, field);
+  return (key) => (key === "" ? blank : date ? pivotDateLabel(key, date) : key);
 }
+const keyLabeler = pivotKeyLabeler;
 
 /** Printable active filters: report / label filters in spec order, then Top N per row level. */
 export function describePivotFilters(spec: PivotSpec): PivotActiveFilter[] {
@@ -125,6 +173,30 @@ export function describePivotFilters(spec: PivotSpec): PivotActiveFilter[] {
   return out;
 }
 
+/** One header item of a value column (a column key, measure or total), covering header rows `start…end`. */
+interface HeaderItem {
+  /** Identity within its parent (merged into one header cell with equal neighbours). */
+  readonly id: string;
+  readonly label: string;
+  readonly kind: "dim" | "measure" | "total";
+  readonly start: number;
+  readonly end: number;
+  readonly columnKey?: string | null;
+  readonly measureId?: string;
+  readonly column?: PivotCubeColumn;
+  readonly expanded?: boolean;
+  readonly subtotal?: boolean;
+}
+
+/** What a value column shows: a leaf, a group's subtotal / collapsed total, the grand total, or (no columns) the measure. */
+interface ColumnSlot {
+  readonly kind: "leaf" | "subtotal" | "collapsed" | "total" | "measure";
+  readonly column: PivotCubeColumn | null;
+  readonly columnKey: string | null;
+  /** Label used by `columnKeys` / header series (labels joined by spaces). */
+  readonly label: string;
+}
+
 /**
  * The view half of `buildPivotModel`: columns, cells (visible rows only), heat, KPIs, header
  * series, spans and facets from an aggregated `cube`. `spec` must be the (validated) spec the cube
@@ -132,85 +204,204 @@ export function describePivotFilters(spec: PivotSpec): PivotActiveFilter[] {
  */
 export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel {
   const dims = spec.rows;
-  const colDim = spec.columns ?? null;
+  const colDims = pivotColumnFields(spec);
+  const levels = colDims.length;
   const leafDepth = dims.length - 1;
   const totals = spec.totals ?? {};
   const grandLabel = totals.grandTotalLabel ?? "Grand Total";
   const rowTotalLabel = totals.rowTotalLabel ?? "Total";
+  const subtotalTemplate = totals.subtotalLabel ?? "{label} Total";
   const root = cube.root;
+  const colRoot = cube.columnRoot;
+  const totalBucket = colRoot.bucket;
 
   const measureById = new Map(spec.measures.map((m) => [m.id, m] as const));
   const measureOf = (id: string): PivotMeasure => measureById.get(id)!;
   const measureLabel = (m: PivotMeasure) => m.label ?? m.id;
   const valueMeasures = (spec.values ?? spec.measures.map((m) => m.id)).map(measureOf);
-  const valueOf = (node: PivotCubeNode, m: PivotMeasure, colKey: string | null) => cube.valueOf(node, m.id, colKey);
-  const nodeLabel = (n: PivotCubeNode) => (n.depth < 0 ? grandLabel : labelOf(n.key, dims[n.depth]!));
+  const valueAt = (node: PivotCubeNode, m: PivotMeasure, bucket: number) => cube.valueAt(node, m.id, bucket);
+  const rowDates = dims.map((d) => resolvePivotDateField(spec, d.field));
+  const colDates = colDims.map((d) => resolvePivotDateField(spec, d.field));
+  const nodeLabel = (n: PivotCubeNode) => (n.depth < 0 ? grandLabel : labelOf(n.key, dims[n.depth]!, rowDates[n.depth]));
+  const colLabel = (c: PivotCubeColumn) => labelOf(c.key, colDims[c.depth]!, colDates[c.depth]);
 
-  const columnKeys: PivotKey[] = colDim ? cube.columnKeys.map((key) => ({ key, label: labelOf(key, colDim) })) : [];
-
-  // ---- Columns + header rows ----------------------------------------------
+  // ---- Column layout ---------------------------------------------------------
   const multi = valueMeasures.length > 1;
-  /** Σ Values before the column field (`valuesIndex: 0`): measures outermost, months inside. */
-  const valuesOuter = colDim !== null && multi && spec.valuesIndex === 0;
-  /** With a column dimension, `columnKey === null` marks a row-total column. */
-  const isRowTotalColumn = (c: PivotValueColumn) => colDim !== null && c.columnKey === null;
-  const makeColumn = (columnKey: string | null, columnLabel: string | null, m: PivotMeasure, isRowTotal: boolean) => {
+  /** Header row of the Σ Values level (`valuesIndex`), `-1` with one value measure or no column field. */
+  const sigma = multi && levels > 0 ? Math.max(0, Math.min(levels, spec.valuesIndex ?? levels)) : -1;
+  const headerCount = levels === 0 ? 1 : levels + (sigma >= 0 ? 1 : 0);
+  const rowOf = (level: number) => level + (sigma >= 0 && sigma <= level ? 1 : 0);
+  const expandedSpec = spec.columnsExpanded ?? "all";
+  const expandedColumnIds = Array.isArray(expandedSpec) ? new Set(expandedSpec.map((p) => pivotPathId(p))) : null;
+  const columnExpanded = (c: PivotCubeColumn) =>
+    expandedSpec === "all" || (expandedColumnIds !== null && expandedColumnIds.has(pivotPathId(c.path)));
+  const pathLabel = (c: PivotCubeColumn): string => {
+    const parts: string[] = [];
+    for (let p: PivotCubeColumn | null = c; p !== null && p.depth >= 0; p = p.parent) parts.unshift(colLabel(p));
+    return parts.join(" ");
+  };
+
+  const descs: { readonly slot: ColumnSlot; readonly measure: PivotMeasure; readonly items: readonly HeaderItem[] }[] = [];
+  const measureItem = (m: PivotMeasure, row: number): HeaderItem => ({ id: `m:${m.id}`, label: measureLabel(m), kind: "measure", start: row, end: row, measureId: m.id });
+  /** Emit one column per value measure (when the Σ level is still open) or for the fixed measure. */
+  const emit = (slot: ColumnSlot, items: readonly HeaderItem[], m: PivotMeasure | null, measureRow: number) => {
+    if (sigma >= 0 && m === null) for (const v of valueMeasures) descs.push({ slot, measure: v, items: [...items, measureItem(v, measureRow)] });
+    else descs.push({ slot, measure: m ?? valueMeasures[0]!, items });
+  };
+  const groupTotal = (c: PivotCubeColumn, prefix: readonly HeaderItem[], m: PivotMeasure | null, collapsed: boolean) => {
+    const label = collapsed ? colLabel(c) : subtotalText(subtotalTemplate, colLabel(c));
+    const open = sigma >= 0 && m === null;
+    const item: HeaderItem = {
+      id: `${collapsed ? "c" : "s"}:${c.columnKey}`,
+      label,
+      kind: "total",
+      start: rowOf(c.depth),
+      end: open ? headerCount - 2 : headerCount - 1,
+      columnKey: c.columnKey,
+      column: c,
+      ...(collapsed ? { expanded: false } : { subtotal: true }),
+    };
+    const slot: ColumnSlot = { kind: collapsed ? "collapsed" : "subtotal", column: c, columnKey: c.columnKey, label: collapsed ? pathLabel(c) : label };
+    emit(slot, [...prefix, item], m, headerCount - 1);
+  };
+  const walk = (children: readonly PivotCubeColumn[], level: number, m: PivotMeasure | null, prefix: readonly HeaderItem[]) => {
+    if (sigma >= 0 && m === null && level === sigma && level < levels) {
+      for (const v of valueMeasures) walk(children, level, v, [...prefix, measureItem(v, rowOf(level) - 1)]);
+      return;
+    }
+    for (const c of children) {
+      const item: HeaderItem = { id: `d:${c.columnKey}`, label: colLabel(c), kind: "dim", start: rowOf(level), end: rowOf(level), columnKey: c.columnKey, column: c };
+      if (level === levels - 1) {
+        emit({ kind: "leaf", column: c, columnKey: c.columnKey, label: levels === 1 ? colLabel(c) : pathLabel(c) }, [...prefix, item], m, headerCount - 1);
+      } else if (!columnExpanded(c) || c.children.length === 0) {
+        groupTotal(c, prefix, m, true);
+      } else {
+        const placement = colDims[level]!.subtotal ?? "end";
+        if (placement === "start") groupTotal(c, prefix, m, false);
+        walk(c.children, level + 1, m, [...prefix, { ...item, expanded: true }]);
+        if (placement === "end") groupTotal(c, prefix, m, false);
+      }
+    }
+  };
+  if (levels === 0) {
+    for (const v of valueMeasures) descs.push({ slot: { kind: "measure", column: null, columnKey: null, label: measureLabel(v) }, measure: v, items: [measureItem(v, 0)] });
+  } else {
+    walk(colRoot.children, 0, null, []);
+    if (totals.rowTotal) {
+      const item: HeaderItem = { id: "t", label: rowTotalLabel, kind: "total", start: 0, end: multi ? headerCount - 2 : headerCount - 1, columnKey: null };
+      emit({ kind: "total", column: null, columnKey: null, label: rowTotalLabel }, [item], null, headerCount - 1);
+    }
+  }
+
+  const nested = levels > 1;
+  const columns: PivotValueColumn[] = descs.map(({ slot, measure: m, items }) => {
     const format = m.format ?? {};
     const percentFormat = m.percentFormat ?? DEFAULT_PIVOT_PERCENT_FORMAT;
-    const top = isRowTotal ? rowTotalLabel : columnLabel;
-    const col: PivotValueColumn = {
-      id: pivotColumnId(columnKey, m.id, isRowTotal),
-      columnKey,
-      columnLabel: isRowTotal ? rowTotalLabel : columnLabel,
+    const id =
+      slot.kind === "leaf"
+        ? pivotColumnId(slot.columnKey, m.id)
+        : slot.kind === "total"
+          ? pivotColumnId(null, m.id, true)
+          : slot.kind === "measure"
+            ? pivotColumnId(null, m.id)
+            : `s:${encodeURIComponent(slot.columnKey!)}:${m.id}`;
+    const columnLabel = slot.kind === "measure" ? null : slot.kind === "leaf" ? [...items].reverse().find((it) => it.kind === "dim")!.label : items.find((it) => it.kind === "total")!.label;
+    return {
+      id,
+      columnKey: slot.columnKey,
+      columnLabel,
       measureId: m.id,
       measureLabel: measureLabel(m),
-      headerPath: top === null ? [measureLabel(m)] : !multi ? [top] : valuesOuter && !isRowTotal ? [measureLabel(m), top] : [top, measureLabel(m)],
+      headerPath: items.map((it) => it.label),
       format,
       percentFormat,
       excelNumFmt: toExcelNumFmt(format),
       excelPercentNumFmt: toExcelNumFmt(percentFormat),
+      ...(nested && slot.column ? { columnPath: slot.column.path } : {}),
+      ...(slot.kind === "subtotal" || slot.kind === "collapsed" ? { subtotal: true as const } : {}),
+      ...(slot.kind === "collapsed" ? { collapsed: true as const } : {}),
     };
-    return col;
-  };
+  });
+  const columnMeasures = descs.map((d) => d.measure);
+  const columnBuckets = descs.map((d) => (d.slot.column ? d.slot.column.bucket : totalBucket));
+  /** `percentOfParentColumn` denominator: the enclosing column group, else the row total. */
+  const parentBuckets = descs.map((d) => {
+    const parent = d.slot.column?.parent ?? null;
+    return parent !== null && parent.depth >= 0 ? parent.bucket : totalBucket;
+  });
 
-  const columns: PivotValueColumn[] = [];
-  if (colDim) {
-    if (valuesOuter) for (const m of valueMeasures) for (const ck of columnKeys) columns.push(makeColumn(ck.key, ck.label, m, false));
-    else for (const ck of columnKeys) for (const m of valueMeasures) columns.push(makeColumn(ck.key, ck.label, m, false));
-    if (totals.rowTotal) for (const m of valueMeasures) columns.push(makeColumn(null, null, m, true));
-  } else {
-    for (const m of valueMeasures) columns.push(makeColumn(null, null, m, false));
-  }
-  const columnMeasures = columns.map((c) => measureOf(c.measureId));
-
+  // Header rows: one cell per run of adjacent columns sharing the same items down to that row.
   const headerRows: PivotHeaderCell[][] = [];
-  if (valuesOuter) {
-    const top: PivotHeaderCell[] = valueMeasures.map((m) => ({ label: measureLabel(m), colSpan: columnKeys.length, measureId: m.id }));
-    if (totals.rowTotal) top.push({ label: rowTotalLabel, colSpan: valueMeasures.length, columnKey: null });
-    headerRows.push(top.filter((h) => h.colSpan > 0));
-    headerRows.push(
-      columns.map((c) =>
-        c.columnKey === null
-          ? { label: c.measureLabel, colSpan: 1, columnKey: null, measureId: c.measureId }
-          : { label: c.columnLabel!, colSpan: 1, columnKey: c.columnKey, measureId: c.measureId },
-      ),
-    );
-  } else if (colDim && multi) {
-    const top: PivotHeaderCell[] = columnKeys.map((ck) => ({ label: ck.label, colSpan: valueMeasures.length, columnKey: ck.key }));
-    if (totals.rowTotal) top.push({ label: rowTotalLabel, colSpan: valueMeasures.length, columnKey: null });
-    headerRows.push(top);
-    headerRows.push(columns.map((c) => ({ label: c.measureLabel, colSpan: 1, columnKey: c.columnKey, measureId: c.measureId })));
-  } else {
-    headerRows.push(columns.map((c) => ({ label: c.headerPath[0]!, colSpan: 1, columnKey: c.columnKey, measureId: c.measureId })));
+  for (let r = 0; r < headerCount; r++) {
+    const out: PivotHeaderCell[] = [];
+    let prev: { ident: string; index: number; cell: { colSpan: number } } | null = null;
+    descs.forEach((d, ci) => {
+      const at = d.items.findIndex((it) => it.start === r);
+      if (at < 0) return; // covered by a cell spanning down from above
+      const item = d.items[at]!;
+      const ident = d.items
+        .slice(0, at + 1)
+        .map((it) => it.id)
+        .join("\u0001");
+      if (prev && prev.ident === ident && prev.index === ci - 1) {
+        prev.cell.colSpan++;
+        prev.index = ci;
+        return;
+      }
+      const prefix = d.items.slice(0, at + 1);
+      const keyItem = [...prefix].reverse().find((it) => it.kind !== "measure");
+      const measureIt = prefix.find((it) => it.kind === "measure");
+      const columnKey = levels === 0 ? null : keyItem ? keyItem.columnKey : undefined;
+      const measureId = measureIt ? measureIt.measureId : item.end === headerCount - 1 ? d.measure.id : undefined;
+      const rowSpan = item.end - item.start + 1;
+      const c = item.column;
+      const cell = {
+        label: item.label,
+        colSpan: 1,
+        ...(rowSpan > 1 ? { rowSpan } : {}),
+        ...(columnKey !== undefined ? { columnKey } : {}),
+        ...(measureId !== undefined ? { measureId } : {}),
+        ...(nested && c && item.kind !== "measure" ? { columnPath: c.path, columnLevel: c.depth } : {}),
+        ...(nested && item.expanded !== undefined ? { expanded: item.expanded } : {}),
+        ...(item.subtotal ? { subtotal: true as const } : {}),
+      };
+      out.push(cell);
+      prev = { ident, index: ci, cell };
+    });
+    headerRows.push(out);
   }
+  // A header row nothing starts in (e.g. every group collapsed) is dropped; cells spanning it shrink.
+  for (let r = headerRows.length - 1; r > 0; r--) {
+    if (headerRows[r]!.length || !descs.length) continue;
+    headerRows.splice(r, 1);
+    for (let above = 0; above < r; above++) {
+      headerRows[above] = headerRows[above]!.map((h) => {
+        if ((h.rowSpan ?? 1) <= r - above) return h;
+        const { rowSpan, ...rest } = h;
+        return rowSpan! - 1 > 1 ? { ...rest, rowSpan: rowSpan! - 1 } : (rest as PivotHeaderCell);
+      });
+    }
+  }
+
+  // Leaf / collapsed slots in display order (columnKeys, header bars).
+  const slots: ColumnSlot[] = [];
+  const slotIds = new Map<string, string>();
+  for (let i = 0; i < descs.length; i++) {
+    const slot = descs[i]!.slot;
+    if ((slot.kind !== "leaf" && slot.kind !== "collapsed") || slotIds.has(slot.columnKey!)) continue;
+    slotIds.set(slot.columnKey!, slot.kind);
+    slots.push(slot);
+  }
+  const columnKeys: PivotKey[] =
+    levels === 0 ? [] : levels === 1 ? cube.columnKeys.map((key) => ({ key, label: labelOf(key, colDims[0]!, colDates[0]!) })) : slots.map((s) => ({ key: s.columnKey!, label: s.label }));
 
   // ---- Visibility --------------------------------------------------------------
   const isLeaf = (n: PivotCubeNode) => n.depth === leafDepth;
-  const expandedSpec = spec.expanded ?? "all";
+  const expandedRows = spec.expanded ?? "all";
   const expandedIds =
-    expandedSpec === "all" || expandedSpec === "none" ? null : new Set(expandedSpec.map((p) => pivotPathId(p)));
+    expandedRows === "all" || expandedRows === "none" ? null : new Set(expandedRows.map((p) => pivotPathId(p)));
   const isExpanded = (n: PivotCubeNode) =>
-    !isLeaf(n) && (expandedSpec === "all" || (expandedIds !== null && expandedIds.has(pivotPathId(n.path))));
+    !isLeaf(n) && (expandedRows === "all" || (expandedIds !== null && expandedIds.has(pivotPathId(n.path))));
   const visible: PivotCubeNode[] = [];
   const collect = (n: PivotCubeNode) => {
     visible.push(n);
@@ -225,12 +416,15 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   if (spec.heat) {
     const measureId = spec.heat.measure ?? valueMeasures[0]!.id;
     const scope = spec.heat.scope ?? "all";
-    const levels = spec.heat.levels ?? 9;
+    const levelCount = spec.heat.levels ?? 9;
     const applyTo = spec.heat.applyTo ?? "leaf";
-    heatInfo = { measureId, scope, levels, applyTo };
+    heatInfo = { measureId, scope, levels: levelCount, applyTo };
 
     const eligible = (n: PivotCubeNode) => applyTo === "all" || (applyTo === "leaf") === isLeaf(n);
-    const eligibleCols = columns.flatMap((c, i) => (c.measureId === measureId && !isRowTotalColumn(c) ? [i] : []));
+    // Leaf columns; group totals only with `column` scope (their own domain); never the grand total.
+    const eligibleCols = columns.flatMap((c, i) =>
+      c.measureId === measureId && !(levels > 0 && c.columnKey === null) && (scope === "column" || !c.subtotal) ? [i] : [],
+    );
     const heatMeasure = measureOf(measureId);
     /** Row part of the scope key, computed once per node (not per cell). */
     const nodeScope = (n: PivotCubeNode): string =>
@@ -246,7 +440,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
         if (!eligible(n)) continue;
         const rowKey = nodeScope(n);
         for (const i of eligibleCols) {
-          const v = valueOf(n, heatMeasure, columns[i]!.columnKey);
+          const v = valueAt(n, heatMeasure, columnBuckets[i]!);
           if (v === null || !Number.isFinite(v)) continue;
           const k = scopeKey(rowKey, i);
           const d = domains.get(k);
@@ -263,7 +457,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       for (const i of eligibleCols) {
         const domain = fixed ?? domains.get(scopeKey(rowKey, i)) ?? null;
         if (!domain) continue;
-        const level = pivotHeatLevel(valueOf(n, heatMeasure, columns[i]!.columnKey), domain.min, domain.max, levels);
+        const level = pivotHeatLevel(valueAt(n, heatMeasure, columnBuckets[i]!), domain.min, domain.max, levelCount);
         if (level === undefined) continue;
         if (!byCol) heatLevels.set(n, (byCol = new Map()));
         byCol.set(i, level);
@@ -279,7 +473,8 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     const heat = heatLevels.get(node);
     return columns.map((col, i) => {
       const m = columnMeasures[i]!;
-      const raw = valueOf(node, m, col.columnKey);
+      const bucket = columnBuckets[i]!;
+      const raw = valueAt(node, m, bucket);
       const showAs = showAsFor(node, m);
       const level = heat?.get(i);
       if (showAs === "value") {
@@ -289,12 +484,14 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
         const parent = node.parent ?? node;
         const denominator =
           showAs === "percentOfColumnTotal"
-            ? valueOf(root, m, col.columnKey)
+            ? valueAt(root, m, bucket)
             : showAs === "percentOfParentRow"
-              ? valueOf(parent, m, col.columnKey)
-              : showAs === "percentOfRowTotal"
-                ? valueOf(node, m, null)
-                : valueOf(root, m, null);
+              ? valueAt(parent, m, bucket)
+              : showAs === "percentOfParentColumn"
+                ? valueAt(node, m, parentBuckets[i]!)
+                : showAs === "percentOfRowTotal"
+                  ? valueAt(node, m, totalBucket)
+                  : valueAt(root, m, totalBucket);
         const value = divide(raw, denominator);
         const text = formatPivotNumber(value, col.percentFormat);
         return level === undefined ? { value, raw, text, showAs } : { value, raw, text, showAs, heat: level };
@@ -308,7 +505,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const kpisFor = (node: PivotCubeNode): PivotKpiValue[] =>
     kpiSpecs.map((k) => {
       const m = measureOf(k.measure);
-      const value = valueOf(node, m, null);
+      const value = valueAt(node, m, totalBucket);
       const kpi: PivotKpiValue = {
         id: k.id,
         label: k.label ?? measureLabel(m),
@@ -317,7 +514,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       };
       if (!k.compareTo) return kpi;
       const compare = measureOf(k.compareTo);
-      const delta = divide(value, valueOf(node, compare, null));
+      const delta = divide(value, valueAt(node, compare, totalBucket));
       const d = delta === null ? null : delta - 1;
       return {
         ...kpi,
@@ -376,43 +573,50 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
 
   // ---- Header series -------------------------------------------------------
   let headerSeries: PivotHeaderSeries | null = null;
-  if (spec.headerCharts && colDim) {
+  if (spec.headerCharts && levels > 0) {
     const m = measureOf(spec.headerCharts.measure ?? valueMeasures[0]!.id);
-    const points = columnKeys.map((ck) => ({
-      columnId: pivotColumnId(ck.key, m.id),
-      columnKey: ck.key,
-      label: ck.label,
-      value: valueOf(root, m, ck.key),
+    const point = (columnId: string, columnKey: string, label: string, bucket: number): PivotHeaderSeriesPoint => ({
+      columnId,
+      columnKey,
+      label,
+      value: valueAt(root, m, bucket),
       ...(spec.headerCharts?.breakdown
-        ? {
-            breakdown: root.children.map((c) => ({
-              key: c.key,
-              label: nodeLabel(c),
-              value: valueOf(c, m, ck.key),
-            })),
-          }
+        ? { breakdown: root.children.map((c) => ({ key: c.key, label: nodeLabel(c), value: valueAt(c, m, bucket) })) }
         : {}),
-    }));
-    const finite = points.map((p) => p.value).filter((v): v is number => v !== null);
+    });
+    const max = (ps: readonly PivotHeaderSeriesPoint[]) => {
+      const finite = ps.map((p) => p.value).filter((v): v is number => v !== null);
+      return finite.length ? finite.reduce((a, b) => (b > a ? b : a)) : null;
+    };
+    const bucketOfKey = new Map(colRoot.children.map((c) => [c.key, c.bucket] as const));
+    const points =
+      levels === 1
+        ? columnKeys.map((ck) => point(pivotColumnId(ck.key, m.id), ck.key, ck.label, bucketOfKey.get(ck.key) ?? -1))
+        : slots.map((s) =>
+            point(s.kind === "leaf" ? pivotColumnId(s.columnKey, m.id) : `s:${encodeURIComponent(s.columnKey!)}:${m.id}`, s.columnKey!, s.label, s.column!.bucket),
+          );
+    const groups = levels > 1 ? colRoot.children.map((c) => point(`s:${encodeURIComponent(c.columnKey)}:${m.id}`, c.columnKey, colLabel(c), c.bucket)) : null;
     headerSeries = {
       measureId: m.id,
       type: spec.headerCharts.type ?? "bar",
       points,
-      max: finite.length ? finite.reduce((a, b) => (b > a ? b : a)) : null,
+      max: max(points),
+      ...(groups ? { groups, groupMax: max(groups) } : {}),
     };
   }
 
   // ---- Filters / facets ------------------------------------------------------
   const activeFilters = describePivotFilters(spec);
   const filteredFields = new Set((spec.filters ?? []).filter(isPivotFilterActive).map((f) => f.field));
-  const rowDimensions: PivotModelDimension[] = dims.map((d) => ({
+  const rowDimensions: PivotModelDimension[] = dims.map((d, i) => ({
     field: d.field,
-    label: d.label ?? d.field,
+    label: dimensionLabel(spec, d, rowDates[i]!),
     ...(d.sort === "asc" || d.sort === "desc" ? { sort: d.sort } : {}),
     ...(d.sortBy ? { sortBy: d.sortBy } : {}),
     ...(d.topN ? { topN: d.topN } : {}),
     ...(filteredFields.has(d.field) ? { filtered: true as const } : {}),
   }));
+  const columnDimensions = colDims.map((d, i) => ({ field: d.field, label: dimensionLabel(spec, d, colDates[i]!) }));
   const facets: PivotFacet[] | null = spec.facets?.length ? cube.facets.map((f, i) => toPivotFacet(spec, f, spec.facets![i]!)) : null;
   const anyFilter = filteredFields.size > 0 || dims.some((d) => d.topN);
 
@@ -423,7 +627,8 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(spec.subtitle !== undefined ? { subtitle: spec.subtitle } : {}),
     layout: spec.layout ?? "tabular",
     rowDimensions,
-    columnDimension: colDim ? { field: colDim.field, label: colDim.label ?? colDim.field } : null,
+    columnDimension: columnDimensions[0] ?? null,
+    ...(nested ? { columnDimensions } : {}),
     columnKeys,
     columns,
     headerRows,

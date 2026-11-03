@@ -13,3 +13,5 @@ export * from "./to-sheet";
 export * from "./export-request";
 export { PIVOT_EXPORT_REQUEST_JSON_SCHEMA, PIVOT_SPEC_JSON_SCHEMA } from "./schema";
 export * from "./fields";
+export * from "./columns";
+export * from "./dates";

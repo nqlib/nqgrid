@@ -1,0 +1,1767 @@
+{
+  "version": 1,
+  "id": "planning-fy25-fy26-dates",
+  "title": "Sales by fiscal quarter",
+  "subtitle": "Order date grouped by fiscal year and quarter",
+  "layout": "tabular",
+  "rowDimensions": [
+    {
+      "field": "department",
+      "label": "Department"
+    },
+    {
+      "field": "line",
+      "label": "Line"
+    }
+  ],
+  "columnDimension": {
+    "field": "orderDate:year",
+    "label": "Year (Order date)"
+  },
+  "columnDimensions": [
+    {
+      "field": "orderDate:year",
+      "label": "Year (Order date)"
+    },
+    {
+      "field": "orderDate:quarter",
+      "label": "Quarter (Order date)"
+    }
+  ],
+  "columnKeys": [
+    {
+      "key": "2025",
+      "label": "FY25"
+    },
+    {
+      "key": "2026/Q1",
+      "label": "FY26 Q1"
+    },
+    {
+      "key": "2026/Q2",
+      "label": "FY26 Q2"
+    },
+    {
+      "key": "2026/Q3",
+      "label": "FY26 Q3"
+    },
+    {
+      "key": "2026/Q4",
+      "label": "FY26 Q4"
+    }
+  ],
+  "columns": [
+    {
+      "id": "s:2025:actual",
+      "columnKey": "2025",
+      "columnLabel": "FY25",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "FY25"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2025"
+      ],
+      "subtotal": true,
+      "collapsed": true
+    },
+    {
+      "id": "c:2026%2FQ1:actual",
+      "columnKey": "2026/Q1",
+      "columnLabel": "Q1",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "FY26",
+        "Q1"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026",
+        "Q1"
+      ]
+    },
+    {
+      "id": "c:2026%2FQ2:actual",
+      "columnKey": "2026/Q2",
+      "columnLabel": "Q2",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "FY26",
+        "Q2"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026",
+        "Q2"
+      ]
+    },
+    {
+      "id": "c:2026%2FQ3:actual",
+      "columnKey": "2026/Q3",
+      "columnLabel": "Q3",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "FY26",
+        "Q3"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026",
+        "Q3"
+      ]
+    },
+    {
+      "id": "c:2026%2FQ4:actual",
+      "columnKey": "2026/Q4",
+      "columnLabel": "Q4",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "FY26",
+        "Q4"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026",
+        "Q4"
+      ]
+    },
+    {
+      "id": "s:2026:actual",
+      "columnKey": "2026",
+      "columnLabel": "FY26 Total",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "FY26 Total"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026"
+      ],
+      "subtotal": true
+    },
+    {
+      "id": "t:actual",
+      "columnKey": null,
+      "columnLabel": "Total",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Total"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    }
+  ],
+  "headerRows": [
+    [
+      {
+        "label": "FY25",
+        "colSpan": 1,
+        "rowSpan": 2,
+        "columnKey": "2025",
+        "measureId": "actual",
+        "columnPath": [
+          "2025"
+        ],
+        "columnLevel": 0,
+        "expanded": false
+      },
+      {
+        "label": "FY26",
+        "colSpan": 4,
+        "columnKey": "2026",
+        "columnPath": [
+          "2026"
+        ],
+        "columnLevel": 0,
+        "expanded": true
+      },
+      {
+        "label": "FY26 Total",
+        "colSpan": 1,
+        "rowSpan": 2,
+        "columnKey": "2026",
+        "measureId": "actual",
+        "columnPath": [
+          "2026"
+        ],
+        "columnLevel": 0,
+        "subtotal": true
+      },
+      {
+        "label": "Total",
+        "colSpan": 1,
+        "rowSpan": 2,
+        "columnKey": null,
+        "measureId": "actual"
+      }
+    ],
+    [
+      {
+        "label": "Q1",
+        "colSpan": 1,
+        "columnKey": "2026/Q1",
+        "measureId": "actual",
+        "columnPath": [
+          "2026",
+          "Q1"
+        ],
+        "columnLevel": 1
+      },
+      {
+        "label": "Q2",
+        "colSpan": 1,
+        "columnKey": "2026/Q2",
+        "measureId": "actual",
+        "columnPath": [
+          "2026",
+          "Q2"
+        ],
+        "columnLevel": 1
+      },
+      {
+        "label": "Q3",
+        "colSpan": 1,
+        "columnKey": "2026/Q3",
+        "measureId": "actual",
+        "columnPath": [
+          "2026",
+          "Q3"
+        ],
+        "columnLevel": 1
+      },
+      {
+        "label": "Q4",
+        "colSpan": 1,
+        "columnKey": "2026/Q4",
+        "measureId": "actual",
+        "columnPath": [
+          "2026",
+          "Q4"
+        ],
+        "columnLevel": 1
+      }
+    ]
+  ],
+  "rows": [
+    {
+      "id": "r:Footwear",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Footwear"
+      ],
+      "label": "Footwear",
+      "expandable": true,
+      "expanded": false,
+      "childCount": 5,
+      "sourceRowCount": 120,
+      "cells": [
+        {
+          "value": 15747959,
+          "raw": 15747959,
+          "text": "$15.7M"
+        },
+        {
+          "value": 4658037,
+          "raw": 4658037,
+          "text": "$4.66M"
+        },
+        {
+          "value": 3559998,
+          "raw": 3559998,
+          "text": "$3.56M"
+        },
+        {
+          "value": 4627130,
+          "raw": 4627130,
+          "text": "$4.63M"
+        },
+        {
+          "value": 4039667,
+          "raw": 4039667,
+          "text": "$4.04M"
+        },
+        {
+          "value": 16884832,
+          "raw": 16884832,
+          "text": "$16.9M"
+        },
+        {
+          "value": 32632791,
+          "raw": 32632791,
+          "text": "$32.6M"
+        }
+      ],
+      "attributes": {
+        "owner": "Maya Chen"
+      },
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.010466052854590346,
+          "text": "+1%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 10768413,
+          "text": "$10.8M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 32631550,
+          "text": "$32.6M",
+          "delta": 0.0012106924959187637,
+          "deltaText": "+0.1%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 32592091,
+          "text": "$32.6M"
+        }
+      ]
+    },
+    {
+      "id": "r:Apparel",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Apparel"
+      ],
+      "label": "Apparel",
+      "expandable": true,
+      "expanded": false,
+      "childCount": 6,
+      "sourceRowCount": 144,
+      "cells": [
+        {
+          "value": 22529759,
+          "raw": 22529759,
+          "text": "$22.5M"
+        },
+        {
+          "value": 6295630,
+          "raw": 6295630,
+          "text": "$6.3M"
+        },
+        {
+          "value": 4918429,
+          "raw": 4918429,
+          "text": "$4.92M"
+        },
+        {
+          "value": 7056168,
+          "raw": 7056168,
+          "text": "$7.06M"
+        },
+        {
+          "value": 5959597,
+          "raw": 5959597,
+          "text": "$5.96M"
+        },
+        {
+          "value": 24229824,
+          "raw": 24229824,
+          "text": "$24.2M"
+        },
+        {
+          "value": 46759583,
+          "raw": 46759583,
+          "text": "$46.8M"
+        }
+      ],
+      "attributes": {
+        "owner": "Luis Ortega"
+      },
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.0030643718225464855,
+          "text": "0%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 15434747,
+          "text": "$15.4M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 46771970,
+          "text": "$46.8M",
+          "delta": 0.000025785338892525544,
+          "deltaText": "0.0%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 46770764,
+          "text": "$46.8M"
+        }
+      ]
+    },
+    {
+      "id": "r:Camp",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Camp"
+      ],
+      "label": "Camp",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 5,
+      "sourceRowCount": 120,
+      "cells": [
+        {
+          "value": 12448695,
+          "raw": 12448695,
+          "text": "$12.4M"
+        },
+        {
+          "value": 3528573,
+          "raw": 3528573,
+          "text": "$3.53M"
+        },
+        {
+          "value": 2578599,
+          "raw": 2578599,
+          "text": "$2.58M"
+        },
+        {
+          "value": 3836379,
+          "raw": 3836379,
+          "text": "$3.84M"
+        },
+        {
+          "value": 3156370,
+          "raw": 3156370,
+          "text": "$3.16M"
+        },
+        {
+          "value": 13099921,
+          "raw": 13099921,
+          "text": "$13.1M"
+        },
+        {
+          "value": 25548616,
+          "raw": 25548616,
+          "text": "$25.5M"
+        }
+      ],
+      "attributes": {
+        "owner": "Ingrid Solberg"
+      },
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.008624423108612334,
+          "text": "+1%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 8402612,
+          "text": "$8.4M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 25462453,
+          "text": "$25.5M",
+          "delta": 0.0022763967911036964,
+          "deltaText": "+0.2%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 25404622,
+          "text": "$25.4M"
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Tents",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Tents"
+      ],
+      "label": "Tents",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 3325860,
+          "raw": 3325860,
+          "text": "$3.33M"
+        },
+        {
+          "value": 972292,
+          "raw": 972292,
+          "text": "$972k",
+          "heat": 3
+        },
+        {
+          "value": 664087,
+          "raw": 664087,
+          "text": "$664k",
+          "heat": 2
+        },
+        {
+          "value": 1029892,
+          "raw": 1029892,
+          "text": "$1.03M",
+          "heat": 4
+        },
+        {
+          "value": 844281,
+          "raw": 844281,
+          "text": "$844k",
+          "heat": 3
+        },
+        {
+          "value": 3510552,
+          "raw": 3510552,
+          "text": "$3.51M"
+        },
+        {
+          "value": 6836412,
+          "raw": 6836412,
+          "text": "$6.84M"
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Sleeping%20Bags",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Sleeping Bags"
+      ],
+      "label": "Sleeping Bags",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 2878541,
+          "raw": 2878541,
+          "text": "$2.88M"
+        },
+        {
+          "value": 779663,
+          "raw": 779663,
+          "text": "$780k",
+          "heat": 2
+        },
+        {
+          "value": 622233,
+          "raw": 622233,
+          "text": "$622k",
+          "heat": 2
+        },
+        {
+          "value": 959714,
+          "raw": 959714,
+          "text": "$960k",
+          "heat": 3
+        },
+        {
+          "value": 722574,
+          "raw": 722574,
+          "text": "$723k",
+          "heat": 2
+        },
+        {
+          "value": 3084184,
+          "raw": 3084184,
+          "text": "$3.08M"
+        },
+        {
+          "value": 5962725,
+          "raw": 5962725,
+          "text": "$5.96M"
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Sleeping%20Pads",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Sleeping Pads"
+      ],
+      "label": "Sleeping Pads",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 2450529,
+          "raw": 2450529,
+          "text": "$2.45M"
+        },
+        {
+          "value": 705369,
+          "raw": 705369,
+          "text": "$705k",
+          "heat": 2
+        },
+        {
+          "value": 508799,
+          "raw": 508799,
+          "text": "$509k",
+          "heat": 1
+        },
+        {
+          "value": 699940,
+          "raw": 699940,
+          "text": "$700k",
+          "heat": 2
+        },
+        {
+          "value": 665779,
+          "raw": 665779,
+          "text": "$666k",
+          "heat": 2
+        },
+        {
+          "value": 2579887,
+          "raw": 2579887,
+          "text": "$2.58M"
+        },
+        {
+          "value": 5030416,
+          "raw": 5030416,
+          "text": "$5.03M"
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Camp%20Kitchen",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Camp Kitchen"
+      ],
+      "label": "Camp Kitchen",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 2113307,
+          "raw": 2113307,
+          "text": "$2.11M"
+        },
+        {
+          "value": 576345,
+          "raw": 576345,
+          "text": "$576k",
+          "heat": 1
+        },
+        {
+          "value": 420904,
+          "raw": 420904,
+          "text": "$421k",
+          "heat": 0
+        },
+        {
+          "value": 616845,
+          "raw": 616845,
+          "text": "$617k",
+          "heat": 2
+        },
+        {
+          "value": 512103,
+          "raw": 512103,
+          "text": "$512k",
+          "heat": 1
+        },
+        {
+          "value": 2126197,
+          "raw": 2126197,
+          "text": "$2.13M"
+        },
+        {
+          "value": 4239504,
+          "raw": 4239504,
+          "text": "$4.24M"
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Camp%20Chairs",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Camp Chairs"
+      ],
+      "label": "Camp Chairs",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 1680458,
+          "raw": 1680458,
+          "text": "$1.68M"
+        },
+        {
+          "value": 494904,
+          "raw": 494904,
+          "text": "$495k",
+          "heat": 1
+        },
+        {
+          "value": 362576,
+          "raw": 362576,
+          "text": "$363k",
+          "heat": 0
+        },
+        {
+          "value": 529988,
+          "raw": 529988,
+          "text": "$530k",
+          "heat": 1
+        },
+        {
+          "value": 411633,
+          "raw": 411633,
+          "text": "$412k",
+          "heat": 0
+        },
+        {
+          "value": 1799101,
+          "raw": 1799101,
+          "text": "$1.8M"
+        },
+        {
+          "value": 3479559,
+          "raw": 3479559,
+          "text": "$3.48M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Packs"
+      ],
+      "label": "Packs",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 6,
+      "sourceRowCount": 144,
+      "cells": [
+        {
+          "value": 11616212,
+          "raw": 11616212,
+          "text": "$11.6M"
+        },
+        {
+          "value": 3458329,
+          "raw": 3458329,
+          "text": "$3.46M"
+        },
+        {
+          "value": 2530640,
+          "raw": 2530640,
+          "text": "$2.53M"
+        },
+        {
+          "value": 3521341,
+          "raw": 3521341,
+          "text": "$3.52M"
+        },
+        {
+          "value": 2841601,
+          "raw": 2841601,
+          "text": "$2.84M"
+        },
+        {
+          "value": 12351911,
+          "raw": 12351911,
+          "text": "$12.4M"
+        },
+        {
+          "value": 23968123,
+          "raw": 23968123,
+          "text": "$24M"
+        }
+      ],
+      "attributes": {
+        "owner": "Sam Okafor"
+      },
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.011665368746504479,
+          "text": "+1%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 7919411,
+          "text": "$7.92M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 23998219,
+          "text": "$24M",
+          "delta": 0.0029434814450879365,
+          "deltaText": "+0.3%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 23927788,
+          "text": "$23.9M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Daypacks",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Daypacks"
+      ],
+      "label": "Daypacks",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 2816946,
+          "raw": 2816946,
+          "text": "$2.82M"
+        },
+        {
+          "value": 809534,
+          "raw": 809534,
+          "text": "$810k",
+          "heat": 3
+        },
+        {
+          "value": 610225,
+          "raw": 610225,
+          "text": "$610k",
+          "heat": 2
+        },
+        {
+          "value": 829439,
+          "raw": 829439,
+          "text": "$829k",
+          "heat": 3
+        },
+        {
+          "value": 620963,
+          "raw": 620963,
+          "text": "$621k",
+          "heat": 2
+        },
+        {
+          "value": 2870161,
+          "raw": 2870161,
+          "text": "$2.87M"
+        },
+        {
+          "value": 5687107,
+          "raw": 5687107,
+          "text": "$5.69M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Backpacking",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Backpacking"
+      ],
+      "label": "Backpacking",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 2407368,
+          "raw": 2407368,
+          "text": "$2.41M"
+        },
+        {
+          "value": 719646,
+          "raw": 719646,
+          "text": "$720k",
+          "heat": 2
+        },
+        {
+          "value": 523668,
+          "raw": 523668,
+          "text": "$524k",
+          "heat": 1
+        },
+        {
+          "value": 785459,
+          "raw": 785459,
+          "text": "$785k",
+          "heat": 2
+        },
+        {
+          "value": 578788,
+          "raw": 578788,
+          "text": "$579k",
+          "heat": 1
+        },
+        {
+          "value": 2607561,
+          "raw": 2607561,
+          "text": "$2.61M"
+        },
+        {
+          "value": 5014929,
+          "raw": 5014929,
+          "text": "$5.01M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Travel",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Travel"
+      ],
+      "label": "Travel",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 2055619,
+          "raw": 2055619,
+          "text": "$2.06M"
+        },
+        {
+          "value": 617929,
+          "raw": 617929,
+          "text": "$618k",
+          "heat": 2
+        },
+        {
+          "value": 429701,
+          "raw": 429701,
+          "text": "$430k",
+          "heat": 1
+        },
+        {
+          "value": 580717,
+          "raw": 580717,
+          "text": "$581k",
+          "heat": 1
+        },
+        {
+          "value": 513875,
+          "raw": 513875,
+          "text": "$514k",
+          "heat": 1
+        },
+        {
+          "value": 2142222,
+          "raw": 2142222,
+          "text": "$2.14M"
+        },
+        {
+          "value": 4197841,
+          "raw": 4197841,
+          "text": "$4.2M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Hydration",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Hydration"
+      ],
+      "label": "Hydration",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 1725332,
+          "raw": 1725332,
+          "text": "$1.73M"
+        },
+        {
+          "value": 539721,
+          "raw": 539721,
+          "text": "$540k",
+          "heat": 1
+        },
+        {
+          "value": 423480,
+          "raw": 423480,
+          "text": "$423k",
+          "heat": 0
+        },
+        {
+          "value": 532077,
+          "raw": 532077,
+          "text": "$532k",
+          "heat": 1
+        },
+        {
+          "value": 475112,
+          "raw": 475112,
+          "text": "$475k",
+          "heat": 1
+        },
+        {
+          "value": 1970390,
+          "raw": 1970390,
+          "text": "$1.97M"
+        },
+        {
+          "value": 3695722,
+          "raw": 3695722,
+          "text": "$3.7M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Kids",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Kids"
+      ],
+      "label": "Kids",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 1465281,
+          "raw": 1465281,
+          "text": "$1.47M"
+        },
+        {
+          "value": 441665,
+          "raw": 441665,
+          "text": "$442k",
+          "heat": 1
+        },
+        {
+          "value": 300765,
+          "raw": 300765,
+          "text": "$301k",
+          "heat": 0
+        },
+        {
+          "value": 456762,
+          "raw": 456762,
+          "text": "$457k",
+          "heat": 1
+        },
+        {
+          "value": 360946,
+          "raw": 360946,
+          "text": "$361k",
+          "heat": 0
+        },
+        {
+          "value": 1560138,
+          "raw": 1560138,
+          "text": "$1.56M"
+        },
+        {
+          "value": 3025419,
+          "raw": 3025419,
+          "text": "$3.03M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Duffels",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Duffels"
+      ],
+      "label": "Duffels",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 1145666,
+          "raw": 1145666,
+          "text": "$1.15M"
+        },
+        {
+          "value": 329834,
+          "raw": 329834,
+          "text": "$330k",
+          "heat": 0
+        },
+        {
+          "value": 242801,
+          "raw": 242801,
+          "text": "$243k",
+          "heat": 0
+        },
+        {
+          "value": 336887,
+          "raw": 336887,
+          "text": "$337k",
+          "heat": 0
+        },
+        {
+          "value": 291917,
+          "raw": 291917,
+          "text": "$292k",
+          "heat": 0
+        },
+        {
+          "value": 1201439,
+          "raw": 1201439,
+          "text": "$1.2M"
+        },
+        {
+          "value": 2347105,
+          "raw": 2347105,
+          "text": "$2.35M"
+        }
+      ]
+    },
+    {
+      "id": "__grandTotal__",
+      "kind": "grandTotal",
+      "depth": -1,
+      "path": [],
+      "label": "Grand Total",
+      "expandable": false,
+      "expanded": true,
+      "childCount": 4,
+      "sourceRowCount": 528,
+      "cells": [
+        {
+          "value": 62342625,
+          "raw": 62342625,
+          "text": "$62.3M"
+        },
+        {
+          "value": 17940569,
+          "raw": 17940569,
+          "text": "$17.9M"
+        },
+        {
+          "value": 13587666,
+          "raw": 13587666,
+          "text": "$13.6M"
+        },
+        {
+          "value": 19041018,
+          "raw": 19041018,
+          "text": "$19M"
+        },
+        {
+          "value": 15997235,
+          "raw": 15997235,
+          "text": "$16M"
+        },
+        {
+          "value": 66566488,
+          "raw": 66566488,
+          "text": "$66.6M"
+        },
+        {
+          "value": 128909113,
+          "raw": 128909113,
+          "text": "$129M"
+        }
+      ],
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.0076264740556635235,
+          "text": "+1%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 42525183,
+          "text": "$42.5M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 128864192,
+          "text": "$129M",
+          "delta": 0.0013126123948694612,
+          "deltaText": "+0.1%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 128695265,
+          "text": "$129M"
+        }
+      ]
+    }
+  ],
+  "grandTotal": {
+    "id": "__grandTotal__",
+    "kind": "grandTotal",
+    "depth": -1,
+    "path": [],
+    "label": "Grand Total",
+    "expandable": false,
+    "expanded": true,
+    "childCount": 4,
+    "sourceRowCount": 528,
+    "cells": [
+      {
+        "value": 62342625,
+        "raw": 62342625,
+        "text": "$62.3M"
+      },
+      {
+        "value": 17940569,
+        "raw": 17940569,
+        "text": "$17.9M"
+      },
+      {
+        "value": 13587666,
+        "raw": 13587666,
+        "text": "$13.6M"
+      },
+      {
+        "value": 19041018,
+        "raw": 19041018,
+        "text": "$19M"
+      },
+      {
+        "value": 15997235,
+        "raw": 15997235,
+        "text": "$16M"
+      },
+      {
+        "value": 66566488,
+        "raw": 66566488,
+        "text": "$66.6M"
+      },
+      {
+        "value": 128909113,
+        "raw": 128909113,
+        "text": "$129M"
+      }
+    ],
+    "kpis": [
+      {
+        "id": "growth",
+        "label": "Growth on FY25",
+        "value": 0.0076264740556635235,
+        "text": "+1%"
+      },
+      {
+        "id": "forecast",
+        "label": "Forecast",
+        "value": 42525183,
+        "text": "$42.5M"
+      },
+      {
+        "id": "outlook",
+        "label": "Outlook",
+        "value": 128864192,
+        "text": "$129M",
+        "delta": 0.0013126123948694612,
+        "deltaText": "+0.1%",
+        "compareLabel": "Plan"
+      },
+      {
+        "id": "plan",
+        "label": "Plan",
+        "value": 128695265,
+        "text": "$129M"
+      }
+    ]
+  },
+  "spans": [
+    [
+      {
+        "rowIndex": 0,
+        "span": 1,
+        "path": [
+          "Footwear"
+        ]
+      },
+      {
+        "rowIndex": 1,
+        "span": 1,
+        "path": [
+          "Apparel"
+        ]
+      },
+      {
+        "rowIndex": 2,
+        "span": 6,
+        "path": [
+          "Camp"
+        ]
+      },
+      {
+        "rowIndex": 8,
+        "span": 7,
+        "path": [
+          "Packs"
+        ]
+      }
+    ],
+    [
+      {
+        "rowIndex": 3,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Tents"
+        ]
+      },
+      {
+        "rowIndex": 4,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Sleeping Bags"
+        ]
+      },
+      {
+        "rowIndex": 5,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Sleeping Pads"
+        ]
+      },
+      {
+        "rowIndex": 6,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Camp Kitchen"
+        ]
+      },
+      {
+        "rowIndex": 7,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Camp Chairs"
+        ]
+      },
+      {
+        "rowIndex": 9,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Daypacks"
+        ]
+      },
+      {
+        "rowIndex": 10,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Backpacking"
+        ]
+      },
+      {
+        "rowIndex": 11,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Travel"
+        ]
+      },
+      {
+        "rowIndex": 12,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Hydration"
+        ]
+      },
+      {
+        "rowIndex": 13,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Kids"
+        ]
+      },
+      {
+        "rowIndex": 14,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Duffels"
+        ]
+      }
+    ]
+  ],
+  "heat": {
+    "measureId": "actual",
+    "scope": "all",
+    "levels": 9,
+    "applyTo": "leaf"
+  },
+  "headerSeries": {
+    "measureId": "actual",
+    "type": "bar",
+    "points": [
+      {
+        "columnId": "s:2025:actual",
+        "columnKey": "2025",
+        "label": "FY25",
+        "value": 62342625,
+        "breakdown": [
+          {
+            "key": "Footwear",
+            "label": "Footwear",
+            "value": 15747959
+          },
+          {
+            "key": "Apparel",
+            "label": "Apparel",
+            "value": 22529759
+          },
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 12448695
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 11616212
+          }
+        ]
+      },
+      {
+        "columnId": "c:2026%2FQ1:actual",
+        "columnKey": "2026/Q1",
+        "label": "FY26 Q1",
+        "value": 17940569,
+        "breakdown": [
+          {
+            "key": "Footwear",
+            "label": "Footwear",
+            "value": 4658037
+          },
+          {
+            "key": "Apparel",
+            "label": "Apparel",
+            "value": 6295630
+          },
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 3528573
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 3458329
+          }
+        ]
+      },
+      {
+        "columnId": "c:2026%2FQ2:actual",
+        "columnKey": "2026/Q2",
+        "label": "FY26 Q2",
+        "value": 13587666,
+        "breakdown": [
+          {
+            "key": "Footwear",
+            "label": "Footwear",
+            "value": 3559998
+          },
+          {
+            "key": "Apparel",
+            "label": "Apparel",
+            "value": 4918429
+          },
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 2578599
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 2530640
+          }
+        ]
+      },
+      {
+        "columnId": "c:2026%2FQ3:actual",
+        "columnKey": "2026/Q3",
+        "label": "FY26 Q3",
+        "value": 19041018,
+        "breakdown": [
+          {
+            "key": "Footwear",
+            "label": "Footwear",
+            "value": 4627130
+          },
+          {
+            "key": "Apparel",
+            "label": "Apparel",
+            "value": 7056168
+          },
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 3836379
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 3521341
+          }
+        ]
+      },
+      {
+        "columnId": "c:2026%2FQ4:actual",
+        "columnKey": "2026/Q4",
+        "label": "FY26 Q4",
+        "value": 15997235,
+        "breakdown": [
+          {
+            "key": "Footwear",
+            "label": "Footwear",
+            "value": 4039667
+          },
+          {
+            "key": "Apparel",
+            "label": "Apparel",
+            "value": 5959597
+          },
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 3156370
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 2841601
+          }
+        ]
+      }
+    ],
+    "max": 62342625,
+    "groups": [
+      {
+        "columnId": "s:2025:actual",
+        "columnKey": "2025",
+        "label": "FY25",
+        "value": 62342625,
+        "breakdown": [
+          {
+            "key": "Footwear",
+            "label": "Footwear",
+            "value": 15747959
+          },
+          {
+            "key": "Apparel",
+            "label": "Apparel",
+            "value": 22529759
+          },
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 12448695
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 11616212
+          }
+        ]
+      },
+      {
+        "columnId": "s:2026:actual",
+        "columnKey": "2026",
+        "label": "FY26",
+        "value": 66566488,
+        "breakdown": [
+          {
+            "key": "Footwear",
+            "label": "Footwear",
+            "value": 16884832
+          },
+          {
+            "key": "Apparel",
+            "label": "Apparel",
+            "value": 24229824
+          },
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 13099921
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 12351911
+          }
+        ]
+      }
+    ],
+    "groupMax": 66566488
+  },
+  "kpis": [
+    {
+      "id": "growth",
+      "label": "Growth on FY25",
+      "value": 0.0076264740556635235,
+      "text": "+1%"
+    },
+    {
+      "id": "forecast",
+      "label": "Forecast",
+      "value": 42525183,
+      "text": "$42.5M"
+    },
+    {
+      "id": "outlook",
+      "label": "Outlook",
+      "value": 128864192,
+      "text": "$129M",
+      "delta": 0.0013126123948694612,
+      "deltaText": "+0.1%",
+      "compareLabel": "Plan"
+    },
+    {
+      "id": "plan",
+      "label": "Plan",
+      "value": 128695265,
+      "text": "$129M"
+    }
+  ]
+}

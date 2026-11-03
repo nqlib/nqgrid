@@ -40,11 +40,13 @@ from .formats import CONTENT_TYPES, EXTENSIONS, ReportFormat, pdf_page_count
 from .request import dumps_request
 from .validation import (
     check_fields,
+    dates_example_spec,
     example_spec,
     export_options_schema,
     fields_example_spec,
     filtered_example_spec,
     infer_pivot_fields,
+    multicol_example_spec,
     pivot_spec_schema,
     validate_export_options,
     validate_pivot_spec,
@@ -204,12 +206,15 @@ only describe the layout. The PDF/XLSX matches what users see in the app.
 
 ## Optional
 - `id` (also the file name), `title`, `subtitle`.
-- `columns`: one column dimension, e.g. `{"field": "month", "order": ["Nov", "Dec", ...], "keepEmpty": true}`.
+- `columns`: one column dimension, e.g. `{"field": "month", "order": ["Nov", "Dec", ...], "keepEmpty": true}`,
+  or a list of them, outermost first (see "Several column fields").
 - `values`: measure ids shown as grid columns (default: all measures). Other measures can still feed `kpis`.
 - `format`: `{"style": "currency", "currency": "USD", "compact": true}`,
   `{"style": "percent", "signDisplay": "exceptZero"}`, `{"style": "decimal", "decimals": 1}`.
-- `showAs` / `groupShowAs`: `percentOfColumnTotal | percentOfParentRow | percentOfRowTotal | percentOfGrandTotal`.
-- `totals`: `{"grandTotal": true, "grandTotalPosition": "bottom", "rowTotal": false}`.
+- `showAs` / `groupShowAs`: `percentOfColumnTotal | percentOfParentRow | percentOfParentColumn | percentOfRowTotal |
+  percentOfGrandTotal`.
+- `totals`: `{"grandTotal": true, "grandTotalPosition": "bottom", "rowTotal": false}` (`rowTotal` = the grand total
+  column; `subtotalLabel`, default `"{label} Total"`, names column subtotals).
 - `heat`: `{"measure": "actual", "scope": "all | column | row | group", "applyTo": "leaf | group | all"}`;
   `null` = no heat.
 - `headerCharts`: `{"measure": "actual", "type": "bar", "breakdown": true}` (bars above the column headers).
@@ -247,9 +252,37 @@ Filter in the spec instead of pre-filtering rows: the report header then prints 
   "exclude": ["West"]}`); `{"field": "region"}` alone keeps it in the app's Filters area without filtering.
 - Example: `fields_example_spec` (Department → Channel → Line × Month, Actual and Units, Region ≠ West).
 
+## Several column fields
+- `columns: [{"field": "region"}, {"field": "channel"}]` nests Channel under Region (up to 4 levels in the app's
+  field list). Every outer level gets a subtotal column per group: `"subtotal": "end"` (default), `"start"` or
+  `"none"` on that column dimension, plus the grand total column with `totals.rowTotal`.
+- `columnsExpanded`: `"all"` (default), `"none"` or key paths of expanded column groups (`[["North"]]`); a collapsed
+  group shows one total column.
+- With several measures, `valuesIndex` places "Σ Values" among the column levels (`1` → Region › Actual / Share ›
+  Channel). `percentOfColumnTotal` divides by the leaf column's total, `percentOfParentColumn` by the enclosing
+  column group (the row total for the outermost level). Heat `scope: "column"` means each leaf column.
+- Example: `multicol_example_spec` (Region → Σ Values → Channel, Actual and its share of the region).
+
+## Date grouping
+- A date field (ISO strings `2026-01-15` / `2026-01-15T09:30:00Z`, or epoch milliseconds) is grouped by naming a
+  derived field `<field>:<group>` anywhere a field goes (`rows`, `columns`, `filters`, `facets`), with group `year`,
+  `quarter` (Q1–Q4), `month` (Jan–Dec), `week` (ISO), `day`, `yearMonth` (`2026-01`) or `yearQuarter` (`2026-Q1`).
+  One date can feed Year in `columns` and Month in `rows` at the same time.
+- Dates are read in UTC (never the server's time zone). Keys sort chronologically, labels are fixed
+  (`2026`, `FY26`, `Q1`, `Jan`, `Jan 2026`, `Q1 FY26`, `W03 2026`, `15 Jan 2026`); missing / invalid dates
+  are `(blank)`.
+- Settings go on the date field's `fields` entry and apply to all its groups:
+  `{"field": "orderDate", "type": "date", "fiscalYearStartMonth": 11}` (fiscal years are named by the year they end
+  in: Nov 2025 – Oct 2026 is FY26), `"timeZoneOffsetMinutes": 60`, `"monthNames": ["Jan", ...]`.
+- Filter by derived keys: `{"field": "orderDate:year", "include": ["2026"]}`. `"keepEmpty": true` on a date column
+  fills gaps (every month between the first and last month with data).
+- Example: `dates_example_spec`:
+  `"columns": [{"field": "orderDate:year"}, {"field": "orderDate:quarter"}], "columnsExpanded": [["2026"]]`.
+
 ## Rules
-- Every `field` must exist in the rows (see `datasets[].fields`), including filter fields; every measure id you
-  reference (also in `sortBy` / `topN`) must be defined. `sortBy` / `topN` go on `rows` dimensions only.
+- Every `field` must exist in the rows (see `datasets[].fields`), including filter fields (for `orderDate:year`
+  the rows need `orderDate`); every measure id you reference (also in `sortBy` / `topN`) must be defined.
+  `sortBy` / `topN` go on `rows` dimensions only, `subtotal` on `columns` dimensions only.
 - Unknown keys are rejected. Never put HTML or CSS anywhere: styling is built in.
 - Render `options` (separate argument): `theme` (`light | dark`), `page` (`size` A4 | A3 | Letter | Legal | Tabloid,
   `orientation`), `title` / `subtitle`, `maxColumnsPerPage`, `kpiPanel`, `locale`.
@@ -338,6 +371,8 @@ class PivotReportService:
             "example_spec": example_spec(),
             "filtered_example_spec": filtered_example_spec(),
             "fields_example_spec": fields_example_spec(),
+            "multicol_example_spec": multicol_example_spec(),
+            "dates_example_spec": dates_example_spec(),
             "formats": ["pdf", "xlsx"],
         }
         if isinstance(self.row_provider, DatasetCatalog):
