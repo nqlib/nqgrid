@@ -122,44 +122,104 @@ function divide(a: number | null, b: number | null): number | null {
 const BLANK_CELL: PivotCell = { value: null, raw: null, text: "" };
 
 /**
- * A difference / running total / rank along a base field, for an item at `index` among `count`
- * siblings (`valueOf(j)`: the corresponding value of sibling `j`, `null` without data).
- * `baseIndex`: the difference base (`-1`: none). See "Show values as" in `docs/pivot-headless.md`.
+ * The values of an item's siblings along a base field (`valueOf(j)`: the corresponding value of
+ * sibling `j`, `null` without data), shared by every cell that reads the same siblings. Running sums
+ * and sorted values are derived once on first use, so a running total is one lookup and a rank one
+ * binary search per cell (instead of a scan of every sibling, which made a field with k items O(k²)).
  */
-function showAsAlong(
-  kind: string,
-  raw: number | null,
-  index: number,
-  count: number,
-  valueOf: (j: number) => number | null,
-  baseIndex: number,
-): number | null {
+interface AlongSeries {
+  readonly count: number;
+  readonly valueOf: (j: number) => number | null;
+  /** `prefix[j]`: sum of the values of siblings `0…j` (missing values count as 0), summed in order. */
+  prefix?: Float64Array;
+  /** Values of the siblings with a value, ascending (`NaN` left out: it never compares). */
+  sorted?: Float64Array;
+}
+
+/** Most siblings that a cell scans directly (as before) instead of sharing a cached series. */
+const ALONG_SCAN_MAX = 32;
+
+function alongPrefix(s: AlongSeries): Float64Array {
+  if (!s.prefix) {
+    const prefix = new Float64Array(s.count);
+    let run = 0;
+    for (let j = 0; j < s.count; j++) {
+      run += s.valueOf(j) ?? 0;
+      prefix[j] = run;
+    }
+    s.prefix = prefix;
+  }
+  return s.prefix;
+}
+
+function alongSorted(s: AlongSeries): Float64Array {
+  if (!s.sorted) {
+    const values: number[] = [];
+    for (let j = 0; j < s.count; j++) {
+      const v = s.valueOf(j);
+      if (v !== null && v === v) values.push(v);
+    }
+    s.sorted = Float64Array.from(values).sort();
+  }
+  return s.sorted;
+}
+
+/** Number of entries of ascending `sorted` below `x` (`orEqual`: at most `x`). */
+function countBelow(sorted: Float64Array, x: number, orEqual: boolean): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (orEqual ? sorted[mid]! <= x : sorted[mid]! < x) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * A difference / running total / rank along a base field, for an item at `index` among its
+ * siblings (`series`). `baseIndex`: the difference base (`-1`: none). See "Show values as" in
+ * `docs/pivot-headless.md`.
+ */
+function showAsAlong(kind: string, raw: number | null, index: number, series: AlongSeries, baseIndex: number): number | null {
   if (raw === null) return null;
   switch (kind) {
     case "differenceFrom":
     case "percentDifferenceFrom": {
       if (baseIndex < 0 || baseIndex === index) return null;
-      const base = valueOf(baseIndex);
+      const base = series.valueOf(baseIndex);
       if (base === null) return null;
       return kind === "differenceFrom" ? raw - base : divide(raw - base, base);
     }
     case "runningTotal":
     case "percentRunningTotal": {
-      let run = 0;
-      for (let j = 0; j <= index; j++) run += valueOf(j) ?? 0;
+      if (series.count <= ALONG_SCAN_MAX) {
+        let run = 0;
+        for (let j = 0; j <= index; j++) run += series.valueOf(j) ?? 0;
+        if (kind === "runningTotal") return run;
+        let total = run;
+        for (let j = index + 1; j < series.count; j++) total += series.valueOf(j) ?? 0;
+        return divide(run, total);
+      }
+      // Same additions in the same order as the scan above.
+      const prefix = alongPrefix(series);
+      const run = prefix[index]!;
       if (kind === "runningTotal") return run;
-      let total = run;
-      for (let j = index + 1; j < count; j++) total += valueOf(j) ?? 0;
-      return divide(run, total);
+      return divide(run, prefix[series.count - 1]!);
     }
     default: {
       // rankAscending / rankDescending: competition ranking (1, 2, 2, 4) among siblings with a value.
-      let rank = 1;
-      for (let j = 0; j < count; j++) {
-        const v = valueOf(j);
-        if (v !== null && (kind === "rankAscending" ? v < raw : v > raw)) rank++;
+      if (series.count <= ALONG_SCAN_MAX) {
+        let rank = 1;
+        for (let j = 0; j < series.count; j++) {
+          const v = series.valueOf(j);
+          if (v !== null && (kind === "rankAscending" ? v < raw : v > raw)) rank++;
+        }
+        return rank;
       }
-      return rank;
+      if (raw !== raw) return 1;
+      const sorted = alongSorted(series);
+      return 1 + (kind === "rankAscending" ? countBelow(sorted, raw, false) : sorted.length - countBelow(sorted, raw, true));
     }
   }
 }
@@ -171,11 +231,10 @@ function showAsOutside(kind: string, raw: number | null): number | null {
   return null;
 }
 
-/** Difference base among sibling keys: the named item, else the previous / next sibling (`-1`: none). */
-function baseIndexOf(keys: readonly string[], index: number, item: string | undefined, position: "previous" | "next" | undefined): number {
-  if (item !== undefined) return keys.indexOf(item);
+/** Difference base among `count` siblings: the previous / next sibling (`-1`: none). */
+function baseIndexOf(count: number, index: number, position: "previous" | "next" | undefined): number {
   const j = position === "next" ? index + 1 : index - 1;
-  return j >= 0 && j < keys.length ? j : -1;
+  return j >= 0 && j < count ? j : -1;
 }
 
 /**
@@ -410,7 +469,8 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     if (!map) colChildCache.set(c, (map = new Map(c.children.map((x) => [x.key, x] as const))));
     return map.get(key);
   };
-  /** Per value column with a column-field base: the corresponding bucket of every sibling, own index, keys. */
+  const columnAlongGroups = new Map<string, number>();
+  /** Per value column with a column-field base: the corresponding bucket of every sibling, own index, base, series group. */
   const columnAlong = descs.map((d) => {
     const m = d.measure;
     const base = m.showAsBase;
@@ -432,7 +492,11 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     });
     const keys = siblings.map((s) => s.key);
     const index = siblings.indexOf(a);
-    return { buckets, index, baseIndex: baseIndexOf(keys, index, base.item, base.position) };
+    // Columns reading the same measure over the same sibling buckets share one series per row.
+    const groupKey = `${m.id}\u0000${buckets.join(",")}`;
+    let group = columnAlongGroups.get(groupKey);
+    if (group === undefined) columnAlongGroups.set(groupKey, (group = columnAlongGroups.size));
+    return { buckets, index, baseIndex: base.item !== undefined ? keys.indexOf(base.item) : baseIndexOf(keys.length, index, base.position), group };
   });
   const childCache = new Map<PivotCubeNode, Map<string, PivotCubeNode>>();
   const childOf = (n: PivotCubeNode, key: string): PivotCubeNode | undefined => {
@@ -445,6 +509,14 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     if (!siblingIndex.has(n)) n.parent!.children.forEach((c, j) => siblingIndex.set(c, j));
     return siblingIndex.get(n)!;
   };
+  /** Column-field series of the row being formatted (`cellsOf` formats one row at a time), by series group. */
+  let columnSeriesNode: PivotCubeNode | null = null;
+  let columnSeries: (AlongSeries | undefined)[] = [];
+  /**
+   * Row-field series per value column, for the current parent at the base level only: nodes under
+   * one parent are contiguous in display order, so this keeps memory to one sibling group's series.
+   */
+  const rowSeries: ({ readonly parent: PivotCubeNode; readonly byRel: Map<string, AlongSeries> } | undefined)[] = [];
   /**
    * Show-as value of `node` in column `i` along its measure's base field: along a column field via
    * `columnAlong`, along a row field via the node's ancestor at that level and its siblings (the
@@ -456,14 +528,24 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     if (!base) return null;
     const colAlong = columnAlong[i];
     if (colAlong) {
-      const { buckets, index, baseIndex } = colAlong;
-      return showAsAlong(kind, raw, index, buckets.length, (j) => valueAt(node, m, buckets[j]!), baseIndex);
+      const { buckets, index, baseIndex, group } = colAlong;
+      if (raw === null) return null;
+      if (buckets.length <= ALONG_SCAN_MAX) return showAsAlong(kind, raw, index, { count: buckets.length, valueOf: (j) => valueAt(node, m, buckets[j]!) }, baseIndex);
+      if (columnSeriesNode !== node) {
+        columnSeriesNode = node;
+        columnSeries = [];
+      }
+      let series = columnSeries[group];
+      if (!series) columnSeries[group] = series = { count: buckets.length, valueOf: (j) => valueAt(node, m, buckets[j]!) };
+      return showAsAlong(kind, raw, index, series, baseIndex);
     }
     const level = rowLevelOf.get(base.field);
     if (level === undefined || node.depth < level) return showAsOutside(kind, raw);
+    if (raw === null) return null;
     let a = node;
     while (a.depth > level) a = a.parent!;
-    const siblings = a.parent!.children;
+    const parent = a.parent!;
+    const siblings = parent.children;
     const rel = node.path.slice(level + 1);
     const index = indexInParent(a);
     const bucket = columnBuckets[i]!;
@@ -475,8 +557,24 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       }
       return valueAt(x!, m, bucket);
     };
-    const baseIndex = kind === "differenceFrom" || kind === "percentDifferenceFrom" ? baseIndexOf(siblings.map((s) => s.key), index, base.item, base.position) : -1;
-    return showAsAlong(kind, raw, index, siblings.length, valueOf, baseIndex);
+    if (kind === "differenceFrom" || kind === "percentDifferenceFrom") {
+      let baseIndex: number;
+      if (base.item !== undefined) {
+        const item = childOf(parent, base.item);
+        baseIndex = item ? indexInParent(item) : -1;
+      } else {
+        baseIndex = baseIndexOf(siblings.length, index, base.position);
+      }
+      return showAsAlong(kind, raw, index, { count: siblings.length, valueOf }, baseIndex);
+    }
+    // A few siblings: scanning them per cell is cheaper than keying a shared series.
+    if (siblings.length <= ALONG_SCAN_MAX) return showAsAlong(kind, raw, index, { count: siblings.length, valueOf }, -1);
+    let state = rowSeries[i];
+    if (!state || state.parent !== parent) rowSeries[i] = state = { parent, byRel: new Map() };
+    const relKey = rel.length === 0 ? "" : JSON.stringify(rel);
+    let series = state.byRel.get(relKey);
+    if (!series) state.byRel.set(relKey, (series = { count: siblings.length, valueOf }));
+    return showAsAlong(kind, raw, index, series, -1);
   };
 
   // Header rows: one cell per run of adjacent columns sharing the same items down to that row.
@@ -877,6 +975,20 @@ export interface PivotModelBuilder {
   clear(): void;
 }
 
+export interface PivotModelBuilderOptions {
+  /** Most cubes kept for reuse (default 4; the current one always stays). */
+  readonly maxCubes?: number;
+  /**
+   * Budget for the cached cubes in bytes (`PivotCube.byteSize`, default 256 MiB): older cubes are
+   * dropped while the cache is over it, so layouts with very many row nodes keep one or two cubes
+   * instead of four. The current cube always stays.
+   */
+  readonly maxCubeBytes?: number;
+}
+
+/** Default `maxCubeBytes` of `createPivotModelBuilder`. */
+export const PIVOT_DEFAULT_MAX_CUBE_BYTES = 256 * 1024 * 1024;
+
 /**
  * `buildPivotModel` with caches for interactive use (what `usePivotGrid` uses):
  *
@@ -884,12 +996,14 @@ export interface PivotModelBuilder {
  *   changes skip re-reading records;
  * - the aggregated cube is reused while `pivotSpecDataKey(spec)` (and `rows`, `aggregators`)
  *   stay the same, so expanding a group or changing heat scope only re-runs the cheap view stage;
- * - the last few cubes are kept, so toggling a filter back is instant.
+ * - the last few cubes are kept (within `maxCubes` and `maxCubeBytes`), so toggling a filter back
+ *   is instant.
  *
  * Treat `rows` as immutable: mutate → pass a new array.
  */
-export function createPivotModelBuilder(options: { readonly maxCubes?: number } = {}): PivotModelBuilder {
+export function createPivotModelBuilder(options: PivotModelBuilderOptions = {}): PivotModelBuilder {
   const maxCubes = Math.max(1, options.maxCubes ?? 4);
+  const maxCubeBytes = options.maxCubeBytes ?? PIVOT_DEFAULT_MAX_CUBE_BYTES;
   let encoding: PivotRowEncoding | null = null;
   let cubeAggregators: PivotAggregatorRegistry | undefined;
   const cubes = new Map<string, PivotCube>();
@@ -923,6 +1037,13 @@ export function createPivotModelBuilder(options: { readonly maxCubes?: number } 
         if (cubes.size >= maxCubes) cubes.delete(cubes.keys().next().value!);
       }
       cubes.set(key, cube);
+      let bytes = 0;
+      for (const c of cubes.values()) bytes += c.byteSize;
+      while (cubes.size > 1 && bytes > maxCubeBytes) {
+        const oldest = cubes.keys().next().value!;
+        bytes -= cubes.get(oldest)!.byteSize;
+        cubes.delete(oldest);
+      }
       if (last && last.spec === spec && last.cube === cube) return last.model;
       const model = pivotModelFromCube(cube, spec);
       last = { spec, cube, model };

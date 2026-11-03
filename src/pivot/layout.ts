@@ -371,6 +371,44 @@ export function pivotKpiPanelHeight(kpis: readonly PivotKpiValue[], options: Piv
 }
 
 // ---------------------------------------------------------------------------
+// Row virtualization
+// ---------------------------------------------------------------------------
+
+/**
+ * Body rows to render for a virtualized grid: the rows overlapping the viewport, `offset` px below
+ * the top of the first body row and `height` px tall, plus `overscan` rows on each side, widened to
+ * multiples of `chunk` rows so that small scrolls keep the same window (no re-render).
+ * `rowTop(i)` is the top of row `i` in px (non-decreasing; `rowTop(rowCount)` is the body height).
+ */
+export function pivotVirtualRowWindow(
+  rowCount: number,
+  rowTop: (index: number) => number,
+  offset: number,
+  height: number,
+  overscan: number,
+  chunk = 8,
+): { readonly start: number; readonly end: number } {
+  if (rowCount <= 0) return { start: 0, end: 0 };
+  /** First row whose top is greater than `y`. */
+  const after = (y: number): number => {
+    let lo = 0;
+    let hi = rowCount;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (rowTop(mid) <= y) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  const first = Math.max(0, after(offset) - 1);
+  const last = Math.max(first + 1, after(offset + height));
+  const step = Math.max(1, Math.floor(chunk));
+  const start = Math.max(0, Math.floor((first - overscan) / step) * step);
+  const end = Math.min(rowCount, Math.ceil((last + overscan) / step) * step);
+  return { start, end: Math.max(end, Math.min(rowCount, start + 1)) };
+}
+
+// ---------------------------------------------------------------------------
 // Body groups (static / print output)
 // ---------------------------------------------------------------------------
 

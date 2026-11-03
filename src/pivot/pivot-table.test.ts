@@ -6,7 +6,7 @@ import { buildPivotModel } from "../core/pivot/build-model";
 import type { PivotSpec } from "../core/pivot/types";
 import { generatePlanningPivotRows, planningDatesPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
 import { reducePivotGridSpec } from "./grid-state";
-import { pivotColumnHeaderRole } from "./layout";
+import { pivotColumnHeaderRole, pivotVirtualRowWindow } from "./layout";
 import { PivotHeaderChartBand } from "./pivot-header-chart";
 import { PivotKpiPanel } from "./pivot-kpi-panel";
 import { PivotTable, type PivotColumnHeaderContext } from "./pivot-table";
@@ -148,5 +148,74 @@ describe("PivotTable with several column fields", () => {
     expect(reducePivotGridSpec(collapsed, model, { type: "expandAllColumns" }).columnsExpanded).toBe("all");
     const months = reducePivotGridSpec(spec, model, { type: "setDateGrouping", field: "orderDate", groups: ["year", "month"] });
     expect(months.columns).toEqual([{ field: "orderDate:year" }, { field: "orderDate:month", label: "Month (Order date)" }]);
+  });
+});
+
+describe("PivotTable row virtualization", () => {
+  // 6 regions × 600 customers: 3,606 body rows × 13 value columns.
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const bigRows = Array.from({ length: 30_000 }, (_, i) => ({
+    region: `R${Math.floor(i / 5000)}`,
+    customer: `C${(i * 7919) % 600}`,
+    month: months[i % 12],
+    actual: (i * 37) % 1000,
+  }));
+  const big = buildPivotModel(
+    {
+      version: 1,
+      rows: [{ field: "region" }, { field: "customer" }],
+      columns: { field: "month" },
+      measures: [{ id: "actual", field: "actual" }],
+      totals: { rowTotal: true },
+    },
+    bigRows,
+  );
+  const rowsIn = (s: string) => count(s, /<tr data-kind=/g);
+
+  it("auto: large interactive bodies render a window plus a bottom spacer of the remaining height", () => {
+    expect(big.rows.length).toBeGreaterThan(3000);
+    const out = html(createElement(PivotTable, { model: big, onToggleGroup: () => {} }));
+    expect(out).toContain('data-nqg-virtual=""');
+    const rendered = rowsIn(out);
+    expect(rendered).toBeGreaterThan(20);
+    expect(rendered).toBeLessThan(120);
+    // Rows are 36px until measured: the spacer holds every row that is not rendered.
+    expect(out).toContain(`data-nqg-spacer="" style="height:${(big.rows.length - rendered) * 36}px`);
+    expect(out).toContain(`aria-rowcount="${big.headerRows.length + big.rows.length}"`);
+    // The region spans are clipped to the rendered rows, so no cell spans into the spacer.
+    const spans = [...out.matchAll(/rowSpan="(\d+)"[^>]*data-nqg-span="(\d+)"/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    expect(spans.length).toBeGreaterThan(0);
+    for (const [shown, total] of spans) expect(shown).toBeLessThanOrEqual(Math.min(total!, rendered));
+  });
+
+  it("virtualize={false}, static mode and small models render every row", () => {
+    expect(rowsIn(html(createElement(PivotTable, { model: big, virtualize: false })))).toBe(big.rows.length);
+    const printed = html(createElement(PivotTable, { model: big, mode: "static", virtualize: true }));
+    expect(rowsIn(printed)).toBe(big.rows.length);
+    expect(printed).not.toContain("data-nqg-virtual");
+    const small = html(createElement(PivotTable, { model, onToggleGroup: () => {} }));
+    expect(small).not.toContain("data-nqg-virtual");
+    expect(small).not.toContain("aria-rowcount");
+    expect(rowsIn(html(createElement(PivotTable, { model, virtualize: true })))).toBeLessThanOrEqual(model.rows.length);
+  });
+});
+
+describe("pivotVirtualRowWindow", () => {
+  const top = (i: number) => i * 36;
+  it("covers the viewport plus overscan, aligned to chunks", () => {
+    expect(pivotVirtualRowWindow(1000, top, 0, 360, 4)).toEqual({ start: 0, end: 16 });
+    // Rows 100…110 visible; ± 4 rows, widened to multiples of 8.
+    expect(pivotVirtualRowWindow(1000, top, 3600, 360, 4)).toEqual({ start: 96, end: 120 });
+    // A small scroll keeps the window.
+    expect(pivotVirtualRowWindow(1000, top, 3610, 360, 4)).toEqual({ start: 96, end: 120 });
+    expect(pivotVirtualRowWindow(1000, top, 36_000, 360, 4)).toEqual({ start: 992, end: 1000 });
+    expect(pivotVirtualRowWindow(0, top, 0, 360, 4)).toEqual({ start: 0, end: 0 });
+    // Body below the viewport (negative offset) or above it.
+    expect(pivotVirtualRowWindow(1000, top, -5000, 360, 4)).toEqual({ start: 0, end: 8 });
+    expect(pivotVirtualRowWindow(1000, top, 99_999, 360, 4)).toEqual({ start: 992, end: 1000 });
+  });
+  it("uses the given row tops (taller rows, filler rows)", () => {
+    const tops = [0, 36, 200, 236, 272];
+    expect(pivotVirtualRowWindow(4, (i) => tops[i]!, 210, 20, 0, 1)).toEqual({ start: 2, end: 3 });
   });
 });

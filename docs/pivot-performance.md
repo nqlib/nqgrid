@@ -2,7 +2,7 @@
 
 `buildPivotModel` benchmarks before and after the filters / Top N / sort-by-value work (Excel parity, step 1), plus the
 field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)) and the column-hierarchy /
-date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)) and the calculated-measure / distinct-count / drill-through scenarios of step 4 ([below](#step-4-calculated-measures-distinct-count-show-values-as-drill-through-excel-parity-step-4)).
+date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)) and the calculated-measure / distinct-count / drill-through scenarios of step 4 ([below](#step-4-calculated-measures-distinct-count-show-values-as-drill-through-excel-parity-step-4)). The [performance review](#performance-review) at the end covers the React layer and the export service too, with fixes and recommended limits.
 The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts` and `bench/pivot-step4.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
 
 ## Setup
@@ -243,7 +243,7 @@ lookups only for measures that use them.
 7. **Cheaper number formatting.** `formatPivotNumber` trims fraction zeros without regexes or `split`, and counts
    integer digits with comparisons for values under 1000. Output is byte-identical: the goldens are unchanged.
 8. **`createPivotModelBuilder` / `usePivotGrid`.** The builder keeps the encoding while `rows` keeps its identity,
-   plus up to 4 cubes keyed by the data key (toggling a slicer back is a cache hit) and the last model per spec
+   plus up to 4 cubes keyed by the data key (toggling a slicer back is a cache hit; since the performance review also within a 256 MiB byte budget) and the last model per spec
    object. `usePivotGrid` uses one builder per grid. `PivotTable` is wrapped in `React.memo`, so parent
    re-renders with the same model skip it. Rows use stable `row.id` keys and cells use column ids.
 
@@ -259,5 +259,205 @@ lookups only for measures that use them.
   80 ms (base) to 110–150 ms (filtered) for the cube and 13–50 ms for the view, the higher end on cold JIT. That is
   close to the cost of reading each field once through a `Map`. Columnar input (arrays per field) would be the next
   step if it matters.
+
+## Performance review
+
+An independent review of the whole pivot stack after step 4 (engine, React layer, static renderer, export service,
+Python client), measured rather than taken from the sections above. Same VM (4 vCPU Xeon @ 2.80 GHz, Node 22.22,
+Chromium from Playwright). Engine numbers are medians of interleaved runs (old and new code in separate processes, or
+both bundled into one script and alternated); React numbers are medians of 3 page loads per variant; the regression
+table is the median of 2 interleaved `pnpm bench` runs per tree. Scripts, CPU profiles and raw results were kept
+outside the repository; `bench/pivot-review.bench.ts` reproduces the engine scenarios.
+
+### Findings, ranked by impact
+
+1. **`PivotTable` rendered every body row.** No virtualization: each model change re-rendered all rows and the browser
+   laid out every cell (two sticky cells per row). At 6,007 rows × 39 value columns: 3.6 s to mount, 0.7 s per update,
+   253k DOM nodes; at 29,216 rows: 23 s to mount, 4.5 s per update, 1.2M DOM nodes, 1 GB JS heap, 270 ms per scroll step.
+   **Fixed** with row virtualization (on by default above 10,000 body cells).
+2. **"Show values as" along a field was O(k²) per sibling group.** Running totals summed siblings `0…i` for every cell,
+   `% running total` and ranks scanned all siblings for every cell, and differences built the sibling key list per
+   cell. With 2,000 customers per region (100k records, 12k body rows): 2.2 s (running total), 6.2 s (% running
+   total), 6.5 s (rank), 2.1 s (difference from) instead of 0.18 s for plain values; with 16,000 per region a running
+   total took 52 s. The step-4 note "running totals: up to the item" described this cost. **Fixed** (shared sibling
+   series: prefix sums, sorted values, base lookup).
+3. **Every PDF paid for a new browser context, page and renderer.** Of about 160 ms per PDF, `newPage` took 40 ms and
+   the first `setContent` / `pdf` in a fresh renderer 46 / 62 ms, against 16 / 38 ms on a reused page. **Fixed** with
+   a pool of warm print pages (twice the throughput).
+4. **The builder kept 4 cubes whatever their size.** Region → customer (120k row nodes) at 1M records: 162 MB per
+   cube, +486 MB retained after three slicer states, and garbage collection took 42 % of each 1.9 s build.
+   **Fixed** with a byte budget (`maxCubeBytes`, default 256 MiB).
+5. **Cubes with many row nodes were allocation-bound.** One zero-filled `Float64Array`, one `Map` and one ancestor
+   array per node: about 190,000 leaves (200k records, 4 row levels down to customer) took 1.5 s, two thirds in node
+   creation and GC. A `Map` lookup per record found the leaf even for small key spaces. **Fixed** (shared accumulator
+   blocks, no child maps on leaves, lazy ancestor chains, dense leaf table).
+6. **Not changed** (measured, below the bar or by design): see "Deliberately not changed".
+
+Cache correctness was checked against the code: `pivotSpecDataKey` covers every input of the cube (row / column
+fields with order, sort, `sortBy`, Top N without its label, attributes, `keepEmpty`; measure fields, aggregates and
+calculated expressions; filters; facets; date-field definitions). Labels, formats, show-as, subtotal placement,
+totals, heat, KPIs, `values` and `valuesIndex` are view-only, and the cube compiles every measure (not only `values`),
+so changing them reuses the cube. New `rows` or `aggregators` identities clear the caches.
+
+### Fixes and measurements
+
+**Row virtualization (`PivotTable`, interactive mode).** `virtualize` (`"auto"` by default, `true`, `false`) and
+`overscan` (12 rows). When on, only the rows in view of the nearest vertically scrolling ancestor (or the window), plus
+overscan, are rendered between two spacer rows; window computation is coalesced to one per animation frame and widened
+to 8-row chunks, so small scrolls do not re-render. Span cells whose group starts above the first rendered row are
+drawn there, clipped to the rendered rows (`rowSpan` never reaches into a spacer); the window is widened so a clipped
+span keeps room for its KPI panel (or two rows), KPI filler rows are on (`fillSpanHeight`), and rendered rows are
+measured, so spacers stay exact when rows render taller than `rowHeight`. `aria-rowcount` / `aria-rowindex` describe
+the full table. Static mode (HTML / PDF) and models up to 10,000 body cells (or 200 rows) render exactly as before.
+Region → customer, 39 value columns, Chromium:
+
+| Body rows (cells) | Mount before | Mount after | Update before | Update after | DOM nodes before → after | JS heap before → after | Scroll step before → after |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 487 (19k) | 304 ms | 78 ms | 91 ms | 17 ms | 20,887 → 1,670 | 32 → 28 MB | 33 → 33 ms |
+| 6,007 (234k) | 3,637 ms | 94 ms | 729 ms | 30 ms | 252,727 → 1,670 | 232 → 65 MB | 61 → 33 ms |
+| 29,216 (1.1M) | 23,252 ms | 103 ms | 4,505 ms | 27 ms | 1,227,505 → 1,670 | 1,013 → 171 MB | 270 → 33 ms |
+| 71,669 (2.8M) | not run | 108 ms | not run | 67 ms | – → 1,670 | – → 374 MB | – → 33 ms |
+
+"Update" is a new model of the same size (heat scope change); "scroll step" is 300 px plus two animation frames
+(33 ms is the floor). A side-by-side check rendered the same model with and without virtualization in two scrollers
+and compared the painted cell under about 250 sample points at 17 scroll positions, for 4-level trees with KPI panels,
+`subtotal: "end"` with the grand total on top, compact layout and partly collapsed groups (and the window as the
+scroller): the painted content matched everywhere. With rows taller than `rowHeight` (e.g. collapsed groups with a
+KPI delta render 37 px), the scroll height converges as rows are measured.
+
+**Show values as along a field (`pivotModelFromCube`).** Cells share one series per sibling group and column: running
+totals read a prefix sum (the same additions in the same order, so results are bit-identical), ranks binary-search the
+sorted values, differences look the base up directly. Groups of at most 32 siblings keep the per-cell scan (cheaper
+than building a series). Row-field series are kept for the current parent only (its nodes are contiguous in display
+order), column-field series for the current row only. A randomized comparison against the previous implementation
+(4,500 specs: every show-as kind, row and column bases, named items, previous / next, subtotal placements, collapsed
+groups, up to 60 siblings, i.e. both sides of the 32-sibling scan limit) gave identical models. View-only builds, 100k records, region → customer:
+
+| Scenario | 1,000 per region before | after | 2,000 per region before | after |
+|---|---:|---:|---:|---:|
+| plain values (reference) | 72 ms | 77 ms | 175 ms | 184 ms |
+| running total along customer | 448 ms | 111 ms | 2,233 ms | 191 ms |
+| % running total along customer | – | – | 6,176 ms | 184 ms |
+| rank (descending) along customer | 1,133 ms | 105 ms | 6,462 ms | 185 ms |
+| difference from (`item`) along customer | 488 ms | 57 ms | 2,096 ms | 130 ms |
+
+With 16,000–20,000 customers per region the running total went from 52 s to 1.8 s (plain values 0.8 s). Show-as
+along small fields (month, region) is unchanged (within ±10 % in separate-process runs).
+
+**PDF page pool (`nqgrid-export`).** `createPivotPdfPagePool(browser)` keeps print pages in one context with
+JavaScript off and the network blocked (as before); each PDF replaces the page's document with `setContent`, a page
+that fails is closed, and pages are replaced after 100 renders. `createPivotExporter` uses it (serve mode: one idle page
+per `--concurrency`), and XLSX exports now share the concurrency limit with PDFs. `renderPivotPdf` is unchanged for
+one-off use. Planning golden (`planning.request.json` + rows) against `serve`, 2 interleaved runs each:
+
+| Load | Before p50 / p95 | After p50 / p95 | Throughput before → after |
+|---|---:|---:|---:|
+| 20 sequential PDFs | 169–189 / 196–222 ms | 84–98 / 115–121 ms | 5.2–5.9 → 9.9–11.1 req/s |
+| 5 concurrent PDFs × 4 rounds | 419–421 / 567–575 ms | 224–253 / 315–319 ms | 8.8–9.0 → 17.2 req/s |
+| 1,200 PDFs, 4 at a time (Node API) | | | 10.0 → 22.2 PDFs/s |
+| 20 sequential XLSX | 17 / 23 ms | unchanged | 55 req/s |
+
+Chromium memory is flat with reuse (398 → 411 MB RSS over 1,200 PDFs with 4 warm pages, against 291–310 MB without
+them): the pool costs about 110 MB for 4 idle pages and does not grow.
+
+**Cube cache byte budget (`createPivotModelBuilder`).** `PivotCube.byteSize` estimates what a cube retains
+(`nodes × ((column buckets + 1) × slots × 8 + 240)` bytes, plus record lists for custom aggregators; 176 MB estimated
+against 162 MB measured above). The builder drops its oldest cubes while the cache exceeds `maxCubeBytes` (default
+256 MiB; the current cube always stays). Same scenario (1M records, region → customer, 6 slicer states): retained heap
+over the first cube +162 / +324 / +486 / +455 MB → about 0 (one cube kept), builds 1.8–2.4 s → 1.25–1.5 s (less GC).
+Layouts with up to a few thousand row nodes still keep 4 cubes (343 nodes × 13 buckets ≈ 0.7 MB each).
+
+**Cube construction (`buildTree`).** Accumulators are views into 512 KB blocks; leaves share one empty child map;
+the ancestor chain is built only when attributes are pending; key spaces up to 2²⁰ use an `Int32Array` from composite
+key to leaf instead of a `Map`. A randomized comparison of full models and drill-through against the previous engine
+(2,158 valid specs: every aggregate incl. custom, ratio, weighted average, distinct count, calculated measures, Top N
+with and without Other, attributes, date grouping, 0–2 column fields, filters, facets, heat) gave identical output.
+Accumulator blocks start at 64 nodes and double up to 512 KB, so small trees (Top-N rank trees, 10k-record specs)
+allocate no more than before. Cube only (encoding reused), medians of 6 (1M) and 4 (200k) alternated processes, each
+the median of 9 / 3 builds:
+
+| Scenario | Before | After |
+|---|---:|---:|
+| 1M records, base spec | 102 ms | 88 ms (−14 %) |
+| 1M records, filtered spec (3 filters, 4 facets, Top 5 + Other, sort by value) | 193 ms | 155 ms (−20 %) |
+| 200k records, region → department → line → customer (~190k row nodes) | 1,615 ms | 1,154 ms (−29 %) |
+
+**Regression check (`pnpm bench`).** Median of the per-run means, 2 interleaved runs of HEAD `5d75998` (temporary
+worktree) and of this tree; `pivot.bench.ts` and `pivot-step4.bench.ts` with the final code, `pivot-columns.bench.ts`
+and `pivot-review.bench.ts` from a first pair of runs (before the accumulator blocks started small). Before → after, ms:
+
+| Scenario | 10k | 100k | 500k |
+|---|---:|---:|---:|
+| Base spec, cold | 18.7 → 16.7 | 44.9 → 44.8 | 174.8 → 168.0 |
+| 3 filters, cold | 11.4 → 11.3 | 44.2 → 38.2 | 172.8 → 165.3 |
+| Filters + label filter + 4 facets + Top 5 + sortBy, cold | 13.4 → 13.4 | 54.4 → 47.5 | 218.7 → 200.8 |
+| View-only change (sub-millisecond medians, GC outliers) | 2.9 → 3.0 | 2.2 → 2.6 | 1.7 → 2.1 |
+| Filter change: slicer click | 2.6 → 2.4 | 7.5 → 8.8 | 32.3 → 32.5 |
+| Move field: Line ↔ Columns | 21.8 → 25.2 | 31.0 → 29.7 | 81.3 → 67.2 |
+| Add measure: Units into Values | 13.1 → 12.5 | 21.5 → 20.7 | 76.2 → 58.0 |
+| Step 4 reference: base spec, cold | | 50.8 → 48.6 | 183.8 → 177.0 |
+| Calculated measure as a 4th value, cold | | 59.1 → 52.1 | 205.1 → 189.1 |
+| Calculated measure as sortBy + Top 3 + heat + KPI, cold | | 66.8 → 56.8 | 250.1 → 222.7 |
+| Distinct count of 20k customers, cold | | 75.9 → 62.7 | 280.6 → 266.8 |
+| Distinct count of 6 regions, cold | | 39.7 → 37.1 | 178.1 → 166.4 |
+| View-only: running total / difference from / subtotal rows | | 13.2 → 11.3 | 10.0 → 12.9 |
+| Running total along month, cold | | 50.3 → 47.3 | 172.9 → 179.8 |
+| Drill-through: leaf cell | | 0.7 → 0.7 | 4.4 → 4.3 |
+| Drill-through: grand total of filters + Top 5 | | 11.2 → 11.5 | 42.3 → 42.3 |
+| 2 column fields: year → month, cold | | 71.0 → 64.4 | 214.0 → 201.0 |
+| 3 column fields: year → quarter → month, cold | | 72.3 → 71.3 | 278.2 → 250.4 |
+| Date grouping from ISO strings, cold | | 76.1 → 69.5 | 363.6 → 303.9 |
+| Date grouping, encoding reused: slicer click | | 6.2 → 6.3 | 23.0 → 20.7 |
+| Toggle a column group | | 21.1 → 17.5 | 21.2 → 17.9 |
+| Review: values / running total / rank / difference along 1,000 customers per region | | 84 / 482 / 1,290 / 530 → 70 / 89 / 108 / 73 | |
+| Review: ~190k row nodes, cube (200k records) | | 1,339 → 813 | |
+
+Cold builds are equal or faster (dense leaf table, block allocation). Rows above +10 % overlap between runs: 10k
+"move field" (24.4 / 19.3 against 25.3 / 25.1 ms; the first pair of runs gave 21.2 → 20.0), 100k slicer click (7.8 / 7.1
+against 7.1 / 10.6), 500k step-4 view-only (11.2 / 8.8 against 15.0 / 10.8) and the sub-millisecond view-only rows. A
+direct alternated comparison of the 10k filtered spec, 25 builds per process and 3 processes each, gave 14.1 ms for
+both trees (an earlier version allocated a 512 KB block per tree and was 30 % slower there; blocks now start small).
+
+### Deliberately not changed
+
+- **Encoding** is the largest stage of a cold build at 1M records (250–350 ms for 7 fields; the cube is 90–250 ms,
+  the view 10–30 ms). It reads each field once through property access; columnar input would be the next step.
+- **Model size.** Every visible row's cells are materialized as objects (`{ value, raw, text }`): about 130 bytes per
+  cell in Chromium (9.85M cells: 1.27 GB heap). Virtualization removed the DOM cost, not this. Lazy cells would change
+  the `PivotModel` contract (the JSON shared with Python and the goldens).
+- **Key sorting** (`sort: "asc"` / `"desc"`) parses keys as numbers in every comparison: 26 ms for 20k keys,
+  368 ms for 200k. Below the cost of building a tree with that many nodes.
+- **Dense accumulator layout.** Each row node holds every column bucket (1.2 KB for the base spec's 14 buckets ×
+  11 slots). Leaves with a handful of records waste most of it, but a sparse layout changes every read path; the cache
+  budget bounds the impact.
+- **XLSX** is built in memory with exceljs: 3,007 rows × 39 columns in 1.5 s (+120 MB RSS), 30,006 rows in 6.4 s
+  (+450 MB). A streaming workbook writer would bound memory; with the 10 MiB request cap and the shared
+  concurrency limit it is not needed for typical reports.
+- **Very large PDFs** cost about 10 ms per page in Chromium's print path whatever the CSS (a 3,007-row × 39-column
+  pivot is 471 pages with its column chunks, 6 s in `page.pdf`, 10 s end to end; removing the `break-inside` rules or
+  the row spans did not help). A 30,006-row pivot fails with "Printing failed" after about 100 s, before and after
+  this review.
+- **Drag and drop** in the field list and headers already does one hit test per animation frame and no React work
+  while moving; `usePivotGrid` memo boundaries are sound (callbacks change only with the spec, together with the model).
+- **Python client.** `NqgridExportClient` reuses one `httpx` client (connection pool). `SubprocessExporter` starts
+  `nqgrid-export` (and Chromium for PDFs) per call by design; `PivotReportService.from_env` prefers the HTTP client
+  when `NQGRID_EXPORT_URL` is set.
+
+### Remaining risks and recommended limits
+
+| Area | Recommended ceiling | Why |
+|---|---|---|
+| Records per build (browser) | ≤ 1M records with ≤ 20 fields read | Cold build ≈ 0.35–0.5 s at 1M (encode + cube); the rows themselves are the larger memory cost (260 MB for 1M × 8 fields). |
+| Row nodes per cube | ≤ 50k nodes at ~13 column buckets (≈ 75 MB per cube) | Memory ≈ nodes × ((buckets + 1) × slots × 8 + 240) B; 120k nodes × 14 buckets = 176 MB. Aggregate upstream or group by a coarser field beyond. |
+| Visible body cells (model) | ≤ 1M cells (e.g. 25k rows × 39 columns) | ≈ 130 B per cell in the model; 2.8M cells used 374 MB of JS heap. Collapse groups (`expanded: "none"`) or Top N for larger views. |
+| Show-as along a field | no practical sibling limit | O(k log k) per sibling group and column; memory: one series per (current parent, descendant path, column). |
+| React DOM | none (virtualized) | ~1,700 DOM nodes at any size; mount 80–110 ms dominated by the model. Opt out (`virtualize={false}`) only for small tables (all rows in the DOM, e.g. for find-in-page). |
+| PDF per request | ≤ ~300 pages (≈ 2,000 body rows × 39 columns on A4 landscape, column chunks included) | ~10 ms per page; 30,006 rows fail in Chromium. Use XLSX for full listings. |
+| XLSX per request | ≤ ~200k cells at `--concurrency 4` | exceljs needs ~0.4–1 KB of RSS per cell (30,006 × 39: +450 MB); lower `--concurrency` or raise `--max-old-space-size` for larger. |
+| Request body | 10 MiB (default `--max-body-mb`) | JSON parse and encode are synchronous on the event loop. |
+
+Virtualization caveats: rows are assumed to be `rowHeight` tall until rendered once (the scroll height converges as
+rows are measured); find-in-page sees only rendered rows; custom `renderSpanCell` content taller than two rows can
+stretch rows when its span is clipped at the window edge.
 
 Re-run with `pnpm bench`. Numbers on other machines differ in absolute terms. Compare scenarios on the same machine.

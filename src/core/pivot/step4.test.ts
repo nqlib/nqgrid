@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { generatePlanningPivotRows, planningCalcPivotSpec } from "../../fixtures/planning-pivot-mock";
 import { buildPivotModel, createPivotModelBuilder, pivotCellDrillTarget, PIVOT_GRAND_TOTAL_ROW_ID, pivotSubtotalRowId } from "./build-model";
-import { PIVOT_OTHER_KEY, pivotDrillThrough } from "./cube";
+import { buildPivotCube, PIVOT_OTHER_KEY, pivotDrillThrough } from "./cube";
 import { movePivotField, pivotFieldListState, removePivotField, setPivotMeasureAggregate } from "./fields";
 import {
   checkPivotCalculatedMeasure,
@@ -373,5 +373,101 @@ describe("JSON Schema (additive v1)", () => {
   }))("rejects %s in both validators", (_name, spec) => {
     expect(validateSchema(spec)).toBe(false);
     expect(validatePivotSpec(spec).ok).toBe(false);
+  });
+});
+
+describe("show values as along a field with many items", () => {
+  // 50 items × 2 groups (beyond the per-cell scan limit: shared sibling series), ties and gaps.
+  const items = Array.from({ length: 50 }, (_, i) => `i${String(i).padStart(2, "0")}`);
+  const records: PivotDataRow[] = [];
+  for (const g of ["A", "B"]) {
+    items.forEach((item, i) => {
+      if (g === "B" && i % 7 === 3) return; // missing items under B
+      records.push({ g, item, col: `c${i % 45}`, v: ((i * 37) % 11) - 3 + (g === "B" ? 0.5 : 0) });
+    });
+  }
+  const spec = (showAs: string, field: string, extra: Record<string, unknown> = {}): PivotSpec => ({
+    version: 1,
+    rows: [{ field: "g" }, { field: "item" }],
+    columns: { field: "col" },
+    measures: [{ id: "v", field: "v", showAs: showAs as never, showAsBase: { field, ...extra } }],
+    totals: { rowTotal: true },
+  });
+  const rawOf = (model: PivotModel, column: number) => (path: readonly string[]) => model.rows.find((r) => r.path.join("/") === path.join("/"))?.cells[column]?.raw ?? null;
+
+  it("running totals, ranks and differences along a row field equal a scan of the siblings", () => {
+    const totalColumn = buildPivotModel(spec("runningTotal", "item"), records).columns.length - 1;
+    for (const kind of ["runningTotal", "percentRunningTotal", "rankAscending", "rankDescending", "differenceFrom", "percentDifferenceFrom"]) {
+      const extra = kind.includes("Difference") || kind === "differenceFrom" ? { item: "i10" } : {};
+      const model = buildPivotModel(spec(kind, "item", extra), records);
+      for (const g of ["A", "B"]) {
+        const leaves = model.rows.filter((r) => r.kind === "leaf" && r.path[0] === g);
+        const raws = leaves.map((r) => r.cells[totalColumn]!.raw);
+        leaves.forEach((row, index) => {
+          const raw = raws[index]!;
+          let expected: number | null;
+          if (kind === "runningTotal" || kind === "percentRunningTotal") {
+            let run = 0;
+            for (let j = 0; j <= index; j++) run += raws[j] ?? 0;
+            let total = run;
+            for (let j = index + 1; j < raws.length; j++) total += raws[j] ?? 0;
+            expected = kind === "runningTotal" ? run : total === 0 ? null : run / total;
+          } else if (kind.startsWith("rank")) {
+            expected = 1 + raws.filter((v) => v !== null && (kind === "rankAscending" ? v < raw! : v > raw!)).length;
+          } else {
+            const base = rawOf(model, totalColumn)([g, "i10"]);
+            expected = row.path[1] === "i10" || base === null ? null : kind === "differenceFrom" ? raw! - base : base === 0 ? null : (raw! - base) / base;
+          }
+          expect(row.cells[totalColumn]!.value).toBe(expected);
+        });
+      }
+    }
+  });
+
+  it("running totals and ranks along a column field with many columns", () => {
+    for (const kind of ["runningTotal", "rankDescending"]) {
+      const model = buildPivotModel(spec(kind, "col"), records);
+      const leafColumns = model.columns.filter((c) => c.columnKey !== null);
+      expect(leafColumns.length).toBe(45);
+      for (const row of model.rows.filter((r) => r.kind === "leaf")) {
+        const raws = leafColumns.map((_, i) => row.cells[i]!.raw);
+        leafColumns.forEach((_, i) => {
+          const raw = raws[i]!;
+          if (raw === null) return expect(row.cells[i]!.value).toBeNull();
+          let run = 0;
+          for (let j = 0; j <= i; j++) run += raws[j] ?? 0;
+          const expected = kind === "runningTotal" ? run : 1 + raws.filter((v) => v !== null && v > raw).length;
+          expect(row.cells[i]!.value).toBe(expected);
+        });
+      }
+    }
+  });
+});
+
+describe("createPivotModelBuilder cube budget", () => {
+  const filtered = (exclude: string): PivotSpec => ({ ...base, filters: [{ field: "dept", exclude: [exclude] }] });
+  // Row paths come from the cube's nodes, so the same array means the cube was reused.
+  const firstPath = (m: PivotModel) => m.rows[0]!.path;
+
+  it("keeps recent cubes within maxCubeBytes (the current one always stays)", () => {
+    const cached = createPivotModelBuilder();
+    const a = firstPath(cached.build(filtered("Camp"), data));
+    cached.build(filtered("Footwear"), data);
+    expect(firstPath(cached.build(filtered("Camp"), data))).toBe(a);
+
+    const tight = createPivotModelBuilder({ maxCubeBytes: 0 });
+    const b = firstPath(tight.build(filtered("Camp"), data));
+    expect(firstPath(tight.build({ ...filtered("Camp"), heat: { measure: "sales" } }, data))).toBe(b); // view-only: same cube
+    tight.build(filtered("Footwear"), data);
+    const again = firstPath(tight.build(filtered("Camp"), data));
+    expect(again).not.toBe(b);
+    expect(again).toEqual(b);
+  });
+
+  it("PivotCube.byteSize grows with row nodes and column buckets", () => {
+    const small = buildPivotCube({ ...base, rows: [{ field: "dept" }] }, data).byteSize;
+    const large = buildPivotCube(base, data).byteSize;
+    expect(small).toBeGreaterThan(0);
+    expect(large).toBeGreaterThan(small);
   });
 });

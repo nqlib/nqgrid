@@ -2,7 +2,7 @@ import { buildPivotModel, pivotModelToSheet, type PivotDataRow, type PivotSpec }
 import { renderPivotHtml, type RenderPivotHtmlOptions } from "@nqlib/nqgrid/render-static";
 
 import { PivotExportError, toPivotExportError } from "./errors";
-import { launchPivotBrowser, renderPivotPdf, type LaunchPivotBrowserOptions, type PivotPdfBrowser } from "./pdf";
+import { createPivotPdfPagePool, launchPivotBrowser, type LaunchPivotBrowserOptions, type PivotPdfBrowser, type PivotPdfPagePool } from "./pdf";
 import { parsePivotExportRequest, type PivotExportFormat, type PivotExportOptions } from "./request";
 import { writePivotXlsx } from "./xlsx";
 
@@ -46,6 +46,8 @@ export interface PivotExporter {
 export interface CreatePivotExporterOptions extends LaunchPivotBrowserOptions {
   /** Reuse an existing Playwright browser (not closed by `close()`). */
   readonly browser?: PivotPdfBrowser;
+  /** Print pages kept warm for reuse (default 4; the serve mode passes its concurrency). */
+  readonly pdfPages?: number;
 }
 
 /** `PivotExportOptions` are `renderPivotHtml` options plus PDF-only keys (ignored by the renderer). */
@@ -53,11 +55,20 @@ const htmlOptions = (o: PivotExportOptions | undefined): RenderPivotHtmlOptions 
 
 /**
  * Exporter that owns (at most) one Chromium instance, launched on first PDF (or `warm()`) and
- * relaunched if it disconnects. Every PDF renders in its own isolated browser context.
+ * relaunched if it disconnects. PDFs render on reusable print pages (`createPivotPdfPagePool`: one
+ * context with JavaScript off and the network blocked; each PDF replaces the page's document).
  */
 export function createPivotExporter(options: CreatePivotExporterOptions = {}): PivotExporter {
   let browser: Promise<PivotPdfBrowser> | null = options.browser ? Promise.resolve(options.browser) : null;
   let state: PivotBrowserState = options.browser ? "ready" : "cold";
+  let pool: { readonly browser: PivotPdfBrowser; readonly pages: PivotPdfPagePool } | null = null;
+  const poolFor = (b: PivotPdfBrowser): PivotPdfPagePool => {
+    if (pool?.browser !== b) {
+      void pool?.pages.close();
+      pool = { browser: b, pages: createPivotPdfPagePool(b, { maxIdlePages: options.pdfPages ?? 4 }) };
+    }
+    return pool.pages;
+  };
 
   const getBrowser = () => {
     if (!browser) {
@@ -68,6 +79,7 @@ export function createPivotExporter(options: CreatePivotExporterOptions = {}): P
           b.on("disconnected", () => {
             browser = null;
             state = "cold";
+            if (pool?.browser === b) pool = null;
           });
           return b;
         },
@@ -96,7 +108,7 @@ export function createPivotExporter(options: CreatePivotExporterOptions = {}): P
       case "pdf": {
         const html = renderPivotHtml(model, htmlOptions(req.options));
         const o = req.options;
-        return renderPivotPdf(await getBrowser(), html, {
+        return poolFor(await getBrowser()).render(html, {
           page: o?.page,
           theme: o?.theme,
           title: o?.title === undefined ? (model.title ?? null) : o.title,
@@ -124,6 +136,9 @@ export function createPivotExporter(options: CreatePivotExporterOptions = {}): P
       const current = browser;
       browser = null;
       state = "cold";
+      const pages = pool?.pages;
+      pool = null;
+      await pages?.close();
       if (current && !options.browser) await current.then((b) => b.close()).catch(() => undefined);
     },
   };

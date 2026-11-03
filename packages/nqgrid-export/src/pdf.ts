@@ -26,6 +26,7 @@ export interface PivotPdfPage {
   setContent(html: string, options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle"; timeout?: number }): Promise<void>;
   emulateMedia(options: { media: "print" | "screen" }): Promise<void>;
   pdf(options: Record<string, unknown>): Promise<Uint8Array>;
+  close?(): Promise<void>;
 }
 export interface PivotPdfContext {
   route(url: string, handler: (route: PivotPdfRoute) => unknown): Promise<void>;
@@ -120,29 +121,113 @@ export function pivotPdfTemplates(options: PivotPdfOptions): { headerTemplate: s
   };
 }
 
-/**
- * Print a `renderPivotHtml` document to PDF in an isolated context: JavaScript off and every
- * network request aborted (the document is self-contained anyway).
- */
-export async function renderPivotPdf(browser: PivotPdfBrowser, html: string, options: PivotPdfOptions = {}): Promise<Uint8Array> {
+/** Load `html` into `tab` and print it (shared by the one-off and pooled paths). */
+async function printPivotPdf(tab: PivotPdfPage, html: string, options: PivotPdfOptions): Promise<Uint8Array> {
   const page = resolvePivotStaticPage(options.page);
+  await tab.setContent(html, { waitUntil: "load", timeout: options.timeout ?? 30_000 });
+  const headerFooter = options.headerFooter ?? true;
+  const m = page.margins;
+  const pdf = await tab.pdf({
+    preferCSSPageSize: true,
+    printBackground: true,
+    displayHeaderFooter: headerFooter,
+    ...(headerFooter ? pivotPdfTemplates(options) : {}),
+    margin: { top: `${m.top}mm`, right: `${m.right}mm`, bottom: `${m.bottom}mm`, left: `${m.left}mm` },
+  });
+  return new Uint8Array(pdf.buffer, pdf.byteOffset, pdf.byteLength);
+}
+
+/** Browser context for PDF rendering: JavaScript off and every network request aborted. */
+async function newPivotPdfContext(browser: PivotPdfBrowser): Promise<PivotPdfContext> {
   const context = await browser.newContext({ javaScriptEnabled: false, offline: true });
   try {
     await context.route("**/*", (route) => (route.request().url().startsWith("data:") ? route.continue() : route.abort()));
+  } catch (error) {
+    await context.close().catch(() => undefined);
+    throw error;
+  }
+  return context;
+}
+
+/**
+ * Print a `renderPivotHtml` document to PDF in an isolated context: JavaScript off and every
+ * network request aborted (the document is self-contained anyway). Creates and closes a context
+ * and page per call; for repeated PDFs use `createPivotPdfPagePool` (what `createPivotExporter`
+ * does), which skips about two thirds of the per-PDF time.
+ */
+export async function renderPivotPdf(browser: PivotPdfBrowser, html: string, options: PivotPdfOptions = {}): Promise<Uint8Array> {
+  const context = await newPivotPdfContext(browser);
+  try {
     const tab = await context.newPage();
-    await tab.setContent(html, { waitUntil: "load", timeout: options.timeout ?? 30_000 });
     await tab.emulateMedia({ media: "print" });
-    const headerFooter = options.headerFooter ?? true;
-    const m = page.margins;
-    const pdf = await tab.pdf({
-      preferCSSPageSize: true,
-      printBackground: true,
-      displayHeaderFooter: headerFooter,
-      ...(headerFooter ? pivotPdfTemplates(options) : {}),
-      margin: { top: `${m.top}mm`, right: `${m.right}mm`, bottom: `${m.bottom}mm`, left: `${m.left}mm` },
-    });
-    return new Uint8Array(pdf.buffer, pdf.byteOffset, pdf.byteLength);
+    return await printPivotPdf(tab, html, options);
   } finally {
     await context.close();
   }
+}
+
+export interface PivotPdfPagePoolOptions {
+  /** Idle pages kept for reuse (default 4, e.g. the serve mode's concurrency). Busier moments open extra pages. */
+  readonly maxIdlePages?: number;
+  /** Renders per page before it is replaced (default 100), to bound renderer memory growth. */
+  readonly maxUsesPerPage?: number;
+}
+
+export interface PivotPdfPagePool {
+  /** Same output as `renderPivotPdf(browser, html, options)`. */
+  render(html: string, options?: PivotPdfOptions): Promise<Uint8Array>;
+  close(): Promise<void>;
+}
+
+/**
+ * Reusable print pages in one context with JavaScript off and the network blocked (as
+ * `renderPivotPdf`). Each render replaces the page's document (`setContent`), so no state carries
+ * over (documents run no scripts); a page that fails is closed instead of reused. Creating a context
+ * and page and loading into a fresh renderer cost about 100 of the 160 ms of a one-off PDF
+ * (docs/pivot-performance.md).
+ */
+export function createPivotPdfPagePool(browser: PivotPdfBrowser, options: PivotPdfPagePoolOptions = {}): PivotPdfPagePool {
+  const maxIdle = Math.max(0, options.maxIdlePages ?? 4);
+  const maxUses = Math.max(1, options.maxUsesPerPage ?? 100);
+  let context: Promise<PivotPdfContext> | null = null;
+  const idle: { readonly page: PivotPdfPage; uses: number }[] = [];
+  let closed = false;
+  const contextOf = () => {
+    if (!context) {
+      context = newPivotPdfContext(browser);
+      context.catch(() => {
+        context = null;
+      });
+    }
+    return context;
+  };
+  const closePage = (page: PivotPdfPage) => page.close?.().catch(() => undefined);
+  return {
+    async render(html, renderOptions = {}) {
+      if (closed) throw new PivotExportError("internal", "PDF page pool is closed");
+      let entry = idle.pop();
+      if (!entry) {
+        const page = await (await contextOf()).newPage();
+        await page.emulateMedia({ media: "print" });
+        entry = { page, uses: 0 };
+      }
+      let ok = false;
+      try {
+        const pdf = await printPivotPdf(entry.page, html, renderOptions);
+        ok = true;
+        return pdf;
+      } finally {
+        entry.uses++;
+        if (ok && !closed && entry.uses < maxUses && idle.length < maxIdle) idle.push(entry);
+        else void closePage(entry.page);
+      }
+    },
+    async close() {
+      closed = true;
+      idle.length = 0;
+      const current = context;
+      context = null;
+      if (current) await current.then((c) => c.close()).catch(() => undefined);
+    },
+  };
 }

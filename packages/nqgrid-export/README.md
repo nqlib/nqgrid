@@ -58,8 +58,11 @@ nqgrid-export --input req.json -f sheet    # pivotModelToSheet JSON
 nqgrid-export serve --port 8787 [--host 127.0.0.1] [--max-body-mb 10] [--concurrency 4] [--no-warm]
 ```
 
-One Chromium instance stays warm (relaunched if it dies); every PDF renders in a fresh context with
-JavaScript disabled and all network requests blocked. Binds to `127.0.0.1` by default.
+One Chromium instance stays warm (relaunched if it dies). PDFs render on up to `--concurrency` warm print
+pages in one context with JavaScript disabled and all network requests blocked; each PDF replaces the
+page's document, and a page that fails is discarded (`renderPivotPdf` still renders one-off PDFs in a
+fresh context). PDF and XLSX exports share the `--concurrency` limit; other requests queue. Binds to
+`127.0.0.1` by default. Throughput and size limits: `docs/pivot-performance.md` ("Performance review").
 
 | Route | Body | Response |
 |-------|------|----------|

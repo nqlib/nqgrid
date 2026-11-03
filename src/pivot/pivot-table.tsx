@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type ReactNode } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { pivotCellDrillTarget } from "../core/pivot/build-model";
 import type { PivotDrillThroughTarget } from "../core/pivot/cube";
@@ -37,6 +37,7 @@ import {
   pivotKpiPanelHeight,
   pivotRowCaption,
   pivotTableGeometry,
+  pivotVirtualRowWindow,
   type PivotColumnHeaderRole,
   type PivotTableGeometry,
 } from "./layout";
@@ -147,10 +148,34 @@ export interface PivotTableProps {
    * `pivotDrillThrough(spec, rows, target)` and show the records, e.g. in `PivotDrillThroughPanel`.
    */
   readonly onDrillThrough?: (target: PivotDrillThroughTarget, context: PivotCellContext) => void;
+  /**
+   * Row virtualization (interactive mode only; static output always renders every row). When on,
+   * only the body rows inside the nearest scrolling ancestor (else the window), plus `overscan`
+   * rows, are in the DOM; spacer rows keep the scroll height, and span cells that start above the
+   * rendered rows are drawn clipped at the first rendered row. Rows count as `rowHeight` tall until
+   * rendered (then their measured height is used), and KPI panels get filler rows
+   * (`fillSpanHeight`) so they never stretch rows.
+   *
+   * `"auto"` (default): on when the body has more than `PIVOT_VIRTUALIZE_AUTO_CELLS` value cells
+   * (rows × value columns) and more than 200 rows. `false` always renders every row (e.g. for the
+   * browser's find-in-page over all rows), `true` always virtualizes.
+   */
+  readonly virtualize?: boolean | "auto";
+  /** Extra rows rendered above and below the viewport when virtualized (default 12). */
+  readonly overscan?: number;
   readonly className?: string;
   readonly style?: CSSProperties;
   readonly "aria-label"?: string;
 }
+
+/**
+ * `virtualize: "auto"` turns row virtualization on above this many body value cells (rows × value
+ * columns). Measured in Chromium (docs/pivot-performance.md): a fully rendered 6,000-row × 39-column
+ * body takes about 3.6 s to mount and 0.7 s per update; virtualized, about 0.1 s and 30 ms at any size.
+ */
+export const PIVOT_VIRTUALIZE_AUTO_CELLS = 10_000;
+/** `virtualize: "auto"` never virtualizes bodies of at most this many rows. */
+const PIVOT_VIRTUALIZE_MIN_ROWS = 200;
 
 /** Inline so static HTML (no Tailwind) keeps label and indicator on one line. */
 const HEAD_LABEL_STYLE: CSSProperties = { display: "flex", alignItems: "center", gap: 4, minWidth: 0 };
@@ -200,11 +225,19 @@ export const PivotTable = memo(function PivotTable({
   renderDimensionHeader,
   renderColumnHeader,
   onDrillThrough,
+  virtualize = "auto",
+  overscan = 12,
   className,
   style,
   "aria-label": ariaLabel,
 }: PivotTableProps) {
   const interactive = mode === "interactive";
+  const virtual =
+    interactive &&
+    (virtualize === true ||
+      (virtualize === "auto" &&
+        model.rows.length > PIVOT_VIRTUALIZE_MIN_ROWS &&
+        model.rows.length * model.columns.length > PIVOT_VIRTUALIZE_AUTO_CELLS));
   const geometry = pivotTableGeometry(model, { dimensionWidths, valueWidth });
   const showBand = (headerChart ?? true) && model.headerSeries !== null;
   const bandHeight = chartHeight + 32;
@@ -220,7 +253,7 @@ export const PivotTable = memo(function PivotTable({
   // last row → filler height in px (the span cell then covers the filler row as well).
   const fillers = new Map<number, number>();
   const extendedSpans = new Set<number>();
-  if (slots && (fillSpanHeight ?? !interactive)) {
+  if (slots && (fillSpanHeight ?? (!interactive || virtual))) {
     for (const s of model.spans[0] ?? []) {
       const row = model.rows[s.rowIndex];
       if (!row || row.depth !== 0 || !showsKpiPanel(row)) continue;
@@ -295,7 +328,38 @@ export const PivotTable = memo(function PivotTable({
   const rowCellClass = (row: PivotBodyRow) =>
     row.kind === "grandTotal" ? pivotGrandTotalCellClass : row.kind === "group" || row.kind === "subtotal" ? pivotGroupCellClass : pivotLeafCellClass;
 
-  const dimensionCells = (row: PivotBodyRow, rowIndex: number): ReactNode[] => {
+  /** Rendered `<tr>`s a span cell covers from `from` (owner row or first rendered row) to its last row, within `[.., end)`. */
+  const spanRows = (level: number, owner: number, ownerSpan: number, from: number, end: number): number => {
+    const last = owner + ownerSpan - 1;
+    const rows = Math.min(last, end - 1) - from + 1;
+    return rows + (level === 0 && extendedSpans.has(owner) && last <= end - 1 ? 1 : 0);
+  };
+  /** Row of the span cell that covers `rowIndex` at `level` (a `covered` slot). */
+  const spanOwner = (level: number, rowIndex: number): number => {
+    let r = rowIndex;
+    while (r > 0 && slots![r]![level]?.type === "covered") r--;
+    return r;
+  };
+  const spanCell = (owner: number, level: number, ownerSpan: number, rowSpan: number): ReactNode => {
+    const row = model.rows[owner]!;
+    const p = pinned(level);
+    // Interactive: the panel sticks under the header while its rows scroll past.
+    const inner: CSSProperties | undefined = interactive && ownerSpan > 1 ? { position: "sticky", top: headerHeight + 8 } : undefined;
+    return (
+      <th
+        key={`d${level}`}
+        scope="rowgroup"
+        rowSpan={rowSpan}
+        className={cx(pivotSpanCellClass, pivotRowHeaderClass, level === lastDim ? pivotPinnedEdgeClass : undefined, p.className)}
+        style={p.style}
+        data-nqg-span={ownerSpan}
+      >
+        <div style={inner}>{spanContent(row, level, ownerSpan)}</div>
+      </th>
+    );
+  };
+
+  const dimensionCells = (row: PivotBodyRow, rowIndex: number, windowStart: number, windowEnd: number): ReactNode[] => {
     const base = rowCellClass(row);
     const edge = (col: number) => (col === lastDim ? pivotPinnedEdgeClass : undefined);
     if (row.kind === "grandTotal") {
@@ -320,26 +384,18 @@ export const PivotTable = memo(function PivotTable({
         </th>,
       ];
     }
-    return slots![rowIndex]!.flatMap((slot) => {
-      if (slot.type === "covered" || slot.type === "grandTotal") return [];
-      const p = pinned(slot.level);
-      if (slot.type === "span") {
-        // Interactive: the panel sticks under the header while its rows scroll past.
-        const inner: CSSProperties | undefined = interactive && slot.rowSpan > 1 ? { position: "sticky", top: headerHeight + 8 } : undefined;
-        const rowSpan = slot.rowSpan + (slot.level === 0 && extendedSpans.has(rowIndex) ? 1 : 0);
-        return [
-          <th
-            key={`d${slot.level}`}
-            scope="rowgroup"
-            rowSpan={rowSpan}
-            className={cx(pivotSpanCellClass, pivotRowHeaderClass, edge(slot.level), p.className)}
-            style={p.style}
-            data-nqg-span={slot.rowSpan}
-          >
-            <div style={inner}>{spanContent(row, slot.level, slot.rowSpan)}</div>
-          </th>,
-        ];
+    return slots![rowIndex]!.flatMap((slot): ReactNode[] => {
+      if (slot.type === "grandTotal") return [];
+      if (slot.type === "covered") {
+        // Virtualized: a span that starts above the rendered rows is drawn from the first one.
+        if (rowIndex !== windowStart || rowIndex === 0) return [];
+        const owner = spanOwner(slot.level, rowIndex);
+        const ownerSlot = slots![owner]![slot.level];
+        if (ownerSlot?.type !== "span") return [];
+        return [spanCell(owner, slot.level, ownerSlot.rowSpan, spanRows(slot.level, owner, ownerSlot.rowSpan, rowIndex, windowEnd))];
       }
+      const p = pinned(slot.level);
+      if (slot.type === "span") return [spanCell(rowIndex, slot.level, slot.rowSpan, spanRows(slot.level, rowIndex, slot.rowSpan, rowIndex, windowEnd))];
       const content =
         slot.type === "group" ? groupLabel(row) : slot.type === "leaf" || slot.type === "subtotal" ? <span className={pivotLabelTextClass}>{row.label}</span> : null;
       return [
@@ -379,11 +435,17 @@ export const PivotTable = memo(function PivotTable({
       : { className: pivotPinnedHeadClass, style: { top, left: geometry.dimensionOffsets[pinnedCol], height } };
   };
 
-  const bodyRows = (row: PivotBodyRow, rowIndex: number): ReactNode => {
+  const bodyRows = (row: PivotBodyRow, rowIndex: number, windowStart = 0, windowEnd = model.rows.length): ReactNode => {
     const filler = fillers.get(rowIndex);
     const tr = (
-      <tr key={row.id} data-kind={row.kind} data-depth={row.depth} style={{ height: rowHeight }}>
-        {dimensionCells(row, rowIndex)}
+      <tr
+        key={row.id}
+        data-kind={row.kind}
+        data-depth={row.depth}
+        style={{ height: rowHeight }}
+        aria-rowindex={virtual ? model.headerRows.length + rowIndex + 1 : undefined}
+      >
+        {dimensionCells(row, rowIndex, windowStart, windowEnd)}
         {valueCells(row, rowIndex)}
       </tr>
     );
@@ -475,11 +537,54 @@ export const PivotTable = memo(function PivotTable({
     };
   };
 
+  /**
+   * Virtualized: widen the rendered rows so that a span cell clipped at the first or last rendered
+   * row still has room for its content (a KPI panel, else at least two rows); otherwise the content
+   * would stretch the rows next to it and shift the view.
+   */
+  const keepSpanPanelsWhole = (start: number, end: number): { start: number; end: number } => {
+    if (!slots) return { start, end };
+    // A KPI panel's height; other span content (label, delta) is a little taller than one row.
+    const need = (owner: number): number => {
+      const row = model.rows[owner]!;
+      return showsKpiPanel(row) ? pivotKpiPanelHeight(row.kpis!, { headlineId: kpiHeadlineId, caption: pivotRowCaption(row, kpiCaptionAttribute) !== null }) : 2 * rowHeight;
+    };
+    // First rendered row inside a span: rows start…last must be tall enough.
+    for (let pass = 0; pass < geometry.dimensionColumns && start > 0; pass++) {
+      let moved = false;
+      for (const slot of slots[start] ?? []) {
+        if (slot.type !== "covered") continue;
+        const owner = spanOwner(slot.level, start);
+        const ownerSlot = slots[owner]![slot.level];
+        if (ownerSlot?.type !== "span") continue;
+        const height = need(owner);
+        const last = Math.min(owner + ownerSlot.rowSpan - 1, end - 1);
+        const next = Math.max(owner, Math.min(start, last + 1 - Math.ceil(height / rowHeight)));
+        if (next < start) {
+          start = next;
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) break;
+    }
+    // Spans starting in the window: render enough of their rows (or all of them).
+    let wanted = end;
+    for (let r = start; r < Math.min(wanted, model.rows.length); r++) {
+      for (const slot of slots[r] ?? []) {
+        if (slot.type !== "span" || slot.rowSpan <= 1) continue;
+        wanted = Math.max(wanted, Math.min(r + slot.rowSpan, r + Math.ceil(need(r) / rowHeight)));
+      }
+    }
+    return { start, end: Math.min(model.rows.length, wanted) };
+  };
+
   return (
     <table
       className={cx(pivotTableClass, className)}
       style={{ width: geometry.width, minWidth: geometry.width, ...style }}
       aria-label={ariaLabel ?? model.title}
+      aria-rowcount={virtual ? model.headerRows.length + model.rows.length : undefined}
       data-nqg-pivot=""
       data-nqg-mode={mode}
     >
@@ -540,7 +645,22 @@ export const PivotTable = memo(function PivotTable({
           </tr>
         ))}
       </thead>
-      {interactive ? (
+      {virtual ? (
+        <PivotVirtualBody
+          resetKey={model}
+          rowCount={model.rows.length}
+          rowHeight={rowHeight}
+          fillers={fillers}
+          overscan={overscan}
+          columnCount={geometry.dimensionColumns + model.columns.length}
+          adjustWindow={keepSpanPanelsWhole}
+          renderRows={(start, end) => {
+            const out: ReactNode[] = [];
+            for (let i = start; i < end; i++) out.push(bodyRows(model.rows[i]!, i, start, end));
+            return out;
+          }}
+        />
+      ) : interactive ? (
         <tbody>{model.rows.map((row, rowIndex) => bodyRows(row, rowIndex))}</tbody>
       ) : (
         // Static: one <tbody> per top-level group, so print CSS can keep each group on one page.
@@ -567,3 +687,158 @@ function PivotColGroup({ geometry, columns }: { geometry: PivotTableGeometry; co
   );
 }
 
+
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/**
+ * Nearest ancestor that scrolls vertically (`null`: the window). An `overflow-x: auto` wrapper also
+ * computes `overflow-y: auto`, so the element must be shorter than its content to count.
+ */
+function scrollParentOf(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p !== null && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    const overflowY = getComputedStyle(p).overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") && p.scrollHeight > p.clientHeight + 1) return p;
+  }
+  return null;
+}
+
+const SPACER_CELL_STYLE: CSSProperties = { padding: 0, border: 0 };
+
+interface PivotVirtualBodyProps {
+  /** Row heights are estimated again when this changes (a new model). */
+  readonly resetKey: unknown;
+  readonly rowCount: number;
+  readonly rowHeight: number;
+  /** Row index → filler row height under it. */
+  readonly fillers: ReadonlyMap<number, number>;
+  readonly overscan: number;
+  readonly columnCount: number;
+  readonly adjustWindow: (start: number, end: number) => { readonly start: number; readonly end: number };
+  readonly renderRows: (start: number, end: number) => ReactNode[];
+}
+
+/** Row heights (row + its filler row), `rowHeight` until measured, with lazily rebuilt running tops. */
+interface RowHeights {
+  readonly heights: Float64Array;
+  tops: Float64Array | null;
+}
+
+function rowHeightsFor(rowCount: number, rowHeight: number, fillers: ReadonlyMap<number, number>): RowHeights {
+  const heights = new Float64Array(rowCount).fill(rowHeight);
+  for (const [row, height] of fillers) if (row < rowCount) heights[row]! += height;
+  return { heights, tops: null };
+}
+
+function rowTops(r: RowHeights): Float64Array {
+  if (!r.tops) {
+    const tops = new Float64Array(r.heights.length + 1);
+    for (let i = 0; i < r.heights.length; i++) tops[i + 1] = tops[i]! + r.heights[i]!;
+    r.tops = tops;
+  }
+  return r.tops;
+}
+
+/**
+ * The windowed `<tbody>` of a virtualized `PivotTable`: a top spacer, rows `start…end`, a bottom
+ * spacer. Scroll and resize events are coalesced to one window computation per animation frame and
+ * re-render only when the (chunk-aligned) window changes. Rendered rows are measured, so spacers
+ * stay exact for rows taller than `rowHeight`.
+ */
+function PivotVirtualBody({ resetKey, rowCount, rowHeight, fillers, overscan, columnCount, adjustWindow, renderRows }: PivotVirtualBodyProps) {
+  const ref = useRef<HTMLTableSectionElement>(null);
+  const [heights, setHeights] = useState(() => ({ key: [resetKey, rowCount, rowHeight] as const, r: rowHeightsFor(rowCount, rowHeight, fillers) }));
+  // New model / geometry: start from estimates again (render-time reset, no extra commit).
+  let current = heights;
+  if (heights.key[0] !== resetKey || heights.key[1] !== rowCount || heights.key[2] !== rowHeight) {
+    current = { key: [resetKey, rowCount, rowHeight] as const, r: rowHeightsFor(rowCount, rowHeight, fillers) };
+    setHeights(current);
+  }
+  const [measured, setMeasured] = useState(0);
+  const [range, setRange] = useState(() => {
+    const viewport = typeof window === "undefined" ? 1000 : window.innerHeight;
+    return adjustWindow(0, Math.min(rowCount, Math.ceil(viewport / rowHeight) + 2 * overscan));
+  });
+  const tops = rowTops(current.r);
+  const start = Math.min(range.start, rowCount);
+  const end = Math.min(Math.max(range.end, start), rowCount);
+
+  const latest = useRef({ rowCount, overscan, tops, adjustWindow, range: { start, end } });
+  latest.current = { rowCount, overscan, tops, adjustWindow, range: { start, end } };
+
+  useIsomorphicLayoutEffect(() => {
+    const body = ref.current;
+    if (!body) return;
+    const scroller = scrollParentOf(body);
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const { rowCount: n, overscan: over, tops: t, adjustWindow: adjust, range: shown } = latest.current;
+      const viewTop = scroller ? scroller.getBoundingClientRect().top : 0;
+      const viewHeight = scroller ? scroller.clientHeight : window.innerHeight;
+      const next = pivotVirtualRowWindow(n, (i) => t[i]!, viewTop - body.getBoundingClientRect().top, viewHeight, over);
+      const w = adjust(next.start, next.end);
+      if (w.start !== shown.start || w.end !== shown.end) setRange(w);
+    };
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(update);
+    };
+    update();
+    const target: HTMLElement | Window = scroller ?? window;
+    target.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    const observer = typeof ResizeObserver === "undefined" || !scroller ? null : new ResizeObserver(schedule);
+    observer?.observe(scroller!);
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+      target.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      observer?.disconnect();
+    };
+  }, [current, measured, overscan]);
+
+  // Measure the rendered rows (with their filler rows); re-render once when an estimate was off.
+  useIsomorphicLayoutEffect(() => {
+    const body = ref.current;
+    if (!body || end <= start) return;
+    const h = current.r.heights;
+    let row = start - 1;
+    let changed = false;
+    const blocks = new Float64Array(end - start);
+    for (let k = 0; k < body.rows.length; k++) {
+      const tr = body.rows[k]!;
+      if (tr.dataset.kind !== undefined) row++;
+      else if (tr.dataset.nqgFiller === undefined || row < start) continue;
+      if (row >= end) break;
+      blocks[row - start]! += tr.getBoundingClientRect().height;
+    }
+    for (let i = start; i < end; i++) {
+      const b = blocks[i - start]!;
+      if (b > 0 && Math.abs(b - h[i]!) > 0.25) {
+        h[i] = b;
+        changed = true;
+      }
+    }
+    if (changed) {
+      current.r.tops = null;
+      setMeasured((m) => m + 1);
+    }
+  });
+
+  const before = tops[start]!;
+  const after = tops[rowCount]! - tops[end]!;
+  return (
+    <tbody ref={ref} data-nqg-virtual="">
+      {before > 0 ? (
+        <tr aria-hidden data-nqg-spacer="" style={{ height: before, overflowAnchor: "none" }}>
+          <td colSpan={columnCount} style={SPACER_CELL_STYLE} />
+        </tr>
+      ) : null}
+      {renderRows(start, end)}
+      {after > 0 ? (
+        <tr aria-hidden data-nqg-spacer="" style={{ height: after, overflowAnchor: "none" }}>
+          <td colSpan={columnCount} style={SPACER_CELL_STYLE} />
+        </tr>
+      ) : null}
+    </tbody>
+  );
+}

@@ -151,6 +151,11 @@ export interface PivotCube {
   readonly recordCount: { readonly total: number; readonly matched: number };
   /** Cross-filtered counts for `spec.facets`, in facet order. */
   readonly facets: readonly PivotCubeFacet[];
+  /**
+   * Approximate bytes the cube retains (nodes, accumulators, record lists of custom aggregators);
+   * `createPivotModelBuilder` budgets its cube cache with it.
+   */
+  readonly byteSize: number;
 }
 
 export interface PivotCubeFacet {
@@ -374,6 +379,12 @@ interface ColumnGroupBucket {
 
 /** Largest composite leaf key that stays an exact integer. */
 const MAX_COMPOSITE = 2 ** 52;
+/** Doubles per shared accumulator block, at most (512 KB). */
+const ACC_BLOCK_DOUBLES = 1 << 16;
+/** `childByCode` of nodes at a tree's deepest level (never written). */
+const NO_CHILDREN: Map<number, MutableNode> = new Map();
+/** Largest composite key space looked up through a dense `Int32Array` (4 MB). */
+const MAX_DENSE_LEAVES = 1 << 20;
 
 /**
  * Group records into a tree (to `maxDepth`) and accumulate every measure. Each record touches one
@@ -388,6 +399,21 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
   const nodes: MutableNode[] = [];
   const byDepth: MutableNode[][] = Array.from({ length: maxDepth + 1 }, () => []);
   let pendingAttributes = 0;
+  // Accumulators are views into shared blocks: one allocation per block instead of one
+  // zero-filled buffer per node (trees with many leaves were dominated by those allocations and GC).
+  // Blocks grow from 64 nodes, so small trees (e.g. Top-N rank trees) allocate little.
+  const maxBlockNodes = Math.max(1, Math.floor(ACC_BLOCK_DOUBLES / Math.max(1, size)));
+  let blockNodes = 0;
+  let block: Float64Array | null = null;
+  let blockUsed = 0;
+  const allocAcc = (): Float64Array => {
+    if (blockUsed === blockNodes) {
+      blockNodes = Math.min(maxBlockNodes, blockNodes === 0 ? 64 : blockNodes * 2);
+      block = new Float64Array(blockNodes * size);
+      blockUsed = 0;
+    }
+    return block!.subarray(blockUsed * size, ++blockUsed * size);
+  };
   const make = (path: string[], key: string, depth: number, parent: MutableNode | null, code: number): MutableNode => {
     const attrs = depth >= 0 ? t.attributeFields[depth] : undefined;
     const node: MutableNode = {
@@ -401,8 +427,9 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
       attributes: attrs?.length ? new Array<unknown>(attrs.length).fill(undefined) : null,
       attrPending: attrs?.length ?? 0,
       code,
-      childByCode: new Map(),
-      acc: new Float64Array(size),
+      // Nodes at the deepest level never get children.
+      childByCode: depth < maxDepth ? new Map() : NO_CHILDREN,
+      acc: allocAcc(),
       rowIdx: custom ? Array.from({ length: buckets + 1 }, () => []) : null,
       chain: null,
     };
@@ -418,7 +445,10 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
 
   // Composite key radix per level (+1 leaves room for the Top-N "Other" code).
   const radix = levelCodes.slice(0, maxDepth + 1).map((_, d) => levelKeys[d]!.length + 1);
-  const composite = radix.reduce((a, b) => a * b, 1) < MAX_COMPOSITE;
+  const keySpace = radix.reduce((a, b) => a * b, 1);
+  const composite = keySpace < MAX_COMPOSITE;
+  // Small key spaces (the usual case): a dense table of leaf ids instead of a `Map` lookup per record.
+  const leafIdByKey = keySpace <= MAX_DENSE_LEAVES ? new Int32Array(keySpace).fill(-1) : null;
   const leafByKey = new Map<number, MutableNode>();
 
   const descend = (i: number): MutableNode => {
@@ -432,12 +462,15 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
       }
       node = child;
     }
-    if (node.chain === null) {
-      const chain: MutableNode[] = [];
-      for (let p: MutableNode | null = node; p !== null; p = p.parent) chain.unshift(p);
-      node.chain = chain;
-    }
     return node;
+  };
+  const chainOf = (leaf: MutableNode): readonly MutableNode[] => {
+    if (leaf.chain === null) {
+      const chain: MutableNode[] = [];
+      for (let p: MutableNode | null = leaf; p !== null; p = p.parent) chain.unshift(p);
+      leaf.chain = chain;
+    }
+    return leaf.chain;
   };
 
   for (let i = 0; i < n; i++) {
@@ -450,8 +483,14 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
     if (composite) {
       let key = 0;
       for (let d = 0; d <= maxDepth; d++) key = key * radix[d]! + levelCodes[d]![i]!;
-      leaf = leafByKey.get(key);
-      if (leaf === undefined) leafByKey.set(key, (leaf = descend(i)));
+      if (leafIdByKey !== null) {
+        const id = leafIdByKey[key]!;
+        if (id >= 0) leaf = nodes[id]!;
+        else leafIdByKey[key] = (leaf = descend(i)).id;
+      } else {
+        leaf = leafByKey.get(key);
+        if (leaf === undefined) leafByKey.set(key, (leaf = descend(i)));
+      }
     } else {
       leaf = descend(i);
     }
@@ -459,7 +498,7 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
     else if (t.nodeAtMaxDepth) t.nodeAtMaxDepth[i] = leaf.id;
 
     if (pendingAttributes > 0) {
-      const chain = leaf.chain!;
+      const chain = chainOf(leaf);
       for (let p = 1; p < chain.length; p++) {
         const target = chain[p]!;
         if (target.attrPending === 0) continue;
@@ -1157,7 +1196,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
 
   // ---- Final tree -------------------------------------------------------------
   const S = measureSet.slots;
-  const { root } = buildTree({
+  const { root, nodes } = buildTree({
     n,
     mask,
     levelCodes,
@@ -1201,8 +1240,12 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
       bucket < 0 ? null : readValue(node as MutableNode, compiledMeasures.get(measureId)!, bucket, S, rows, registry),
     recordCount: { total: n, matched: root.rowCount },
     facets,
+    byteSize: nodes.length * ((buckets + 1) * S * 8 + NODE_BYTES) + (custom ? root.rowCount * (leafDepth + 2) * 2 * 8 : 0),
   };
 }
+
+/** Rough per-node overhead besides the accumulators (node object, path, child map, views). */
+const NODE_BYTES = 240;
 
 /**
  * Cross-filtered facet of one field without aggregating (one filter pass): what `spec.facets`

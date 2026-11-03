@@ -13,7 +13,7 @@ export interface PivotExportServerOptions {
   readonly host?: string;
   /** Request body cap in bytes (default 10 MiB). */
   readonly maxBodyBytes?: number;
-  /** Concurrent PDF renders (default 4); other requests queue. */
+  /** Concurrent PDF / XLSX exports (default 4, also the number of warm print pages); other requests queue. */
   readonly concurrency?: number;
   /** Launch Chromium at startup (default true). */
   readonly warm?: boolean;
@@ -84,9 +84,10 @@ const sendJson = (res: ServerResponse, status: number, body: unknown, headers: R
  * Errors are `{ error: { code, message, details? } }` with 400 / 404 / 405 / 413 / 415 / 500.
  */
 export async function startPivotExportServer(options: PivotExportServerOptions = {}): Promise<PivotExportServer> {
-  const exporter = options.exporter ?? createPivotExporter();
+  const concurrency = Math.max(1, options.concurrency ?? 4);
+  const exporter = options.exporter ?? createPivotExporter({ pdfPages: concurrency });
   const maxBody = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
-  const limit = semaphore(Math.max(1, options.concurrency ?? 4));
+  const limit = semaphore(concurrency);
   const log = options.log ?? (() => {});
 
   const handle = async (req: IncomingMessage, res: ServerResponse) => {
@@ -116,7 +117,9 @@ export async function startPivotExportServer(options: PivotExportServerOptions =
       if (queryFormat !== null && !isPivotExportFormat(queryFormat)) throw invalidInput(`format must be one of ${PIVOT_EXPORT_FORMATS.join(", ")}`);
       const request = parsePivotExportRequest(json, queryFormat ?? undefined);
       const run = () => exporter.export(request);
-      const result = request.format === "pdf" ? await limit(run) : await run();
+      // PDF (Chromium pages) and XLSX (workbooks are built asynchronously, up to ~1 KB of memory per cell)
+      // share the concurrency limit; html / model / sheet are synchronous.
+      const result = request.format === "pdf" || request.format === "xlsx" ? await limit(run) : await run();
       const bytes = typeof result === "string" ? Buffer.from(result, "utf8") : Buffer.from(result.buffer, result.byteOffset, result.byteLength);
       const name = `${(request.spec.id ?? "pivot").replace(/[^\w.-]+/g, "_")}.${PIVOT_EXPORT_EXTENSIONS[request.format]}`;
       status = 200;
