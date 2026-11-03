@@ -5,6 +5,9 @@ export default defineConfig({
     index: "src/index.ts",
     styles: "src/styles/index.ts",
     fixtures: "src/fixtures/index.ts",
+    core: "src/core/index.ts",
+    pivot: "src/pivot/index.ts",
+    "render-static": "src/render-static/index.ts",
     engine: "src/engine/index.ts",
     sheet: "src/sheet/index.ts",
     spreadsheet: "src/spreadsheet/index.ts",
@@ -17,5 +20,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-table"],
+  external: ["react", "react-dom", "react-dom/server", "react/jsx-runtime", "@tanstack/react-table"],
 });

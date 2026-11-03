@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.cache
+.git
+apps/playground/tsconfig.tsbuildinfo
+*.log
+.env
+.env.*

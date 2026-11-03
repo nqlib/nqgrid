@@ -1,0 +1,256 @@
+{
+  "version": 1,
+  "id": "planning-fy26-multicol",
+  "title": "FY26 Sales by region and channel",
+  "rows": [
+    {
+      "field": "department",
+      "label": "Department",
+      "attributes": [
+        "owner"
+      ]
+    },
+    {
+      "field": "line",
+      "label": "Line"
+    }
+  ],
+  "columns": [
+    {
+      "field": "region",
+      "label": "Region",
+      "order": [
+        "North",
+        "South",
+        "East",
+        "West"
+      ]
+    },
+    {
+      "field": "channel",
+      "label": "Channel",
+      "order": [
+        "Retail",
+        "Online",
+        "Wholesale"
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "id": "actual",
+      "field": "actual",
+      "label": "Actual",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "plan",
+      "field": "plan",
+      "label": "Plan",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "forecast",
+      "field": "forecast",
+      "label": "Forecast",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "outlook",
+      "field": "outlook",
+      "label": "Outlook",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "growth",
+      "label": "Growth on FY25",
+      "aggregate": {
+        "type": "ratio",
+        "numeratorField": "actual",
+        "denominatorField": "priorYear",
+        "offset": -1
+      },
+      "format": {
+        "style": "percent",
+        "signDisplay": "exceptZero"
+      }
+    },
+    {
+      "id": "share",
+      "field": "actual",
+      "label": "Share of region",
+      "showAs": "percentOfParentColumn",
+      "percentFormat": {
+        "style": "percent",
+        "decimals": 1
+      }
+    }
+  ],
+  "values": [
+    "actual",
+    "share"
+  ],
+  "expanded": [
+    [
+      "Camp"
+    ]
+  ],
+  "heat": {
+    "measure": "actual",
+    "scope": "column",
+    "applyTo": "leaf"
+  },
+  "headerCharts": {
+    "measure": "actual",
+    "type": "bar",
+    "breakdown": true
+  },
+  "kpis": [
+    {
+      "id": "growth",
+      "label": "Growth on FY25",
+      "measure": "growth"
+    },
+    {
+      "id": "forecast",
+      "label": "Forecast",
+      "measure": "forecast"
+    },
+    {
+      "id": "outlook",
+      "label": "Outlook",
+      "measure": "outlook",
+      "compareTo": "plan"
+    },
+    {
+      "id": "plan",
+      "label": "Plan",
+      "measure": "plan"
+    }
+  ],
+  "kpiLevels": [
+    0
+  ],
+  "subtitle": "Region › Σ Values › Channel",
+  "valuesIndex": 1,
+  "totals": {
+    "rowTotal": true
+  },
+  "fields": [
+    {
+      "field": "department",
+      "label": "Department",
+      "type": "dimension"
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "type": "dimension"
+    },
+    {
+      "field": "month",
+      "label": "Month",
+      "type": "date",
+      "areas": [
+        "rows",
+        "columns",
+        "filters"
+      ]
+    },
+    {
+      "field": "region",
+      "label": "Region",
+      "type": "dimension"
+    },
+    {
+      "field": "channel",
+      "label": "Channel",
+      "type": "dimension"
+    },
+    {
+      "field": "owner",
+      "label": "Owner",
+      "type": "text",
+      "areas": [
+        "rows",
+        "filters"
+      ],
+      "description": "Department owner"
+    },
+    {
+      "field": "actual",
+      "label": "Actual",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "plan",
+      "label": "Plan",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "forecast",
+      "label": "Forecast",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "outlook",
+      "label": "Outlook",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "priorYear",
+      "label": "Prior year",
+      "type": "measure",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "field": "units",
+      "label": "Units",
+      "type": "measure",
+      "format": {
+        "decimals": 0,
+        "compact": true
+      }
+    }
+  ]
+}

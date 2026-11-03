@@ -1,0 +1,488 @@
+import { useCallback, useMemo, useState } from "react";
+import {
+  Badge,
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  ScrollArea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from "@nqlib/nqui";
+import {
+  clearPivotFilters,
+  generatePlanningPivotRows,
+  PIVOT_VALUES_FIELD,
+  planningCalcPivotSpec,
+  planningDatesPivotSpec,
+  planningFieldCatalog,
+  planningPivotSpec,
+  flightsTableShellExtraClass,
+  pivotExportFilename,
+  setPivotTopN,
+  tableFooterClass,
+  tableScrollAreaRootClass,
+  tableScrollViewportStyle,
+  tableShellClass,
+  type PivotDrillThroughTarget,
+  type PivotExportFormat,
+  type PivotExportRequest,
+  type PivotHeatScope,
+  type PivotSpec,
+} from "@nqlib/nqgrid";
+import {
+  PivotDrillThroughPanel,
+  PivotFieldList,
+  PivotFilterIcon,
+  PivotFilterMenu,
+  PivotSlicer,
+  PivotTable,
+  pivotDrillThroughFieldInfo,
+  pivotDrillThroughTitle,
+  pivotDropZoneProps,
+  pivotExportRequestFromGrid,
+  pivotFieldDragHandleProps,
+  pivotFieldListProps,
+  pivotFilterMenuProps,
+  pivotSlicerProps,
+  usePivotGrid,
+  usePivotLayoutDraft,
+  type PivotColumnHeaderContext,
+  type PivotDimensionHeaderContext,
+  type PivotGridState,
+  type PivotLayoutDraftState,
+} from "@nqlib/nqgrid/pivot";
+
+const HEAT_SCOPES: readonly { value: PivotHeatScope; label: string }[] = [
+  { value: "all", label: "All Lines" },
+  { value: "column", label: "Per column" },
+  { value: "row", label: "Per line" },
+  { value: "group", label: "Within department" },
+];
+
+/**
+ * Optional: base URL of an `nqgrid-export serve` (or of a backend proxying it). Unset → the Export
+ * panel only shows / downloads the request JSON. In dev, `VITE_NQGRID_EXPORT_URL=/nqgrid-export`
+ * goes through the Vite proxy (`NQGRID_EXPORT_PROXY_TARGET`, default http://127.0.0.1:8787), which
+ * avoids CORS (`serve` sends no CORS headers by design).
+ */
+const EXPORT_URL: string | undefined = (import.meta.env.VITE_NQGRID_EXPORT_URL as string | undefined)?.replace(/\/$/, "") || undefined;
+
+const utcStamp = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** POST the request (with rows: nqgrid-export has no data of its own) and download the file. */
+async function postExport(baseUrl: string, request: PivotExportRequest, format: PivotExportFormat) {
+  const res = await fetch(`${baseUrl}/export?format=${format}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string; details?: string[] } } | null;
+    const details = body?.error?.details?.length ? `: ${body.error.details.join("; ")}` : "";
+    throw new Error(`${body?.error?.message ?? `HTTP ${res.status}`}${details}`);
+  }
+  downloadBlob(await res.blob(), pivotExportFilename(request.spec, format));
+}
+
+function ExportPanel({ grid }: { grid: PivotGridState }) {
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const generatedAt = useMemo(() => utcStamp(new Date()), []);
+  // What the Tauri app sends to the Python backend: spec (view state included) + dataset reference.
+  const request = useMemo(
+    () => pivotExportRequestFromGrid(grid, { format: "pdf", options: { theme: "light", generatedAt } }),
+    [grid, generatedAt],
+  );
+  const json = useMemo(() => JSON.stringify(request, null, 2), [request]);
+
+  const download = async (format: PivotExportFormat) => {
+    if (!EXPORT_URL) return;
+    setBusy(true);
+    setStatus(`Exporting ${format.toUpperCase()}…`);
+    try {
+      const withRows = pivotExportRequestFromGrid(grid, { format, includeRows: true, options: request.options });
+      await postExport(EXPORT_URL, withRows, format);
+      setStatus(`Downloaded ${pivotExportFilename(request.spec, format)}`);
+    } catch (error) {
+      setStatus(`Export failed: ${(error as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Export request (<code>contract/pivot/v1/export-request.schema.json</code>) — the backend resolves{" "}
+          <code>dataset</code> to rows and calls nqgrid-export.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => downloadBlob(new Blob([json], { type: "application/json" }), `${request.spec.id ?? "pivot"}.request.json`)}
+          >
+            Download request JSON
+          </Button>
+          {EXPORT_URL ? (
+            <>
+              <Button size="sm" disabled={busy} onClick={() => void download("pdf")}>
+                Download PDF
+              </Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void download("xlsx")}>
+                Download XLSX
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground" role="status">
+        {status ??
+          (EXPORT_URL
+            ? `PDF / XLSX via ${EXPORT_URL}`
+            : "Set VITE_NQGRID_EXPORT_URL to download PDF / XLSX from nqgrid-export serve.")}
+      </p>
+      <pre className="max-h-72 overflow-auto rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">{json}</pre>
+    </div>
+  );
+}
+
+/**
+ * Presets: the planning spec (fiscal months in Columns), and two fiscal years of orders with
+ * `orderDate` grouped Year → Quarter in Columns (collapsible), both with slicer facets and a field
+ * catalogue (labels, types, allowed areas) for the field list. Filters, sort, Top N and the layout
+ * are changed by the controls.
+ */
+const PRESETS = {
+  planning: {
+    label: "Fiscal months",
+    spec: { ...planningPivotSpec, facets: ["department", "line"], fields: planningFieldCatalog } as PivotSpec,
+    rows: () => generatePlanningPivotRows(7, { extraFields: true }),
+  },
+  dates: {
+    label: "Order date: Year → Quarter",
+    spec: { ...planningDatesPivotSpec, facets: ["department", "line"] } as PivotSpec,
+    rows: () => generatePlanningPivotRows(7, { extraFields: true, orderDates: true }),
+  },
+  calc: {
+    label: "Calculated · show as · subtotals",
+    spec: { ...planningCalcPivotSpec, facets: ["department", "line"] } as PivotSpec,
+    rows: () => generatePlanningPivotRows(7, { extraFields: true, orderDates: true }),
+  },
+} as const;
+type PresetId = keyof typeof PRESETS;
+
+/**
+ * Row-dimension header: a drag handle (drop it on the field list's areas, or on another header to
+ * reorder the row levels), the sort / filter indicator and an nqui popover holding `PivotFilterMenu`.
+ * Drags go through the shared layout draft, so "Defer layout update" holds them until Update.
+ */
+function DimensionHeaderMenu({ grid, layout, context }: { grid: PivotGridState; layout: PivotLayoutDraftState; context: PivotDimensionHeaderContext }) {
+  const [open, setOpen] = useState(false);
+  const active = context.status.filtered || context.status.sort !== null;
+  const field = context.dimension.field;
+  const source = { field, from: "rows" as const, label: context.label };
+  return (
+    <div
+      className="flex min-w-0 items-center justify-between gap-1 rounded-sm data-[nqg-drop-active]:bg-primary/10"
+      {...pivotDropZoneProps("rows", { axis: "x", offset: context.level })}
+      data-nqg-drop-item=""
+    >
+      <span
+        className="flex min-w-0 items-center gap-1"
+        title={`Drag ${context.label} to the field list or another header`}
+        {...pivotFieldDragHandleProps({
+          source,
+          canDrop: (target) => layout.canMoveField({ ...source, to: target.to, index: target.index }),
+          onDrop: (target) => layout.moveField({ ...source, to: target.to, index: target.index }),
+        })}
+      >
+        <span className="truncate">{context.label}</span>
+        {context.indicator}
+      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={`Filter and sort ${context.label}`}
+            className={cn("size-6", active ? "text-primary" : "text-muted-foreground")}
+          >
+            <PivotFilterIcon filled={active} />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="max-h-[var(--radix-popover-content-available-height)] w-auto overflow-y-auto p-3">
+          <PivotFilterMenu {...pivotFilterMenuProps(grid, field)} onClose={() => setOpen(false)} />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+/**
+ * Column header: the column group toggle, and for column-field cells a drag handle (drop on the field
+ * list, or on another column level to reorder) plus a drop zone at the level's Columns-area position.
+ * Measure cells drag Σ Values.
+ */
+function ColumnHeader({ layout, context }: { layout: PivotLayoutDraftState; context: PivotColumnHeaderContext }) {
+  const draggable = context.kind === "dimension" || context.kind === "measure";
+  if (!draggable || context.mode !== "interactive") {
+    // Subtotal / total labels span several header rows and may wrap.
+    return context.toggle ? (
+      <span className="flex min-w-0 items-center gap-1">
+        {context.toggle}
+        <span className="truncate">{context.label}</span>
+      </span>
+    ) : (
+      context.label
+    );
+  }
+  const source =
+    context.kind === "measure"
+      ? { field: PIVOT_VALUES_FIELD, from: "columns" as const, label: "Σ Values" }
+      : { field: context.dimension!.field, from: "columns" as const, label: context.dimension!.label };
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1 rounded-sm data-[nqg-drop-active]:bg-primary/10"
+      {...pivotDropZoneProps("columns", { axis: "x", offset: context.areaIndex })}
+      data-nqg-drop-item=""
+    >
+      {context.toggle}
+      <span
+        className="min-w-0 truncate"
+        title={`Drag ${source.label} to the field list or another column level`}
+        {...pivotFieldDragHandleProps({
+          source,
+          canDrop: (target) => layout.canMoveField({ ...source, to: target.to, index: target.index }),
+          onDrop: (target) => layout.moveField({ ...source, to: target.to, index: target.index }),
+        })}
+      >
+        {context.label}
+      </span>
+    </div>
+  );
+}
+
+/** Department / Line slicers plus the active-filter summary. */
+function SlicerBar({ grid }: { grid: PivotGridState }) {
+  const [multi, setMulti] = useState<Record<string, boolean>>({});
+  const filters = grid.model.filters ?? [];
+  const counts = grid.model.recordCount;
+  const slicer = (field: string, columns: number, className: string, listClassName?: string) => (
+    <PivotSlicer
+      {...pivotSlicerProps(grid, field)}
+      columns={columns}
+      multiSelect={multi[field] ?? false}
+      onMultiSelectChange={(v) => setMulti((m) => ({ ...m, [field]: v }))}
+      className={className}
+      classNames={listClassName ? { list: listClassName } : undefined}
+    />
+  );
+  return (
+    <div className="flex shrink-0 flex-col gap-2 border-b border-border/70 px-4 py-3">
+      <div className="flex flex-wrap items-start gap-3">
+        {slicer("department", 2, "w-64 shadow-none")}
+        {slicer("line", 6, "min-w-[28rem] flex-1 shadow-none", "max-h-[4.5rem] overflow-y-auto pr-1")}
+      </div>
+      <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {filters.length ? (
+          <>
+            <span>Filters</span>
+            {filters.map((f, i) => (
+              <Badge key={`${f.field}:${i}`} variant="secondary" className="font-normal">
+                {f.text}
+              </Badge>
+            ))}
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => grid.setSpec((s) => clearPivotFilters(s.rows.reduce((acc, d) => setPivotTopN(acc, d.field, null), s)))}>
+              Clear all
+            </Button>
+          </>
+        ) : (
+          <span>Click a slicer value to filter (Ctrl/⌘-click or the multi-select button to pick several); use a row header menu for sort and Top N.</span>
+        )}
+        {counts ? (
+          <span className="ml-auto tabular-nums">
+            {counts.matched} of {counts.total} records
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Planning grid from `@nqlib/nqgrid/pivot`: pinned Department (KPI panel, real rowSpan) and Line
+ * columns, heat-colored months and a stacked header chart band, with Department / Line slicers and
+ * an Excel-style filter menu on the Line header. Every control edits the spec — "Export" builds the
+ * request a Tauri app sends to its backend, so the PDF/XLSX matches the screen (filters included).
+ */
+export function PlanningPivotDemo() {
+  const [preset, setPreset] = useState<PresetId>(() => {
+    const p = new URLSearchParams(window.location.search).get("pivot");
+    return p === "dates" || p === "calc" ? p : "planning";
+  });
+  // Remount per preset so the grid starts from the preset's spec and rows.
+  return <PlanningPivotView key={preset} preset={preset} onPresetChange={setPreset} />;
+}
+
+function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPresetChange: (p: PresetId) => void }) {
+  // `extraFields` adds region, channel and units to drag around (the other fields are unchanged);
+  // the dates preset spans two fiscal years with an ISO `orderDate`.
+  const rows = useMemo(() => PRESETS[preset].rows(), [preset]);
+  const pivot = usePivotGrid(PRESETS[preset].spec, rows);
+  const layout = usePivotLayoutDraft(pivot);
+  const { model, spec } = pivot;
+  const [showExport, setShowExport] = useState(false);
+  const [showFields, setShowFields] = useState(true);
+  // Drill-through ("Show details"): double-click a value cell.
+  const [drill, setDrill] = useState<PivotDrillThroughTarget | null>(null);
+  const onDrillThrough = useCallback((target: PivotDrillThroughTarget) => setDrill(target), []);
+  const drillResult = useMemo(() => (drill ? pivot.drillThrough(drill, { limit: 500 }) : null), [drill, pivot]);
+  const drillInfo = useMemo(() => pivotDrillThroughFieldInfo(spec, pivot.fields), [spec, pivot.fields]);
+  const scope = spec.heat?.scope ?? "all";
+  const renderDimensionHeader = useCallback(
+    (context: PivotDimensionHeaderContext) => <DimensionHeaderMenu grid={pivot} layout={layout} context={context} />,
+    [pivot, layout],
+  );
+  const renderColumnHeader = useCallback((context: PivotColumnHeaderContext) => <ColumnHeader layout={layout} context={context} />, [layout]);
+  const nestedColumns = (model.columnDimensions?.length ?? 0) > 1;
+  const columnText = (model.columnDimensions ?? (model.columnDimension ? [model.columnDimension] : [])).map((d) => d.label).join(" → ");
+  const layoutText = `${model.rowDimensions.map((d) => d.label).join(" → ")}${columnText ? ` × ${columnText}` : ""} · ${(spec.values ?? spec.measures.map((m) => m.id))
+    .map((id) => spec.measures.find((m) => m.id === id)?.label ?? id)
+    .join(", ")}`;
+
+  return (
+    <div className="flex h-[calc(100dvh-8.5rem)] min-h-[36rem] flex-col gap-3">
+      <div className="flex min-h-0 flex-1 gap-3">
+        <div className={cn(tableShellClass, flightsTableShellExtraClass, "min-w-0 flex-1")}>
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold leading-tight">{model.title}</h2>
+              <p className="text-xs text-muted-foreground" data-testid="pivot-layout">
+                {layoutText}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={preset} onValueChange={(v) => onPresetChange(v as PresetId)}>
+                <SelectTrigger size="sm" minWidth="12rem" aria-label="Preset">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PRESETS) as PresetId[]).map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {PRESETS[id].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">Heat by</span>
+              <Select value={scope} onValueChange={(v) => pivot.setHeatScope(v as PivotHeatScope)}>
+                <SelectTrigger size="sm" minWidth="10rem" aria-label="Heat by">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HEAT_SCOPES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" onClick={pivot.expandAll}>
+                Expand all
+              </Button>
+              <Button size="sm" variant="outline" onClick={pivot.collapseAll}>
+                Collapse all
+              </Button>
+              {nestedColumns ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={pivot.expandAllColumns}>
+                    Expand columns
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={pivot.collapseAllColumns}>
+                    Collapse columns
+                  </Button>
+                </>
+              ) : null}
+              <Button size="sm" variant={showFields ? "secondary" : "outline"} aria-pressed={showFields} onClick={() => setShowFields((v) => !v)}>
+                Fields
+              </Button>
+              <Button size="sm" onClick={() => setShowExport((v) => !v)}>
+                {showExport ? "Hide export" : "Export"}
+              </Button>
+            </div>
+          </div>
+
+          <SlicerBar grid={pivot} />
+
+          <ScrollArea
+            orientation="both"
+            fadeMask={false}
+            className={tableScrollAreaRootClass}
+            viewportStyle={tableScrollViewportStyle}
+          >
+            <PivotTable
+              model={model}
+              onToggleGroup={pivot.toggleGroup}
+              onToggleColumnGroup={pivot.toggleColumnGroup}
+              renderDimensionHeader={renderDimensionHeader}
+              renderColumnHeader={renderColumnHeader}
+              onDrillThrough={onDrillThrough}
+              aria-label={`${model.title ?? "Sales"} pivot`}
+            />
+          </ScrollArea>
+
+          {drill && drillResult ? (
+            <div className="shrink-0 border-t border-border/70 p-3">
+              <PivotDrillThroughPanel
+                result={drillResult}
+                title={pivotDrillThroughTitle(model, drill)}
+                fieldLabels={drillInfo.fieldLabels}
+                formats={drillInfo.formats}
+                maxHeight={220}
+                onClose={() => setDrill(null)}
+                className="shadow-none"
+              />
+            </div>
+          ) : null}
+
+          <div className={tableFooterClass}>
+            <p className="text-sm text-muted-foreground">
+              {model.rows.length} visible rows · {model.columns.length} value columns · heat scope{" "}
+              <span className="font-medium text-foreground">{HEAT_SCOPES.find((s) => s.value === scope)?.label}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {preset === "dates"
+                ? "Order dates grouped by fiscal year (from November); click a year to collapse it."
+                : preset === "calc"
+                  ? "vs Plan = actual / plan - 1 · YoY = % difference from the previous year · double-click a cell for its records."
+                  : "Group rows show % of month total; lines show actuals."}
+            </p>
+          </div>
+        </div>
+        {showFields ? (
+          <aside className="flex w-80 shrink-0 flex-col overflow-y-auto" aria-label="Pivot field list">
+            <PivotFieldList {...pivotFieldListProps(pivot, layout)} className="shadow-none" />
+          </aside>
+        ) : null}
+      </div>
+
+      {showExport ? <ExportPanel grid={pivot} /> : null}
+    </div>
+  );
+}

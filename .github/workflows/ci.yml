@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # `playwright` is an optional peer of nqgrid-export, resolved via NODE_PATH (like the Docker image).
+      NODE_PATH: /opt/playwright/node_modules
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium (version pinned with the Docker image)
+        run: |
+          version="$(sed -n 's/^ARG PLAYWRIGHT_VERSION=//p' packages/nqgrid-export/Dockerfile)"
+          echo "playwright@${version}"
+          sudo mkdir -p /opt/playwright && sudo chown "$USER" /opt/playwright
+          npm install --prefix /opt/playwright --no-audit --no-fund "playwright@${version}"
+          /opt/playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm -r test
+      - name: Build nqgrid-export and the playground
+        run: |
+          pnpm --filter @nqlib/nqgrid-export build
+          pnpm --filter nqgrid-playground build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: integrations/python/pyproject.toml
+
+      - name: Python client (lint, types, tests incl. end-to-end against nqgrid-export serve)
+        working-directory: integrations/python
+        run: |
+          python -m pip install -e ".[dev]"
+          ruff check .
+          ruff format --check .
+          mypy
+          pytest -ra

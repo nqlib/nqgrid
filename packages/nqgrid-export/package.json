@@ -1,0 +1,54 @@
+{
+  "name": "@nqlib/nqgrid-export",
+  "version": "0.1.0",
+  "description": "Export nqgrid pivots to PDF (Chromium), XLSX (exceljs) and standalone HTML \u2014 CLI, Node API and a small HTTP service",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "nqgrid-export": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nqlib/nqgrid.git",
+    "directory": "packages/nqgrid-export"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@nqlib/nqgrid": "workspace:*",
+    "@tanstack/react-table": "^8.21.3",
+    "exceljs": "^4.4.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "esbuild": "0.27.7",
+    "tsup": "^8.5.0",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

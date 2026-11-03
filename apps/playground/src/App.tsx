@@ -7,6 +7,7 @@ import { KeyboardCellDemo } from "./demos/keyboard-cell-demo";
 import { RichInlineTasksDemo } from "./demos/rich-inline-tasks-demo";
 import { RichNumberFormatsDemo } from "./demos/rich-number-formats-demo";
 import { MasterDetailDemo } from "./demos/master-detail-demo";
+import { PlanningPivotDemo } from "./demos/planning-pivot-demo";
 import { PortfolioTable } from "./demos/portfolio-table";
 import { ProjectsTable } from "./demos/projects-table";
 import { SheetVirtualDemo } from "./demos/sheet-virtual-demo";
@@ -58,6 +59,9 @@ export function App() {
           <TabsTrigger className="shrink-0 flex-none" value="flights">
             Flights (ops)
           </TabsTrigger>
+          <TabsTrigger className="shrink-0 flex-none" value="pivot">
+            Planning pivot
+          </TabsTrigger>
           <TabsTrigger className="shrink-0 flex-none" value="parity">
             Parity / nqdg
           </TabsTrigger>
@@ -70,6 +74,9 @@ export function App() {
         </TabsContent>
         <TabsContent value="flights" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
           <FlightsTable data={mockFlightsOperations} />
+        </TabsContent>
+        <TabsContent value="pivot" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
+          <PlanningPivotDemo />
         </TabsContent>
         <TabsContent value="parity" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
           <Tabs defaultValue="sheet" className="flex min-h-0 flex-1 flex-col gap-3">

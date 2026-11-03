@@ -1,4 +1,5 @@
-import type { Key } from "react";
+/** Row / group key (structurally identical to React `Key`, without the React dependency). */
+export type GroupRowKey = string | number | bigint;
 
 export interface GroupRow<TRow> {
   readonly id: string;
@@ -8,7 +9,7 @@ export interface GroupRow<TRow> {
   readonly childRows: readonly TRow[];
 }
 
-export interface BuildGroupedFlatRowsOptions<TRow, K extends Key = Key> {
+export interface BuildGroupedFlatRowsOptions<TRow, K extends GroupRowKey = GroupRowKey> {
   rows: readonly TRow[];
   groupBy: readonly string[];
   rowGrouper: (rows: readonly TRow[], columnKey: string) => Record<string, readonly TRow[]>;
@@ -24,7 +25,7 @@ export interface BuildGroupedFlatRowsOptions<TRow, K extends Key = Key> {
  *
  * This is a structural helper only — wire `meta.isGroup` / `getRowCanExpand` in your table.
  */
-export function buildGroupedFlatRows<TRow, K extends Key = Key>(
+export function buildGroupedFlatRows<TRow, K extends GroupRowKey = GroupRowKey>(
   options: BuildGroupedFlatRowsOptions<TRow, K>,
 ): { flat: ReadonlyArray<TRow | GroupRow<TRow>>; isGroupRow: (row: TRow | GroupRow<TRow>) => row is GroupRow<TRow> } {
   const {

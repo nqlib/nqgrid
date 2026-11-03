@@ -1,0 +1,78 @@
+"""Python client for nqgrid-export: pivot reports (PDF / XLSX) that match the nqgrid app.
+
+- :class:`NqgridExportClient` / :class:`AsyncNqgridExportClient` — HTTP client for ``nqgrid-export serve``.
+- :class:`SubprocessExporter` — one-shot ``nqgrid-export --input - --out -`` runner, same interface.
+- :mod:`nqgrid_export.models` — Pydantic v2 models generated from ``contract/pivot/v1``.
+- :func:`validate_pivot_spec` / :func:`validate_export_request` — JSON Schema + referential checks.
+- :func:`parse_calc` / :func:`check_calculated_measure` — calculated-measure expressions, same grammar as nqgrid.
+- :func:`infer_pivot_fields` — field catalogue (labels, types) from sample rows, same as nqgrid's field list.
+- :func:`write_xlsx_from_sheet` — openpyxl workbook from ``format="sheet"`` JSON.
+- :mod:`nqgrid_export.mcp_tool` — reference MCP server (``export_pivot_report``, ``describe_pivot_spec``).
+- :mod:`nqgrid_export.email` — report emails through an injectable sender.
+"""
+
+from .calc import CalcError, evaluate_calc, parse_calc
+from .client import AsyncNqgridExportClient, NqgridExportClient
+from .errors import (
+    NqgridExportError,
+    NqgridInternalError,
+    NqgridInvalidInput,
+    NqgridPayloadTooLarge,
+    NqgridUnavailable,
+)
+from .exporter import PivotExporter
+from .formats import EXPORT_FORMATS, ExportFormat, ExportResult, ReportFormat, export_filename, pdf_page_count
+from .models import PivotExportRequest, PivotSpec
+from .request import build_export_request
+from .subprocess_exporter import SubprocessExporter
+from .validation import (
+    check_calculated_measure,
+    check_fields,
+    date_field_source,
+    export_request_schema,
+    humanize_pivot_field,
+    infer_pivot_fields,
+    pivot_spec_schema,
+    validate_export_options,
+    validate_export_request,
+    validate_pivot_spec,
+)
+from .xlsx import write_xlsx_from_sheet
+
+__version__ = "0.1.0"
+
+__all__ = [
+    "EXPORT_FORMATS",
+    "AsyncNqgridExportClient",
+    "CalcError",
+    "ExportFormat",
+    "ExportResult",
+    "NqgridExportClient",
+    "NqgridExportError",
+    "NqgridInternalError",
+    "NqgridInvalidInput",
+    "NqgridPayloadTooLarge",
+    "NqgridUnavailable",
+    "PivotExportRequest",
+    "PivotExporter",
+    "PivotSpec",
+    "ReportFormat",
+    "SubprocessExporter",
+    "__version__",
+    "build_export_request",
+    "check_calculated_measure",
+    "check_fields",
+    "date_field_source",
+    "evaluate_calc",
+    "export_filename",
+    "export_request_schema",
+    "humanize_pivot_field",
+    "infer_pivot_fields",
+    "parse_calc",
+    "pdf_page_count",
+    "pivot_spec_schema",
+    "validate_export_options",
+    "validate_export_request",
+    "validate_pivot_spec",
+    "write_xlsx_from_sheet",
+]

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="@nqlib/nqgrid/render-static">
+<title>Plan attainment by fiscal year</title>
+<style>
+:root {
+  color-scheme: light;
+  --nqg-font: Inter, "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --nqg-page: #ffffff;
+  --nqg-surface: #ffffff;
+  --nqg-muted: #efeee9;
+  --nqg-fg: #281d15;
+  --nqg-muted-fg: #7e7167;
+  --nqg-border: #dcdbd7;
+  --nqg-rule: #eae9e7;
+  --nqg-hairline: #f1f1ef;
+  --nqg-secondary: #e9e7e1;
+  --nqg-secondary-fg: #3c2c20;
+  --nqg-positive: #059669;
+  --nqg-negative: #dc2626;
+  --nqg-series-0: #2a78d6;
+  --nqg-series-1: #eb6834;
+  --nqg-series-2: #1baf7a;
+  --nqg-series-3: #eda100;
+  --nqg-series-4: #e87ba4;
+  --nqg-series-5: #008300;
+  --nqg-series-6: #6250d6;
+  --nqg-series-7: #e34948;
+  --nqg-heat-0: #fef5f0;
+  --nqg-heat-1: #fde9de;
+  --nqg-heat-2: #fbdbca;
+  --nqg-heat-3: #faceb7;
+  --nqg-heat-4: #f8c0a3;
+  --nqg-heat-5: #f7b28d;
+  --nqg-heat-6: #f5a377;
+  --nqg-heat-7: #f39461;
+  --nqg-heat-8: #f2854b;
+}
+:root[data-theme="dark"], .dark {
+  color-scheme: dark;
+  --nqg-page: #171717;
+  --nqg-surface: #171717;
+  --nqg-muted: #201f1f;
+  --nqg-fg: #e4e4e4;
+  --nqg-muted-fg: #a1a1a1;
+  --nqg-border: #3a3738;
+  --nqg-rule: #2c2a2b;
+  --nqg-hairline: #252424;
+  --nqg-secondary: #292727;
+  --nqg-secondary-fg: #e4e4e4;
+  --nqg-positive: #34d399;
+  --nqg-negative: #f87171;
+  --nqg-series-0: #3987e5;
+  --nqg-series-1: #d95926;
+  --nqg-series-2: #199e70;
+  --nqg-series-3: #c98500;
+  --nqg-series-4: #d55181;
+  --nqg-series-5: #008300;
+  --nqg-series-6: #9085e9;
+  --nqg-series-7: #e66767;
+  --nqg-heat-0: #261d18;
+  --nqg-heat-1: #372319;
+  --nqg-heat-2: #4b2b1a;
+  --nqg-heat-3: #5e321b;
+  --nqg-heat-4: #723a1c;
+  --nqg-heat-5: #87421e;
+  --nqg-heat-6: #9d4a1f;
+  --nqg-heat-7: #b35320;
+  --nqg-heat-8: #c85b22;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: var(--nqg-page); }
+body {
+  margin: 0;
+  background: var(--nqg-page);
+  color: var(--nqg-fg);
+  font-family: var(--nqg-font);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+@media screen { body { padding: 24px; } }
+
+/* Report chrome */
+.nqg-report-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 12px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--nqg-border);
+}
+.nqg-report-title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.nqg-report-subtitle { margin: 2px 0 0; font-size: 12px; line-height: 16px; color: var(--nqg-muted-fg); }
+.nqg-report-meta { font-size: 11px; line-height: 16px; color: var(--nqg-muted-fg); text-align: right; white-space: nowrap; }
+.nqg-report-chunk { width: fit-content; min-width: 50%; }
+.nqg-report-chunk + .nqg-report-chunk { break-before: page; }
+.nqg-report-chunk-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--nqg-muted-fg);
+}
+.nqg-report-chunk-title { font-size: 13px; font-weight: 600; color: var(--nqg-fg); }
+.nqg-report-scale { width: max-content; }
+
+/* Table */
+.nqg-pivot {
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--nqg-surface);
+  color: var(--nqg-fg);
+  font-size: 14px;
+  line-height: 20px;
+}
+:where(.nqg-pivot) :where(th, td) { padding: 0 12px; vertical-align: middle; text-align: left; font-weight: inherit; }
+.nqg-pivot thead { display: table-header-group; break-inside: avoid; }
+/* No table-level border: a table fragment cut by a page break stretches to the page end. */
+.nqg-pivot thead > tr:first-child > th { border-top: 1px solid var(--nqg-border); }
+.nqg-pivot tbody:last-child > tr:last-child > * { border-bottom: 1px solid var(--nqg-border); }
+.nqg-pivot tbody { break-inside: avoid; }
+.nqg-pivot tr { break-inside: avoid; }
+.nqg-pivot svg { display: block; overflow: visible; }
+
+.nqg-pivot-head {
+  white-space: nowrap;
+  border-bottom: 1px solid var(--nqg-border);
+  background: var(--nqg-surface);
+  padding: 0 12px;
+  vertical-align: middle;
+  text-align: left;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-head-value { text-align: right; }
+.nqg-pivot-band { border-bottom: 1px solid var(--nqg-rule); background: var(--nqg-surface); padding: 8px 0 0; vertical-align: bottom; }
+.nqg-pivot-band-summary {
+  border-bottom: 1px solid var(--nqg-rule);
+  background: var(--nqg-surface);
+  padding: 8px 12px;
+  vertical-align: top;
+  text-align: left;
+  font-weight: 400;
+}
+.nqg-pivot-band-value {
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-summary-label {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-summary-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--nqg-fg);
+}
+.nqg-pivot-summary-note { font-size: 11px; font-weight: 400; color: var(--nqg-muted-fg); }
+.nqg-pivot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-legend-swatch { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; vertical-align: middle; }
+
+.nqg-pivot-cell { border-bottom: 1px solid var(--nqg-hairline); padding: 0 12px; vertical-align: middle; }
+.nqg-pivot-leaf { background: var(--nqg-surface); }
+.nqg-pivot-group { background: var(--nqg-muted); font-weight: 500; }
+.nqg-pivot-span {
+  border-bottom: 1px solid var(--nqg-rule);
+  border-right: 1px solid var(--nqg-rule);
+  background: var(--nqg-surface);
+  padding: 8px 12px;
+  vertical-align: top;
+}
+.nqg-pivot-total {
+  border-top: 1px solid var(--nqg-border);
+  background: var(--nqg-muted);
+  padding: 0 12px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+.nqg-pivot-total-label { text-align: left; }
+.nqg-pivot-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nqg-pivot-group-value { color: var(--nqg-muted-fg); }
+.nqg-pivot-heat { color: var(--nqg-fg); }
+.nqg-pivot-edge { border-right: 1px solid var(--nqg-rule); }
+.nqg-pivot-row-header { text-align: left; font-weight: 400; }
+.nqg-pivot-group-label { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.nqg-pivot-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nqg-pivot-count {
+  display: inline-flex;
+  height: 16px;
+  min-width: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 1px solid var(--nqg-border);
+  border-radius: 9999px;
+  background: var(--nqg-page);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--nqg-muted-fg);
+}
+
+/* KPI side panel */
+.nqg-pivot-kpi { display: flex; flex-direction: column; gap: 8px; }
+.nqg-pivot-kpi-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--nqg-fg);
+}
+.nqg-pivot-kpi-headline-label {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-kpi-headline { font-size: 20px; line-height: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.nqg-pivot-kpi-list { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 12px; line-height: 16px; }
+.nqg-pivot-kpi-term { color: var(--nqg-muted-fg); }
+.nqg-pivot-kpi-value { margin: 0; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--nqg-fg); }
+.nqg-pivot-kpi-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--nqg-rule);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-kpi-avatar {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--nqg-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--nqg-secondary-fg);
+}
+.nqg-pivot-delta { font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.nqg-pivot-up { color: var(--nqg-positive); }
+.nqg-pivot-down { color: var(--nqg-negative); }
+.nqg-pivot-flat { color: var(--nqg-muted-fg); }
+@page { size: 297mm 210mm; margin: 16mm 10mm 14mm 10mm; }
+@page { background: #ffffff; }
+</style>
+</head>
+<body><main class="nqg-report" data-nqg-report=""><header class="nqg-report-header"><div><h1 class="nqg-report-title">Plan attainment by fiscal year</h1><p class="nqg-report-subtitle">Calculated measure · % difference from previous year · running total · distinct count</p></div><div class="nqg-report-meta">Generated 2026-01-15 09:30 UTC</div></header>
+<section class="nqg-report-chunk" data-nqg-chunk="0"><div class="nqg-report-scale" style="zoom:0.708"><table class="nqg-pivot" style="width:1476px;min-width:1476px" aria-label="Plan attainment by fiscal year" data-nqg-pivot="" data-nqg-mode="static"><colgroup><col style="width:184px"/><col style="width:152px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/></colgroup>
+<thead><tr style="height:76px" data-nqg-band=""><th colSpan="2" class="nqg-pivot-band-summary" scope="colgroup"><div data-nqg-summary=""><div class="nqg-pivot-summary-label">Actual</div><div class="nqg-pivot-summary-value">$129M<span class="nqg-pivot-delta nqg-pivot-up" title="vs Plan">+0.2%</span><span class="nqg-pivot-summary-note">vs Plan</span></div></div></th><th colSpan="5" class="nqg-pivot-band"><span class="nqg-pivot-band-value">$62.3M</span><svg width="380" height="44" viewBox="0 0 380 44" role="img" aria-label="FY25: $62.3M" style="display:block;overflow:visible" data-nqg-bar="2025"><path d="M172,44V5.79Q172,2.79 175,2.79H205Q208,2.79 208,5.79V44Z" fill="var(--nqg-series-0, #2a78d6)" data-series="0"><title>FY25 · FY25: $62.3M</title></path></svg></th><th colSpan="5" class="nqg-pivot-band"><span class="nqg-pivot-band-value">$66.6M</span><svg width="380" height="44" viewBox="0 0 380 44" role="img" aria-label="FY26: $66.6M" style="display:block;overflow:visible" data-nqg-bar="2026"><path d="M172,44V3Q172,0 175,0H205Q208,0 208,3V44Z" fill="var(--nqg-series-0, #2a78d6)" data-series="0"><title>FY26 · FY26: $66.6M</title></path></svg></th><th colSpan="5" class="nqg-pivot-band"></th></tr>
+<tr><th scope="col" rowSpan="2" class="nqg-pivot-head" style="height:36px">Department</th><th scope="col" rowSpan="2" class="nqg-pivot-head nqg-pivot-edge" style="height:36px" aria-sort="descending"><span class="nqg-pivot-head-label" style="display:flex;align-items:center;gap:4px;min-width:0"><span class="nqg-pivot-label">Line</span><span class="nqg-pivot-indicator" role="img" aria-label="Sorted by vs Plan, descending" title="Sorted by vs Plan, descending" data-nqg-indicator="" style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><path d="M8 3v10M4 9l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span></th><th scope="col" colSpan="5" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">FY25</th><th scope="col" colSpan="5" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">FY26</th><th scope="col" colSpan="5" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Total</th></tr>
+<tr><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Actual</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">vs Plan</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">YoY</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Cum %</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Regions</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Actual</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">vs Plan</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">YoY</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Cum %</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Regions</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Actual</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">vs Plan</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">YoY</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Cum %</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Regions</th></tr>
+</thead>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="rowgroup" rowSpan="1" class="nqg-pivot-span nqg-pivot-row-header" data-nqg-span="1"><div><div class="nqg-pivot-group-label" style="justify-content:space-between"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label" style="font-weight:600">Footwear</span><span class="nqg-pivot-delta nqg-pivot-up" title="vs Plan">+0.1%</span></span></div></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Footwear</span><span class="nqg-pivot-count" title="5 items">5</span></span></div></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$15.7M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">-0.2%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$16.9M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.4%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+7.2%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$32.6M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.1%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td></tr>
+</tbody>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="rowgroup" rowSpan="1" class="nqg-pivot-span nqg-pivot-row-header" data-nqg-span="1"><div><div class="nqg-pivot-group-label" style="justify-content:space-between"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label" style="font-weight:600">Apparel</span><span class="nqg-pivot-delta nqg-pivot-down" title="vs Plan">0.0%</span></span></div></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Apparel</span><span class="nqg-pivot-count" title="6 items">6</span></span></div></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$22.5M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.1%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$24.2M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">-0.1%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+7.5%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$46.8M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">0.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td></tr>
+</tbody>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="rowgroup" rowSpan="7" class="nqg-pivot-span nqg-pivot-row-header" data-nqg-span="7"><div><div class="nqg-pivot-kpi" data-nqg-kpi-panel=""><div class="nqg-pivot-kpi-title"><span class="nqg-pivot-label">Camp</span></div><div><div class="nqg-pivot-kpi-headline-label">vs Plan</div><div class="nqg-pivot-kpi-headline nqg-pivot-up">+0.6%</div></div><dl class="nqg-pivot-kpi-list"><dt class="nqg-pivot-kpi-term">Actual</dt><dd class="nqg-pivot-kpi-value">$25.5M</dd><dt class="nqg-pivot-kpi-term">Regions</dt><dd class="nqg-pivot-kpi-value">4</dd><dt class="nqg-pivot-kpi-term">vs Plan</dt><dd class="nqg-pivot-kpi-value nqg-pivot-up">+0.6%</dd></dl><div class="nqg-pivot-kpi-caption"><span class="nqg-pivot-kpi-avatar" aria-hidden="true">IS</span><span class="nqg-pivot-label">Ingrid Solberg</span></div></div></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Camp</span><span class="nqg-pivot-count" title="5 items">5</span></span></div></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Camp Kitchen</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.11M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-6" style="background-color:var(--nqg-heat-6, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 62%, transparent))" data-heat="6">+1.1%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">17%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.13M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-6" style="background-color:var(--nqg-heat-6, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 62%, transparent))" data-heat="6">+0.8%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">16%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$4.24M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.9%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">17%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Tents</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$3.33M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-8" style="background-color:var(--nqg-heat-8, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 82%, transparent))" data-heat="8">+1.9%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">44%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">3</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$3.51M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-4" style="background-color:var(--nqg-heat-4, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 42%, transparent))" data-heat="4">-0.2%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+5.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">43%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$6.84M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.8%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">43%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Sleeping Pads</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.45M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-5" style="background-color:var(--nqg-heat-5, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 52%, transparent))" data-heat="5">+0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">63%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.58M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-6" style="background-color:var(--nqg-heat-6, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 62%, transparent))" data-heat="6">+0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+5.3%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">63%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$5.03M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">63%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Camp Chairs</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.68M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-4" style="background-color:var(--nqg-heat-4, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 42%, transparent))" data-heat="4">+0.2%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">77%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.8M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-5" style="background-color:var(--nqg-heat-5, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 52%, transparent))" data-heat="5">+0.5%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+7.1%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">76%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$3.48M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.3%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">77%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Sleeping Bags</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.88M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-2" style="background-color:var(--nqg-heat-2, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 24%, transparent))" data-heat="2">-0.5%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$3.08M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-6" style="background-color:var(--nqg-heat-6, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 62%, transparent))" data-heat="6">+0.7%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+7.1%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$5.96M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.1%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Camp Total</span></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$12.4M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.7%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$13.1M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.4%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+5.2%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$25.5M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.6%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td></tr>
+</tbody>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="rowgroup" rowSpan="8" class="nqg-pivot-span nqg-pivot-row-header" data-nqg-span="8"><div><div class="nqg-pivot-kpi" data-nqg-kpi-panel=""><div class="nqg-pivot-kpi-title"><span class="nqg-pivot-label">Packs</span></div><div><div class="nqg-pivot-kpi-headline-label">vs Plan</div><div class="nqg-pivot-kpi-headline nqg-pivot-up">+0.2%</div></div><dl class="nqg-pivot-kpi-list"><dt class="nqg-pivot-kpi-term">Actual</dt><dd class="nqg-pivot-kpi-value">$24M</dd><dt class="nqg-pivot-kpi-term">Regions</dt><dd class="nqg-pivot-kpi-value">4</dd><dt class="nqg-pivot-kpi-term">vs Plan</dt><dd class="nqg-pivot-kpi-value nqg-pivot-up">+0.2%</dd></dl><div class="nqg-pivot-kpi-caption"><span class="nqg-pivot-kpi-avatar" aria-hidden="true">SO</span><span class="nqg-pivot-label">Sam Okafor</span></div></div></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Packs</span><span class="nqg-pivot-count" title="6 items">6</span></span></div></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Hydration</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.73M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-8" style="background-color:var(--nqg-heat-8, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 82%, transparent))" data-heat="8">+1.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">15%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.97M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-6" style="background-color:var(--nqg-heat-6, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 62%, transparent))" data-heat="6">+0.8%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+14.2%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">16%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$3.7M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+1.2%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">15%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Travel</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.06M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-4" style="background-color:var(--nqg-heat-4, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 42%, transparent))" data-heat="4">+0.2%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">33%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.14M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-8" style="background-color:var(--nqg-heat-8, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 82%, transparent))" data-heat="8">+1.5%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+4.2%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">33%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$4.2M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.9%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">33%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Kids</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.47M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-5" style="background-color:var(--nqg-heat-5, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 52%, transparent))" data-heat="5">+0.7%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">45%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.56M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-4" style="background-color:var(--nqg-heat-4, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 42%, transparent))" data-heat="4">-0.3%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+6.5%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">46%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$3.03M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+0.2%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">46%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Backpacking</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.41M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-5" style="background-color:var(--nqg-heat-5, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 52%, transparent))" data-heat="5">+0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">66%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.61M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-3" style="background-color:var(--nqg-heat-3, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 33%, transparent))" data-heat="3">-0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+8.3%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">67%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$5.01M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">0.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">66%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Daypacks</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.82M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-0" style="background-color:var(--nqg-heat-0, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 7%, transparent))" data-heat="0">-1.3%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">90%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.87M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-5" style="background-color:var(--nqg-heat-5, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 52%, transparent))" data-heat="5">+0.4%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+1.9%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">90%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$5.69M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">-0.5%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">90%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Duffels</span></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.15M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-2" style="background-color:var(--nqg-heat-2, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 24%, transparent))" data-heat="2">-0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">3</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$1.2M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value nqg-pivot-heat nqg-heat-3" style="background-color:var(--nqg-heat-3, color-mix(in oklab, var(--nqg-heat-color, #ef6a24) 33%, transparent))" data-heat="3">-0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">+4.9%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">$2.35M</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">-0.6%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value"></td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">4</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-edge"><span class="nqg-pivot-label">Packs Total</span></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$11.6M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.1%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$12.4M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.3%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+6.3%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">$24M</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">+0.2%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">100%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">4</td></tr>
+</tbody>
+<tbody data-nqg-group="grandTotal"><tr data-kind="grandTotal" data-depth="-1" style="height:36px"><th scope="row" colSpan="2" class="nqg-pivot-total nqg-pivot-total-label nqg-pivot-edge">Grand Total</th><td class="nqg-pivot-total nqg-pivot-value">$62.3M</td><td class="nqg-pivot-total nqg-pivot-value">+0.1%</td><td class="nqg-pivot-total nqg-pivot-value"></td><td class="nqg-pivot-total nqg-pivot-value">100%</td><td class="nqg-pivot-total nqg-pivot-value">4</td><td class="nqg-pivot-total nqg-pivot-value">$66.6M</td><td class="nqg-pivot-total nqg-pivot-value">+0.2%</td><td class="nqg-pivot-total nqg-pivot-value">+6.8%</td><td class="nqg-pivot-total nqg-pivot-value">100%</td><td class="nqg-pivot-total nqg-pivot-value">4</td><td class="nqg-pivot-total nqg-pivot-value">$129M</td><td class="nqg-pivot-total nqg-pivot-value">+0.2%</td><td class="nqg-pivot-total nqg-pivot-value"></td><td class="nqg-pivot-total nqg-pivot-value">100%</td><td class="nqg-pivot-total nqg-pivot-value">4</td></tr>
+</tbody>
+</table></div></section>
+</main></body>
+</html>

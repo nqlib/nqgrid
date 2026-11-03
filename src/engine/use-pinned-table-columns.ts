@@ -5,7 +5,7 @@ import {
   computePinnedLayout,
   resolvePinnedLeftPrefix,
   type PinnedLayoutResult,
-} from "./pinned-layout";
+} from "../core/pinned-layout";
 
 export interface UsePinnedTableColumnsOptions<TData> {
   table: Table<TData>;

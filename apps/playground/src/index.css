@@ -13,6 +13,18 @@ body,
   height: 100%;
 }
 
+/* Pivot header-chart stacks: dark steps of the same categorical hues (see `PIVOT_SERIES_COLORS`). */
+.dark {
+  --nqg-series-0: #3987e5;
+  --nqg-series-1: #d95926;
+  --nqg-series-2: #199e70;
+  --nqg-series-3: #c98500;
+  --nqg-series-4: #d55181;
+  --nqg-series-5: #008300;
+  --nqg-series-6: #9085e9;
+  --nqg-series-7: #e66767;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans, ui-sans-serif, system-ui);

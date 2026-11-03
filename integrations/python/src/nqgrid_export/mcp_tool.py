@@ -1,0 +1,714 @@
+"""Reference MCP server: let an agent export a pivot as PDF / XLSX and email it.
+
+Tools
+    ``describe_pivot_spec(dataset=None)``
+                               JSON Schema + authoring guide + examples (+ the datasets, if the row
+                               provider lists them; + that dataset's field catalogue when ``dataset``
+                               is given) so the agent can write a valid spec.
+    ``export_pivot_report(spec, rows=None, dataset=None, format="pdf", email_to=None, subject=None,
+                          options=None, body=None)``
+                               validate → resolve rows → nqgrid-export → save → optionally email.
+Resources
+    ``nqgrid://pivot-spec/v1/schema`` (JSON) and ``nqgrid://pivot-spec/v1/guide`` (Markdown).
+
+The logic lives in :class:`PivotReportService` (plain Python, unit-testable); :func:`create_mcp_server`
+only registers it with the official ``mcp`` SDK (``MCPServer`` in mcp 2.x, ``FastMCP`` in 1.x).
+Secolab plugs in its own :class:`RowProvider` (its data layer) and :class:`~nqgrid_export.email.EmailSender`.
+
+Run over stdio (configuration from env, see :meth:`PivotReportService.from_env`)::
+
+    NQGRID_EXPORT_URL=http://127.0.0.1:8787 NQGRID_DATASET_DIR=./data python -m nqgrid_export.mcp_tool
+"""
+
+from __future__ import annotations
+
+import datetime as _dt
+import functools
+import json
+import os
+import re
+from collections.abc import Callable, Collection, Mapping, Sequence
+from pathlib import Path
+from typing import Any, Literal, Protocol, runtime_checkable
+
+from pydantic import BaseModel, Field
+
+from .email import EmailSender, build_report_email, validate_recipients
+from .errors import NqgridExportError, NqgridInvalidInput
+from .exporter import PivotExporter
+from .formats import CONTENT_TYPES, EXTENSIONS, ReportFormat, pdf_page_count
+from .request import dumps_request
+from .validation import (
+    calc_example_spec,
+    check_fields,
+    dates_example_spec,
+    example_spec,
+    export_options_schema,
+    fields_example_spec,
+    filtered_example_spec,
+    infer_pivot_fields,
+    multicol_example_spec,
+    pivot_spec_schema,
+    validate_export_options,
+    validate_pivot_spec,
+)
+
+# ---------------------------------------------------------------------------------------------
+# Row providers (Secolab implements one against its data layer)
+# ---------------------------------------------------------------------------------------------
+
+
+class UnknownDatasetError(LookupError):
+    """Raised by a :class:`RowProvider` for a dataset id it does not know."""
+
+
+@runtime_checkable
+class RowProvider(Protocol):
+    """Resolves a ``dataset`` reference to leaf-grain rows (e.g. a saved query, a table, a cache key).
+
+    Rows must already be at the pivot's leaf grain (e.g. Department × Line × Month) — nqgrid does
+    grouping, totals and formatting, not SQL. Raise :class:`UnknownDatasetError` for unknown ids.
+    """
+
+    def get_rows(self, dataset: str) -> Sequence[Mapping[str, Any]]: ...
+
+
+@runtime_checkable
+class DatasetCatalog(Protocol):
+    """Optional: a provider that can list its datasets for ``describe_pivot_spec``."""
+
+    def list_datasets(self) -> Sequence[Mapping[str, Any]]:
+        """``[{"id": "...", "description": "...", "fields": ["department", ...]}, ...]``."""
+        ...
+
+
+@runtime_checkable
+class FieldCatalog(Protocol):
+    """Optional: a provider that describes a dataset's fields (labels, types, allowed areas).
+
+    Entries follow the spec's ``fields`` items (``{"field", "label"?, "type"?, "areas"?, "aggregate"?,
+    "format"?, "description"?}``). Without it, ``describe_pivot_spec(dataset=...)`` infers the catalogue
+    from a sample of the rows (:func:`~nqgrid_export.validation.infer_pivot_fields`).
+    """
+
+    def field_catalog(self, dataset: str) -> Sequence[Mapping[str, Any]]: ...
+
+
+def _describe_rows(
+    dataset_id: str, rows: Sequence[Mapping[str, Any]], description: str | None = None
+) -> dict[str, Any]:
+    fields: dict[str, None] = {}
+    for row in rows[:200]:
+        fields.update(dict.fromkeys(row))
+    out: dict[str, Any] = {"id": dataset_id, "rows": len(rows), "fields": list(fields)}
+    if description:
+        out["description"] = description
+    return out
+
+
+class DictRowProvider:
+    """In-memory datasets ``{id: rows}`` (tests, demos, small lookup tables)."""
+
+    def __init__(
+        self, datasets: Mapping[str, Sequence[Mapping[str, Any]]], descriptions: Mapping[str, str] | None = None
+    ) -> None:
+        self._datasets = dict(datasets)
+        self._descriptions = dict(descriptions or {})
+
+    def get_rows(self, dataset: str) -> Sequence[Mapping[str, Any]]:
+        try:
+            return self._datasets[dataset]
+        except KeyError:
+            raise UnknownDatasetError(dataset) from None
+
+    def list_datasets(self) -> Sequence[Mapping[str, Any]]:
+        return [_describe_rows(k, v, self._descriptions.get(k)) for k, v in self._datasets.items()]
+
+    def field_catalog(self, dataset: str) -> Sequence[Mapping[str, Any]]:
+        return infer_pivot_fields(self.get_rows(dataset))
+
+
+_NOT_DATASETS = (".spec.json", ".model.json", ".sheet.json", ".request.json", ".fields.json", ".catalog.json")
+_ALL_AREAS = ["rows", "columns", "filters", "values"]
+_DATASET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+
+
+class JsonDirectoryRowProvider:
+    """``<directory>/<dataset>.rows.json`` or ``<dataset>.json`` (a JSON array of row objects).
+
+    Dataset ids are restricted to ``[A-Za-z0-9_.-]`` (no path separators, no ``..``), so an agent
+    cannot read files outside ``directory``.
+    """
+
+    def __init__(self, directory: str | Path) -> None:
+        self.directory = Path(directory).resolve()
+
+    def _path(self, dataset: str) -> Path:
+        if not _DATASET_ID.match(dataset) or ".." in dataset:
+            raise UnknownDatasetError(dataset)
+        for name in (f"{dataset}.rows.json", f"{dataset}.json"):
+            path = (self.directory / name).resolve()
+            if path.parent == self.directory and path.is_file():
+                return path
+        raise UnknownDatasetError(dataset)
+
+    def get_rows(self, dataset: str) -> Sequence[Mapping[str, Any]]:
+        data = json.loads(self._path(dataset).read_text("utf-8"))
+        if not isinstance(data, list):
+            raise ValueError(f"dataset {dataset!r} is not a JSON array")
+        return data
+
+    def field_catalog(self, dataset: str) -> Sequence[Mapping[str, Any]]:
+        """``<dataset>.fields.json`` (a JSON array of catalogue entries) when present, else inferred from the rows."""
+        path = self._path(dataset)
+        stem = path.name.removesuffix(".json").removesuffix(".rows")
+        curated = (self.directory / f"{stem}.fields.json").resolve()
+        if curated.parent == self.directory and curated.is_file():
+            data = json.loads(curated.read_text("utf-8"))
+            if not isinstance(data, list):
+                raise ValueError(f"{curated.name} is not a JSON array")
+            return data
+        return infer_pivot_fields(self.get_rows(dataset))
+
+    def list_datasets(self) -> Sequence[Mapping[str, Any]]:
+        out = []
+        for path in sorted(self.directory.glob("*.json")):
+            if path.name.endswith(_NOT_DATASETS):
+                continue
+            dataset = path.name.removesuffix(".json").removesuffix(".rows")
+            try:
+                out.append(_describe_rows(dataset, self.get_rows(dataset)))
+            except (ValueError, UnknownDatasetError):
+                continue
+        return out
+
+
+# ---------------------------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------------------------
+
+PIVOT_SPEC_AUTHORING_GUIDE = """\
+# Writing an nqgrid PivotSpec (v1)
+
+A PivotSpec describes a pivot table over **leaf-grain rows** (one row per e.g. department × line × month).
+nqgrid computes groups, subtotals, grand totals, "% of total", heat colours and number formatting; you
+only describe the layout. The PDF/XLSX matches what users see in the app.
+
+## Required
+- `version`: always `1`.
+- `rows`: row dimensions, outermost first: `[{"field": "department", "label": "Department"}, {"field": "line"}]`.
+  Every level but the last becomes a collapsible group with subtotals. `attributes: ["owner"]` copies
+  a field onto that level's rows (shown as the KPI caption).
+- `measures`: `[{"id": "actual", "field": "actual", "label": "Actual", "format": {...}}]`.
+  `aggregate` defaults to `"sum"`; also `avg | min | max | count | distinctCount | first | last`,
+  `{"type": "weightedAvg", "weightField": "units"}`, or
+  `{"type": "ratio", "numeratorField": "actual", "denominatorField": "priorYear", "offset": -1}` (offset -1 = growth).
+  `field` is required except for `count` and `ratio`. Custom aggregators are not available.
+
+## Optional
+- `id` (also the file name), `title`, `subtitle`.
+- `columns`: one column dimension, e.g. `{"field": "month", "order": ["Nov", "Dec", ...], "keepEmpty": true}`,
+  or a list of them, outermost first (see "Several column fields").
+- `values`: measure ids shown as grid columns (default: all measures). Other measures can still feed `kpis`.
+- `format`: `{"style": "currency", "currency": "USD", "compact": true}`,
+  `{"style": "percent", "signDisplay": "exceptZero"}`, `{"style": "decimal", "decimals": 1}`.
+- `showAs` / `groupShowAs`: `percentOfColumnTotal | percentOfParentRow | percentOfParentColumn | percentOfRowTotal |
+  percentOfGrandTotal`, or the kinds along a base field (see "Calculated measures and show values as").
+- `totals`: `{"grandTotal": true, "grandTotalPosition": "bottom", "rowTotal": false}` (`rowTotal` = the grand total
+  column; `subtotalLabel`, default `"{label} Total"`, names column subtotals).
+- `heat`: `{"measure": "actual", "scope": "all | column | row | group", "applyTo": "leaf | group | all"}`;
+  `null` = no heat.
+- `headerCharts`: `{"measure": "actual", "type": "bar", "breakdown": true}` (bars above the column headers).
+- `kpis`: `[{"id": "growth", "label": "Growth", "measure": "growth", "compareTo": "plan"}]`, `kpiLevels: [0]`.
+- `expanded`: `"all"` (default), `"none"`, or key paths of expanded groups, e.g. `[["Camp"], ["Packs"]]`.
+
+## Filtering, sorting and Top N (Excel parity)
+Filter in the spec instead of pre-filtering rows: the report header then prints "Filters: …", totals and
+"% of total" reflect exactly what is shown, and the user can change the filters in the app.
+- `filters`: `[{"field": "department", "include": ["Camp", "Packs"]}]` keeps only those keys;
+  `{"field": "region", "exclude": ["Online"]}` drops keys; label filters
+  `{"field": "line", "match": {"op": "contains", "value": "pack"}}` (`contains | notContains | beginsWith |
+  endsWith | equals | notEquals`, case-insensitive unless `"caseSensitive": true`). Any row field works, also
+  fields that are not rows or columns (e.g. `owner`, `region`); filters on different fields are ANDed. Keys
+  compare as strings (`2024` → `"2024"`, null → `""`). Filters apply to the rows **before** aggregation.
+- Sort a row dimension by a measure: `"sortBy": {"measure": "actual", "direction": "desc"}` on that dimension
+  (siblings are sorted within each parent; add `"columnKey": "Mar"` to rank by one column instead of the row
+  total). `sortBy` wins over `order` / `sort`, which only break ties.
+- Top / Bottom N per parent group: `"topN": {"measure": "actual", "count": 5}` on a row dimension
+  (`"direction": "bottom"` for the smallest). Excluded keys disappear from all totals; add `"other": true`
+  (and optionally `"otherLabel": "All other"`) to fold them into one "Other" row so totals stay complete.
+  Example: top 3 lines per department → `{"field": "line", "topN": {"measure": "actual", "count": 3, "other": true}}`.
+- `facets: ["department", "line"]` only matters for interactive slicers; reports do not need it.
+
+## Field catalogue and layout (field list)
+- `describe_pivot_spec(dataset="...")` returns `field_catalog`: every field with `label`, `type`
+  (`dimension | text | date | number | measure`) and the `areas` it may go to. Put `dimension` / `date` / `text`
+  fields in `rows`, `columns` or `filters`; aggregate `measure` / `number` fields in `measures`
+  (a `dimension` in Values means `"aggregate": "count"`).
+- `fields` (optional) copies a catalogue into the spec, so the app's field list shows your labels; it never
+  changes the numbers. `fieldLabels: {"priorYear": "Prior year"}` renames fields for the field list only.
+- `valuesIndex: 0` puts the measures above the months (`Actual › Nov … Oct`, then `Plan › …`) when there are
+  several values; the default puts the months on top (`Nov › Actual, Plan`).
+- A report filter on a field that is not a row / column is just a `filters` entry (`{"field": "region",
+  "exclude": ["West"]}`); `{"field": "region"}` alone keeps it in the app's Filters area without filtering.
+- Example: `fields_example_spec` (Department → Channel → Line × Month, Actual and Units, Region ≠ West).
+
+## Several column fields
+- `columns: [{"field": "region"}, {"field": "channel"}]` nests Channel under Region (up to 4 levels in the app's
+  field list). Every outer level gets a subtotal column per group: `"subtotal": "end"` (default), `"start"` or
+  `"none"` on that column dimension, plus the grand total column with `totals.rowTotal`.
+- `columnsExpanded`: `"all"` (default), `"none"` or key paths of expanded column groups (`[["North"]]`); a collapsed
+  group shows one total column.
+- With several measures, `valuesIndex` places "Σ Values" among the column levels (`1` → Region › Actual / Share ›
+  Channel). `percentOfColumnTotal` divides by the leaf column's total, `percentOfParentColumn` by the enclosing
+  column group (the row total for the outermost level). Heat `scope: "column"` means each leaf column.
+- Example: `multicol_example_spec` (Region → Σ Values → Channel, Actual and its share of the region).
+
+## Date grouping
+- A date field (ISO strings `2026-01-15` / `2026-01-15T09:30:00Z`, or epoch milliseconds) is grouped by naming a
+  derived field `<field>:<group>` anywhere a field goes (`rows`, `columns`, `filters`, `facets`), with group `year`,
+  `quarter` (Q1–Q4), `month` (Jan–Dec), `week` (ISO), `day`, `yearMonth` (`2026-01`) or `yearQuarter` (`2026-Q1`).
+  One date can feed Year in `columns` and Month in `rows` at the same time.
+- Dates are read in UTC (never the server's time zone). Keys sort chronologically, labels are fixed
+  (`2026`, `FY26`, `Q1`, `Jan`, `Jan 2026`, `Q1 FY26`, `W03 2026`, `15 Jan 2026`); missing / invalid dates
+  are `(blank)`.
+- Settings go on the date field's `fields` entry and apply to all its groups:
+  `{"field": "orderDate", "type": "date", "fiscalYearStartMonth": 11}` (fiscal years are named by the year they end
+  in: Nov 2025 – Oct 2026 is FY26), `"timeZoneOffsetMinutes": 60`, `"monthNames": ["Jan", ...]`.
+- Filter by derived keys: `{"field": "orderDate:year", "include": ["2026"]}`. `"keepEmpty": true` on a date column
+  fills gaps (every month between the first and last month with data).
+- Example: `dates_example_spec`:
+  `"columns": [{"field": "orderDate:year"}, {"field": "orderDate:quarter"}], "columnsExpanded": [["2026"]]`.
+
+## Calculated measures, show values as, subtotals, distinct count
+- Calculated measure: `{"id": "vsPlan", "label": "vs Plan", "calculate": "actual / plan - 1", "format": {"style":
+  "percent", "decimals": 1}}` (no `field` / `aggregate`). The expression references **other measure ids** (add a
+  measure such as `{"id": "plan", "field": "plan"}` for a source field; it need not be in `values`), and ids with
+  spaces or dashes in brackets: `[prior year] * 1.05`. Operators `+ - * / % ^` (`%` = remainder, `-2^2` = -4),
+  comparisons `= != < <= > >=`, `and or not`, `null`; functions `abs sqrt floor ceil round(x, digits) min max
+  if(cond, a, b) coalesce ifnull`. It is evaluated per cell over the referenced measures' **aggregated** values, so
+  totals are `sum(actual) / sum(plan) - 1` (Excel calculated fields). Division by zero and null operands give an
+  empty cell. At most 1000 characters; unknown functions, unknown measures and reference cycles are rejected.
+  Calculated measures work in `values`, `heat`, `kpis`, `headerCharts`, `sortBy`, `topN` and `showAs`.
+- Show values as along a field: `"showAs": "differenceFrom" | "percentDifferenceFrom" | "runningTotal" |
+  "percentRunningTotal" | "rankAscending" | "rankDescending"` with `"showAsBase": {"field": "orderDate:year",
+  "position": "previous"}` (or `"next"`, or `"item": "2025"` for a fixed base). The base field must be a row or
+  column field. The first item (previous), the base item itself and missing bases are empty; rows / columns
+  outside the base field show the value itself for running totals and are empty for differences and ranks.
+- Row subtotals: `"subtotal": "start"` (default: the group row carries the totals), `"end"` (a "Camp Total" row
+  after the group's children) or `"none"` on a row dimension; `totals.subtotalLabel` names the subtotal rows.
+- Distinct count: `{"id": "customers", "field": "customer", "aggregate": "distinctCount"}` counts distinct non-blank
+  values; group and grand totals count distinct values of all their rows (not the sum of the children).
+- Example: `calc_example_spec` (vs Plan calculated measure, YoY % difference, % running total along Line,
+  distinct regions, department subtotals at the bottom).
+
+## Rules
+- Every `field` must exist in the rows (see `datasets[].fields`), including filter fields (for `orderDate:year`
+  the rows need `orderDate`); every measure id you reference (also in `sortBy` / `topN`) must be defined.
+  `sortBy` / `topN` go on `rows` dimensions only.
+- Unknown keys are rejected. Never put HTML or CSS anywhere: styling is built in.
+- Render `options` (separate argument): `theme` (`light | dark`), `page` (`size` A4 | A3 | Letter | Legal | Tabloid,
+  `orientation`), `title` / `subtitle`, `maxColumnsPerPage`, `kpiPanel`, `locale`.
+
+## Workflow
+1. Call `describe_pivot_spec` and pick a dataset and its fields.
+2. Call `export_pivot_report(spec=..., dataset=..., format="pdf", email_to=[...])`.
+3. If `ok` is false, read `validation_errors`, fix the spec and call again.
+"""
+
+
+class ExportPivotReportResult(BaseModel):
+    """What ``export_pivot_report`` returns (structured MCP tool output)."""
+
+    ok: bool
+    format: str
+    path: str | None = Field(default=None, description="Absolute path of the saved file")
+    filename: str | None = None
+    pages: int | None = Field(default=None, description="PDF page count")
+    rows: int | None = Field(default=None, description="Data rows exported")
+    dataset: str | None = None
+    recipients: list[str] = Field(default_factory=list)
+    emailed: bool = False
+    validation_errors: list[str] = Field(default_factory=list, description="Fix these in the spec / options and retry")
+    error: str | None = Field(default=None, description="Non-validation failure (exporter down, email failed, …)")
+    bytes: int | None = Field(default=None, description="File size")
+
+
+Clock = Callable[[], _dt.datetime]
+
+
+def _utc_now() -> _dt.datetime:
+    return _dt.datetime.now(_dt.timezone.utc)
+
+
+def _stamp(now: _dt.datetime) -> str:
+    return now.astimezone(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+class PivotReportService:
+    """Validation, row resolution, export, storage and email for :func:`create_mcp_server`.
+
+    ``exporter`` is an :class:`~nqgrid_export.client.NqgridExportClient` (serve mode) or a
+    :class:`~nqgrid_export.subprocess_exporter.SubprocessExporter`. ``allowed_recipient_domains``
+    limits where an agent may send reports; ``max_rows`` / ``max_request_mb`` cap the payload
+    (keep the latter under the service's ``--max-body-mb``).
+    """
+
+    def __init__(
+        self,
+        exporter: PivotExporter,
+        *,
+        output_dir: str | Path,
+        row_provider: RowProvider | None = None,
+        email_sender: EmailSender | None = None,
+        email_from: str | None = None,
+        allowed_recipient_domains: Collection[str] | None = None,
+        max_rows: int = 200_000,
+        max_request_mb: float = 9.5,
+        default_options: Mapping[str, Any] | None = None,
+        clock: Clock = _utc_now,
+    ) -> None:
+        self.exporter = exporter
+        self.output_dir = Path(output_dir)
+        self.row_provider = row_provider
+        self.email_sender = email_sender
+        self.email_from = email_from or getattr(email_sender, "sender", None)
+        self.allowed_recipient_domains = allowed_recipient_domains
+        self.max_rows = max_rows
+        self.max_request_bytes = int(max_request_mb * 1024 * 1024)
+        self.default_options = dict(default_options or {})
+        self.clock = clock
+
+    # -- describe ------------------------------------------------------------------------------
+
+    def describe_pivot_spec(self, dataset: str | None = None) -> dict[str, Any]:
+        """Schema, options schema, guide, examples and datasets for an LLM agent.
+
+        With ``dataset``, also ``field_catalog``: that dataset's fields with labels, types and allowed
+        areas (the provider's :class:`FieldCatalog`, else inferred from a sample of its rows).
+        """
+        out: dict[str, Any] = {
+            "guide": PIVOT_SPEC_AUTHORING_GUIDE,
+            "pivot_spec_schema": pivot_spec_schema(),
+            "export_options_schema": export_options_schema(),
+            "example_spec": example_spec(),
+            "filtered_example_spec": filtered_example_spec(),
+            "fields_example_spec": fields_example_spec(),
+            "multicol_example_spec": multicol_example_spec(),
+            "dates_example_spec": dates_example_spec(),
+            "calc_example_spec": calc_example_spec(),
+            "formats": ["pdf", "xlsx"],
+        }
+        if isinstance(self.row_provider, DatasetCatalog):
+            try:
+                out["datasets"] = [dict(d) for d in self.row_provider.list_datasets()]
+            except Exception as e:  # a catalog failure must not hide the schema
+                out["datasets_error"] = str(e)
+        if dataset is not None:
+            try:
+                out["dataset"] = dataset
+                out["field_catalog"] = self.field_catalog(dataset)
+            except UnknownDatasetError:
+                out["field_catalog_error"] = f"unknown dataset {dataset!r}"
+            except Exception as e:  # a catalogue failure must not hide the schema
+                out["field_catalog_error"] = str(e)
+        return out
+
+    def field_catalog(self, dataset: str) -> list[dict[str, Any]]:
+        """Resolved catalogue of ``dataset``: every entry with ``label``, ``type``, ``areas`` and ``aggregate``.
+
+        Mirrors nqgrid's ``resolvePivotFields`` defaults: measures go to Values only (``sum``); other types
+        may go anywhere and count in Values.
+        """
+        if self.row_provider is None:
+            raise NqgridInvalidInput("no row provider is configured", details=["dataset: no row provider configured"])
+        if isinstance(self.row_provider, FieldCatalog):
+            entries = [dict(e) for e in self.row_provider.field_catalog(dataset)]
+        else:
+            entries = infer_pivot_fields(self.row_provider.get_rows(dataset))
+        out = []
+        for e in entries:
+            kind = e.get("type") or "dimension"
+            numeric = kind in ("measure", "number")
+            out.append(
+                {
+                    **e,
+                    "label": e.get("label") or e["field"],
+                    "type": kind,
+                    "areas": e.get("areas") or (["values"] if kind == "measure" else list(_ALL_AREAS)),
+                    "aggregate": e.get("aggregate") or ("sum" if numeric else "count"),
+                }
+            )
+        return out
+
+    # -- export --------------------------------------------------------------------------------
+
+    def _file_path(self, spec: Mapping[str, Any], fmt: ReportFormat, now: _dt.datetime) -> Path:
+        spec_id = spec.get("id")
+        stem = re.sub(r"[^\w.-]+", "_", spec_id if isinstance(spec_id, str) and spec_id else "pivot", flags=re.ASCII)[
+            :80
+        ]
+        base = f"{stem}-{now.astimezone(_dt.timezone.utc):%Y%m%d-%H%M%S}"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        path = self.output_dir / f"{base}.{EXTENSIONS[fmt]}"
+        n = 1
+        while path.exists():
+            n += 1
+            path = self.output_dir / f"{base}-{n}.{EXTENSIONS[fmt]}"
+        return path.resolve()
+
+    def export_pivot_report(
+        self,
+        spec: Mapping[str, Any],
+        rows: Sequence[Mapping[str, Any]] | None = None,
+        dataset: str | None = None,
+        format: ReportFormat = "pdf",
+        email_to: Sequence[str] | None = None,
+        subject: str | None = None,
+        options: Mapping[str, Any] | None = None,
+        body: str | None = None,
+    ) -> ExportPivotReportResult:
+        """Validate, export, save and (optionally) email one report. Never raises for bad input:
+        problems come back in ``validation_errors`` / ``error`` so the agent can react."""
+        result = ExportPivotReportResult(ok=False, format=format, dataset=dataset, recipients=list(email_to or []))
+        if format not in ("pdf", "xlsx"):
+            result.validation_errors = [f"format must be 'pdf' or 'xlsx' (got {format!r})"]
+            return result
+
+        spec_dict = dict(spec) if isinstance(spec, Mapping) else spec
+        merged_options = {**self.default_options, **dict(options or {})}
+        now = self.clock()
+        merged_options.setdefault("generatedAt", _stamp(now))
+
+        errors = validate_pivot_spec(spec_dict, prefix="spec.")
+        errors += validate_export_options(merged_options)
+        if rows is None and not dataset:
+            errors.append("pass rows or a dataset reference")
+        if rows is not None and dataset:
+            errors.append("pass rows or dataset, not both")
+        if email_to:
+            if self.email_sender is None or not self.email_from:
+                result.error = "email is not configured on this server"
+            errors += validate_recipients(email_to, allowed_domains=self.allowed_recipient_domains)
+        if subject is not None and ("\n" in subject or "\r" in subject or len(subject) > 200):
+            errors.append("subject must be a single line of at most 200 characters")
+        if errors or result.error:
+            result.validation_errors = errors
+            return result
+
+        # Rows: inline, or from the backend's data layer.
+        if rows is None:
+            assert dataset is not None
+            if self.row_provider is None:
+                result.error = "this server has no row provider; pass rows"
+                return result
+            try:
+                resolved = self.row_provider.get_rows(dataset)
+            except UnknownDatasetError:
+                known = ""
+                if isinstance(self.row_provider, DatasetCatalog):
+                    known = f" (available: {', '.join(str(d.get('id')) for d in self.row_provider.list_datasets())})"
+                result.validation_errors = [f"unknown dataset {dataset!r}{known}"]
+                return result
+            except Exception as e:
+                result.error = f"could not load dataset {dataset!r}: {e}"
+                return result
+        else:
+            resolved = rows
+        row_list = [dict(r) for r in resolved]
+        result.rows = len(row_list)
+        if len(row_list) > self.max_rows:
+            result.validation_errors = [
+                f"{len(row_list)} rows exceed the limit of {self.max_rows}; aggregate to the pivot's leaf grain first"
+            ]
+            return result
+        if any(not isinstance(r, dict) for r in row_list):
+            result.validation_errors = ["rows must be objects"]
+            return result
+        field_errors = check_fields(spec_dict, row_list)
+        if field_errors:
+            result.validation_errors = field_errors
+            return result
+        size = len(dumps_request({"spec": spec_dict, "rows": row_list, "options": merged_options}))
+        if size > self.max_request_bytes:
+            result.validation_errors = [
+                f"request is {size / 1048576:.1f} MiB (limit {self.max_request_bytes / 1048576:.1f}); "
+                "aggregate rows first"
+            ]
+            return result
+
+        # Export.
+        try:
+            data = self.exporter.export(spec_dict, row_list, format, merged_options)
+        except NqgridInvalidInput as e:
+            result.validation_errors = e.details or [e.message]
+            return result
+        except NqgridExportError as e:
+            result.error = f"export failed ({e.code}): {e.message}"
+            return result
+
+        path = self._file_path(spec_dict, format, now)
+        path.write_bytes(data)
+        result.path = str(path)
+        result.filename = path.name
+        result.bytes = len(data)
+        if format == "pdf":
+            result.pages = pdf_page_count(data)
+
+        # Email.
+        if email_to:
+            assert self.email_sender is not None and self.email_from
+            title = str(spec_dict.get("title") or spec_dict.get("id") or "Pivot report")
+            pages = f", {result.pages} page{'s' if result.pages != 1 else ''}" if result.pages else ""
+            default_body = (
+                f"{title}\n\nAttached: {path.name} ({format.upper()}{pages}).\n"
+                f"Generated {merged_options['generatedAt']}.\n"
+            )
+            try:
+                message = build_report_email(
+                    sender=self.email_from,
+                    to=list(email_to),
+                    subject=subject or f"{title} ({format.upper()})",
+                    body=body or default_body,
+                    attachment=data,
+                    filename=path.name,
+                    mime_type=CONTENT_TYPES[format],
+                )
+                self.email_sender.send(message)
+            except Exception as e:
+                result.error = f"report saved to {path} but email failed: {e}"
+                return result
+            result.emailed = True
+
+        result.ok = True
+        return result
+
+    # -- configuration -------------------------------------------------------------------------
+
+    @classmethod
+    def from_env(cls, environ: Mapping[str, str] | None = None) -> PivotReportService:
+        """Build from env vars (all optional except where noted).
+
+        ``NQGRID_EXPORT_URL`` (serve mode, default ``http://127.0.0.1:8787``) or ``NQGRID_EXPORT_MODE=subprocess``
+        (+ ``NQGRID_EXPORT_BIN``); ``NQGRID_EXPORT_TIMEOUT`` (s, default 60); ``NQGRID_REPORT_DIR`` (default
+        ``./reports``); ``NQGRID_DATASET_DIR`` (a :class:`JsonDirectoryRowProvider`); ``NQGRID_SMTP_*`` (see
+        :mod:`nqgrid_export.email`) or ``NQGRID_EMAIL_OUTBOX`` (write ``.eml`` files); ``NQGRID_EMAIL_ALLOWED_DOMAINS``
+        (comma-separated); ``NQGRID_MAX_ROWS``.
+        """
+        from .client import NqgridExportClient
+        from .email import OutboxEmailSender, SmtpEmailSender
+        from .subprocess_exporter import SubprocessExporter
+
+        env = os.environ if environ is None else environ
+        timeout = float(env.get("NQGRID_EXPORT_TIMEOUT", 60))
+        exporter: PivotExporter
+        if env.get("NQGRID_EXPORT_MODE", "http") == "subprocess":
+            exporter = SubprocessExporter(env.get("NQGRID_EXPORT_BIN"), timeout=max(timeout, 120))
+        else:
+            exporter = NqgridExportClient(env.get("NQGRID_EXPORT_URL"), timeout=timeout)
+        sender: EmailSender | None = None
+        email_from = env.get("NQGRID_SMTP_FROM")
+        if env.get("NQGRID_SMTP_HOST"):
+            sender = SmtpEmailSender.from_env(env)
+        elif env.get("NQGRID_EMAIL_OUTBOX"):
+            sender = OutboxEmailSender(env["NQGRID_EMAIL_OUTBOX"])
+            email_from = email_from or "reports@localhost.localdomain"
+        domains = [d.strip() for d in env.get("NQGRID_EMAIL_ALLOWED_DOMAINS", "").split(",") if d.strip()]
+        return cls(
+            exporter,
+            output_dir=env.get("NQGRID_REPORT_DIR", "reports"),
+            row_provider=JsonDirectoryRowProvider(env["NQGRID_DATASET_DIR"]) if env.get("NQGRID_DATASET_DIR") else None,
+            email_sender=sender,
+            email_from=email_from,
+            allowed_recipient_domains=domains or None,
+            max_rows=int(env.get("NQGRID_MAX_ROWS", 200_000)),
+        )
+
+
+# ---------------------------------------------------------------------------------------------
+# MCP wiring
+# ---------------------------------------------------------------------------------------------
+
+SCHEMA_URI = "nqgrid://pivot-spec/v1/schema"
+GUIDE_URI = "nqgrid://pivot-spec/v1/guide"
+
+EXPORT_TOOL_DESCRIPTION = (
+    "Render a pivot report (PDF or XLSX) from an nqgrid PivotSpec and email it as an attachment. "
+    "Pass `dataset` (preferred: the server loads the rows) or inline `rows` at the pivot's leaf grain. "
+    "Call describe_pivot_spec first. If ok is false, fix the spec using validation_errors and retry."
+)
+DESCRIBE_TOOL_DESCRIPTION = (
+    "Return the PivotSpec JSON Schema, render-options schema, an authoring guide, example specs and "
+    "the available datasets with their fields. Pass `dataset` to also get its field catalogue (labels, "
+    "types, allowed areas). Call before export_pivot_report."
+)
+
+
+def _server_class() -> Any:
+    try:
+        from mcp.server.mcpserver import MCPServer  # mcp >= 2
+
+        return MCPServer
+    except ImportError:
+        from mcp.server.fastmcp import FastMCP  # type: ignore[attr-defined,unused-ignore]  # mcp 1.x
+
+        return FastMCP
+
+
+def create_mcp_server(service: PivotReportService, *, name: str = "nqgrid-reports") -> Any:
+    """An ``MCPServer`` (mcp 2.x) / ``FastMCP`` (mcp 1.x) exposing the service's tools and resources."""
+    import anyio.to_thread
+
+    server = _server_class()(name, instructions=DESCRIBE_TOOL_DESCRIPTION)
+
+    @server.tool(name="export_pivot_report", description=EXPORT_TOOL_DESCRIPTION)
+    async def export_pivot_report(
+        spec: dict[str, Any],
+        rows: list[dict[str, Any]] | None = None,
+        dataset: str | None = None,
+        format: Literal["pdf", "xlsx"] = "pdf",
+        email_to: list[str] | None = None,
+        subject: str | None = None,
+        options: dict[str, Any] | None = None,
+        body: str | None = None,
+    ) -> ExportPivotReportResult:
+        # Export and SMTP block: keep them off the event loop.
+        call = functools.partial(
+            service.export_pivot_report,
+            spec,
+            rows=rows,
+            dataset=dataset,
+            format=format,
+            email_to=email_to,
+            subject=subject,
+            options=options,
+            body=body,
+        )
+        return await anyio.to_thread.run_sync(call)
+
+    @server.tool(name="describe_pivot_spec", description=DESCRIBE_TOOL_DESCRIPTION)
+    def describe_pivot_spec(dataset: str | None = None) -> dict[str, Any]:
+        return service.describe_pivot_spec(dataset)
+
+    @server.resource(
+        SCHEMA_URI, name="pivot-spec-schema", description="PivotSpec v1 JSON Schema", mime_type="application/json"
+    )
+    def pivot_spec_schema_resource() -> str:
+        return json.dumps(pivot_spec_schema(), indent=2)
+
+    @server.resource(
+        GUIDE_URI, name="pivot-spec-guide", description="How to write a PivotSpec", mime_type="text/markdown"
+    )
+    def pivot_spec_guide_resource() -> str:
+        return PIVOT_SPEC_AUTHORING_GUIDE
+
+    return server
+
+
+def main() -> None:
+    """``nqgrid-export-mcp`` / ``python -m nqgrid_export.mcp_tool``: stdio MCP server configured from env."""
+    create_mcp_server(PivotReportService.from_env()).run()
+
+
+if __name__ == "__main__":
+    main()

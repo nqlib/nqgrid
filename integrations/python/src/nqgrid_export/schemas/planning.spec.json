@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "id": "planning-fy26",
+  "title": "FY26 Sales Plan",
+  "rows": [
+    {
+      "field": "department",
+      "label": "Department",
+      "attributes": [
+        "owner"
+      ]
+    },
+    {
+      "field": "line",
+      "label": "Line"
+    }
+  ],
+  "columns": {
+    "field": "month",
+    "label": "Month",
+    "order": [
+      "Nov",
+      "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct"
+    ],
+    "keepEmpty": true
+  },
+  "measures": [
+    {
+      "id": "actual",
+      "field": "actual",
+      "label": "Actual",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "groupShowAs": "percentOfColumnTotal"
+    },
+    {
+      "id": "plan",
+      "field": "plan",
+      "label": "Plan",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "forecast",
+      "field": "forecast",
+      "label": "Forecast",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "outlook",
+      "field": "outlook",
+      "label": "Outlook",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      }
+    },
+    {
+      "id": "growth",
+      "label": "Growth on FY25",
+      "aggregate": {
+        "type": "ratio",
+        "numeratorField": "actual",
+        "denominatorField": "priorYear",
+        "offset": -1
+      },
+      "format": {
+        "style": "percent",
+        "signDisplay": "exceptZero"
+      }
+    }
+  ],
+  "values": [
+    "actual"
+  ],
+  "expanded": [
+    [
+      "Camp"
+    ],
+    [
+      "Packs"
+    ]
+  ],
+  "heat": {
+    "measure": "actual",
+    "scope": "all",
+    "applyTo": "leaf"
+  },
+  "headerCharts": {
+    "measure": "actual",
+    "type": "bar",
+    "breakdown": true
+  },
+  "kpis": [
+    {
+      "id": "growth",
+      "label": "Growth on FY25",
+      "measure": "growth"
+    },
+    {
+      "id": "forecast",
+      "label": "Forecast",
+      "measure": "forecast"
+    },
+    {
+      "id": "outlook",
+      "label": "Outlook",
+      "measure": "outlook",
+      "compareTo": "plan"
+    },
+    {
+      "id": "plan",
+      "label": "Plan",
+      "measure": "plan"
+    }
+  ],
+  "kpiLevels": [
+    0
+  ]
+}

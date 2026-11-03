@@ -1,0 +1,935 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nqlib/nqgrid/contract/pivot/v1/pivot-spec.schema.json",
+  "title": "PivotSpec",
+  "description": "nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field) are done by validatePivotSpec().",
+  "type": "object",
+  "required": [
+    "version",
+    "rows",
+    "measures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    },
+    "columns": {
+      "description": "Column dimension, or the column hierarchy outermost first (e.g. year → quarter → month). A single dimension (the original v1 shape) and a one-element array are equivalent.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/dimension"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/dimension"
+          }
+        }
+      ]
+    },
+    "measures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/measure"
+      }
+    },
+    "values": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "grandTotal": {
+          "type": "boolean"
+        },
+        "grandTotalPosition": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "grandTotalLabel": {
+          "type": "string"
+        },
+        "rowTotal": {
+          "type": "boolean",
+          "description": "Grand total column(s), one per value measure (across every column group with several column fields)."
+        },
+        "rowTotalLabel": {
+          "type": "string"
+        },
+        "subtotalLabel": {
+          "type": "string",
+          "description": "Label of column subtotals and of subtotal: \"end\" rows; {label} is the group label (default \"{label} Total\")."
+        }
+      }
+    },
+    "expanded": {
+      "oneOf": [
+        {
+          "enum": [
+            "all",
+            "none"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "columnsExpanded": {
+      "description": "Column groups (every column level but the innermost): \"all\" (default), \"none\", or key paths of expanded groups, e.g. [[\"2026\"]]. A collapsed group shows only its total column.",
+      "oneOf": [
+        {
+          "enum": [
+            "all",
+            "none"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "heat": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "measure": {
+              "type": "string"
+            },
+            "scope": {
+              "enum": [
+                "all",
+                "column",
+                "row",
+                "group"
+              ]
+            },
+            "levels": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 32
+            },
+            "applyTo": {
+              "enum": [
+                "leaf",
+                "group",
+                "all"
+              ]
+            },
+            "domain": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        }
+      ]
+    },
+    "headerCharts": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "measure": {
+              "type": "string"
+            },
+            "type": {
+              "enum": [
+                "bar",
+                "line"
+              ]
+            },
+            "breakdown": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "kpis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "measure"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string"
+          },
+          "measure": {
+            "type": "string",
+            "minLength": 1
+          },
+          "compareTo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "format": {
+            "$ref": "#/$defs/numberFormat"
+          },
+          "deltaFormat": {
+            "$ref": "#/$defs/numberFormat"
+          }
+        }
+      }
+    },
+    "kpiLevels": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "layout": {
+      "enum": [
+        "tabular",
+        "compact"
+      ]
+    },
+    "filters": {
+      "description": "Report / slicer / label filters on any record field, applied to records before aggregation (totals reflect them). Filters on different fields are ANDed.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/filter"
+      }
+    },
+    "facets": {
+      "description": "Fields returned as model.facets (distinct values with cross-filtered counts and selection) for slicers and filter menus.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/facet"
+      }
+    },
+    "fields": {
+      "description": "Field catalogue for the field list (labels, types, allowed areas), in display order. Metadata only: it never changes the computed model. Inferred from the rows when absent.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/field"
+      }
+    },
+    "fieldLabels": {
+      "description": "Field labels for the field list, e.g. {\"priorYear\": \"Prior year\"}; win over fields[].label.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "valuesIndex": {
+      "description": "Position of the \"Σ Values\" pseudo-field among the column fields when there are several value measures: 0 = measures outermost (Actual › Nov); default (= number of column fields) = innermost (Nov › Actual).",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sort": {
+          "enum": [
+            "asc",
+            "desc",
+            "none"
+          ]
+        },
+        "keepEmpty": {
+          "type": "boolean",
+          "description": "Column dimensions: keep order keys without data; date-grouped fields also fill gaps between the first and last period with data."
+        },
+        "blankLabel": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "sortBy": {
+          "$ref": "#/$defs/sortBy"
+        },
+        "topN": {
+          "$ref": "#/$defs/topN"
+        },
+        "subtotal": {
+          "enum": [
+            "end",
+            "start",
+            "none"
+          ],
+          "description": "Groups of this field (every level but the innermost). Columns: subtotal column per group at the end (default), the start, or none. Rows: start (default; the group row carries the subtotals, Excel's \"at top\"), end (a subtotal row after the group's children) or none. Collapsed groups always show their totals."
+        }
+      }
+    },
+    "aggregate": {
+      "oneOf": [
+        {
+          "title": "BuiltInAggregate",
+          "enum": [
+            "sum",
+            "avg",
+            "min",
+            "max",
+            "count",
+            "first",
+            "last",
+            "distinctCount"
+          ],
+          "description": "distinctCount counts distinct non-blank keys of field (compared as strings); totals count distinct keys of all their records."
+        },
+        {
+          "title": "WeightedAvgAggregate",
+          "type": "object",
+          "required": [
+            "type",
+            "weightField"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "weightedAvg"
+            },
+            "weightField": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "title": "RatioAggregate",
+          "type": "object",
+          "required": [
+            "type",
+            "numeratorField",
+            "denominatorField"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "ratio"
+            },
+            "numeratorField": {
+              "type": "string",
+              "minLength": 1
+            },
+            "denominatorField": {
+              "type": "string",
+              "minLength": 1
+            },
+            "offset": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "title": "CustomAggregate",
+          "type": "object",
+          "required": [
+            "type",
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "custom"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "showAs": {
+      "enum": [
+        "value",
+        "percentOfColumnTotal",
+        "percentOfParentRow",
+        "percentOfParentColumn",
+        "percentOfRowTotal",
+        "percentOfGrandTotal",
+        "differenceFrom",
+        "percentDifferenceFrom",
+        "runningTotal",
+        "percentRunningTotal",
+        "rankAscending",
+        "rankDescending"
+      ],
+      "description": "Excel \"Show values as\". Percent kinds are ratios. differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase."
+    },
+    "measure": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calculate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Calculated measure: an expression over other measure ids, evaluated per cell over their aggregated values, e.g. \"actual / plan - 1\" or \"[prior year] * 1.05\". Operators + - * / % ^, comparisons, and / or / not, null; functions abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull. Division by zero gives no value. Excludes field and aggregate. Grammar: docs/pivot-headless.md; test vectors: calc-expressions.json."
+        },
+        "label": {
+          "type": "string"
+        },
+        "aggregate": {
+          "$ref": "#/$defs/aggregate"
+        },
+        "format": {
+          "$ref": "#/$defs/numberFormat"
+        },
+        "percentFormat": {
+          "$ref": "#/$defs/numberFormat"
+        },
+        "showAs": {
+          "$ref": "#/$defs/showAs"
+        },
+        "groupShowAs": {
+          "$ref": "#/$defs/showAs"
+        },
+        "showAsBase": {
+          "$ref": "#/$defs/showAsBase"
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "field is required unless the aggregate is count, ratio or custom, or the measure is calculated",
+          "if": {
+            "allOf": [
+              {
+                "not": {
+                  "required": [
+                    "calculate"
+                  ]
+                }
+              },
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "aggregate"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "aggregate"
+                    ],
+                    "properties": {
+                      "aggregate": {
+                        "enum": [
+                          "sum",
+                          "avg",
+                          "min",
+                          "max",
+                          "first",
+                          "last",
+                          "distinctCount"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "aggregate"
+                    ],
+                    "properties": {
+                      "aggregate": {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "weightedAvg"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "field"
+            ]
+          }
+        }
+      ],
+      "dependentSchemas": {
+        "calculate": {
+          "$comment": "a calculated measure has no field or aggregate",
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "field"
+                ]
+              },
+              {
+                "required": [
+                  "aggregate"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "numberFormat": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": {
+          "enum": [
+            "decimal",
+            "currency",
+            "percent"
+          ]
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3
+        },
+        "currencySymbol": {
+          "type": "string"
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20
+        },
+        "compact": {
+          "type": "boolean"
+        },
+        "significantDigits": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 21
+        },
+        "compactUnits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "signDisplay": {
+          "enum": [
+            "auto",
+            "always",
+            "exceptZero",
+            "never"
+          ]
+        },
+        "negative": {
+          "enum": [
+            "minus",
+            "parentheses"
+          ]
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "suffix": {
+          "type": "string"
+        },
+        "groupSeparator": {
+          "type": "string"
+        },
+        "decimalSeparator": {
+          "type": "string"
+        },
+        "empty": {
+          "type": "string"
+        }
+      }
+    },
+    "sortBy": {
+      "title": "SortBy",
+      "description": "Row dimensions only: order sibling keys by an aggregated measure (wins over order / sort, which break ties). Keys without a value sort last.",
+      "type": "object",
+      "required": [
+        "measure"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "measure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        },
+        "columnKey": {
+          "type": "string",
+          "description": "Rank by this column-dimension key (default: the row total)."
+        }
+      }
+    },
+    "topN": {
+      "title": "TopN",
+      "description": "Row dimensions only: keep the top / bottom `count` keys within each parent group (outermost level first). Excluded keys leave every total unless `other` folds them into one row.",
+      "type": "object",
+      "required": [
+        "measure",
+        "count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "measure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "direction": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "columnKey": {
+          "type": "string",
+          "description": "Rank by this column-dimension key (default: the row total)."
+        },
+        "other": {
+          "type": "boolean",
+          "description": "Fold the remaining keys into one row (key \"\\u0000other\")."
+        },
+        "otherLabel": {
+          "type": "string"
+        }
+      }
+    },
+    "labelMatch": {
+      "title": "LabelMatch",
+      "description": "Label filter on the key string (null → \"\"). Case-insensitive unless caseSensitive.",
+      "type": "object",
+      "required": [
+        "op",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "contains",
+            "notContains",
+            "beginsWith",
+            "endsWith",
+            "equals",
+            "notEquals"
+          ]
+        },
+        "value": {
+          "type": "string"
+        },
+        "caseSensitive": {
+          "type": "boolean"
+        }
+      }
+    },
+    "filter": {
+      "title": "Filter",
+      "description": "Keys compare as strings (null → \"\", 2024 → \"2024\"). include: [] keeps nothing; a filter with no include / exclude / match keeps everything.",
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "match": {
+          "$ref": "#/$defs/labelMatch"
+        },
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "facet": {
+      "oneOf": [
+        {
+          "title": "FacetField",
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "title": "FacetWithLabel",
+          "type": "object",
+          "required": [
+            "field"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "type": "string",
+              "minLength": 1
+            },
+            "label": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "description": "A field name, or { field, label } to override the slicer label."
+    },
+    "field": {
+      "title": "PivotFieldSpec",
+      "description": "One field catalogue entry (field list metadata). Entries with source + dateGroup define derived date fields; date settings (fiscalYearStartMonth, timeZoneOffsetMinutes, monthNames) change the model.",
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "dimension",
+            "measure",
+            "date",
+            "number",
+            "text"
+          ],
+          "description": "dimension = categorical keys, text = free text, date, number = numeric values that can also be keys, measure = numeric, aggregated in Values only."
+        },
+        "areas": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "rows",
+              "columns",
+              "values",
+              "filters"
+            ]
+          },
+          "description": "Areas the field may be placed in (default: values for measures, every area otherwise)."
+        },
+        "aggregate": {
+          "enum": [
+            "sum",
+            "avg",
+            "min",
+            "max",
+            "count",
+            "first",
+            "last",
+            "distinctCount"
+          ],
+          "description": "Aggregate of a measure created by dropping the field into Values (default sum for numeric types, else count)."
+        },
+        "format": {
+          "$ref": "#/$defs/numberFormat"
+        },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Derived date field: the record field holding the dates (with dateGroup). Names like \"orderDate:year\" are derived without an entry."
+        },
+        "dateGroup": {
+          "$ref": "#/$defs/dateGroup"
+        },
+        "fiscalYearStartMonth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "Date fields: first month of the fiscal year (default 1). Fiscal years are named by the year they end in."
+        },
+        "timeZoneOffsetMinutes": {
+          "type": "integer",
+          "minimum": -840,
+          "maximum": 840,
+          "description": "Date fields: fixed offset applied to instants (epoch ms, ISO strings with a zone) before taking the day. Default 0 (UTC)."
+        },
+        "monthNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 12,
+          "maxItems": 12,
+          "description": "Date fields: month labels (default Jan … Dec)."
+        },
+        "dateGroups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dateGroup"
+          },
+          "description": "Date fields: \"Group by\" choices in the field list (default: every group when the values parse as dates; [] turns grouping off)."
+        }
+      },
+      "dependentRequired": {
+        "source": [
+          "dateGroup"
+        ],
+        "dateGroup": [
+          "source"
+        ]
+      }
+    },
+    "dateGroup": {
+      "title": "DateGroup",
+      "description": "year, quarter (Q1–Q4 of any year), month (Jan–Dec of any year), week (ISO week), day, yearMonth (2026-01), yearQuarter (2026-Q1). Year and quarter keys follow fiscalYearStartMonth.",
+      "enum": [
+        "year",
+        "quarter",
+        "month",
+        "week",
+        "day",
+        "yearMonth",
+        "yearQuarter"
+      ]
+    },
+    "showAsBase": {
+      "title": "ShowAsBase",
+      "description": "Base of the difference / running-total / rank kinds of showAs: a row or column field, and for differences the base item — a key of that field (item) or the previous (default) / next sibling (position). Running totals and ranks use the field only.",
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item": {
+          "type": "string",
+          "description": "A key of field, e.g. \"2025\"; wins over position."
+        },
+        "position": {
+          "enum": [
+            "previous",
+            "next"
+          ]
+        }
+      }
+    }
+  }
+}

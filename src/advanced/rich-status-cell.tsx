@@ -2,7 +2,7 @@ import type { CSSProperties, ReactElement } from "react";
 
 import { tableRichPillBaseClass, tableRichPillVariantClass, tableRichStatusSelectClass } from "../styles";
 import type { RichPillVariant, RichStatusMapEntry } from "./rich-schema";
-import { resolveStatusEntry } from "./rich-value-format";
+import { resolveStatusEntry } from "../core/rich-value-format";
 
 /** Inline styles from optional `RichStatusMapEntry` color fields (undefined if none set). */
 export function richStatusEntryInlineStyle(entry: RichStatusMapEntry): CSSProperties | undefined {

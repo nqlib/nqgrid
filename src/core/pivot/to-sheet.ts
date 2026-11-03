@@ -1,0 +1,151 @@
+import { pivotShowAsFormatKind } from "./format";
+import type { PivotBodyRow, PivotModel } from "./types";
+
+export type PivotSheetCellRole = "corner" | "header" | "group" | "leaf" | "grandTotal";
+
+export interface PivotSheetCell {
+  /** Numbers stay numeric (percent values are ratios) so spreadsheets can recalculate. */
+  readonly v: string | number | null;
+  /** Excel number format for numeric cells. */
+  readonly numFmt?: string;
+  readonly role: PivotSheetCellRole;
+  readonly depth?: number;
+  readonly heat?: number;
+  readonly bold?: boolean;
+}
+
+export interface PivotSheetMerge {
+  readonly row: number;
+  readonly col: number;
+  readonly rowSpan: number;
+  readonly colSpan: number;
+}
+
+/**
+ * Rectangular, spreadsheet-shaped view of a `PivotModel`: what an XLSX writer
+ * (exceljs in Node, openpyxl in Python) or CSV/TSV export needs, with no layout logic left.
+ */
+export interface PivotSheet {
+  readonly title?: string;
+  /** Active filters as printable lines (`model.filters[].text`), when any. */
+  readonly filters?: readonly string[];
+  readonly cells: readonly (readonly PivotSheetCell[])[];
+  readonly merges: readonly PivotSheetMerge[];
+  readonly frozenRows: number;
+  readonly frozenCols: number;
+  readonly rowHeaderColumnCount: number;
+  readonly columnCount: number;
+}
+
+export interface PivotModelToSheetOptions {
+  /** Default: `model.layout`. */
+  readonly layout?: "tabular" | "compact";
+  /** Compact layout indent per depth (default two spaces). */
+  readonly indent?: string;
+}
+
+const roleOf = (row: PivotBodyRow): PivotSheetCellRole =>
+  row.kind === "grandTotal" ? "grandTotal" : row.kind === "group" || row.kind === "subtotal" ? "group" : "leaf";
+
+/** Excel number format of a value cell: the measure's, its percent format, or `0` for ranks. */
+function numFmtOf(showAs: string | undefined, numFmt: string, percentNumFmt: string): string {
+  const kind = pivotShowAsFormatKind(showAs);
+  return kind === "percent" ? percentNumFmt : kind === "rank" ? "0" : numFmt;
+}
+
+export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetOptions = {}): PivotSheet {
+  const layout = options.layout ?? model.layout;
+  const indent = options.indent ?? "  ";
+  const dimCols = layout === "tabular" ? model.rowDimensions.length : 1;
+  const headerCount = model.headerRows.length;
+  const cells: PivotSheetCell[][] = [];
+  const merges: PivotSheetMerge[] = [];
+
+  // Header rows: row-dimension labels sit in the last header row (merged upward). Cells covered
+  // by a header spanning down from an earlier row (column subtotals) stay empty.
+  const covered = model.headerRows.map(() => new Set<number>());
+  model.headerRows.forEach((headerRow, r) => {
+    const out: PivotSheetCell[] = [];
+    const last = r === headerCount - 1;
+    if (layout === "tabular") {
+      for (const d of model.rowDimensions) out.push({ v: last ? d.label : null, role: "corner", bold: true });
+    } else {
+      out.push({ v: last ? model.rowDimensions.map((d) => d.label).join(" / ") : null, role: "corner", bold: true });
+    }
+    const skip = () => {
+      while (covered[r]!.has(out.length - dimCols)) out.push({ v: null, role: "header" });
+    };
+    for (const h of headerRow) {
+      skip();
+      const rowSpan = h.rowSpan ?? 1;
+      if (h.colSpan > 1 || rowSpan > 1) merges.push({ row: r, col: out.length, rowSpan, colSpan: h.colSpan });
+      for (let below = 1; below < rowSpan && r + below < headerCount; below++) {
+        for (let i = 0; i < h.colSpan; i++) covered[r + below]!.add(out.length - dimCols + i);
+      }
+      out.push({ v: h.label, role: "header", bold: true });
+      for (let i = 1; i < h.colSpan; i++) out.push({ v: null, role: "header" });
+    }
+    skip();
+    cells.push(out);
+  });
+  if (headerCount > 1) {
+    for (let c = 0; c < dimCols; c++) merges.push({ row: 0, col: c, rowSpan: headerCount, colSpan: 1 });
+  }
+
+  // Body rows.
+  model.rows.forEach((row, rowIndex) => {
+    const role = roleOf(row);
+    const bold = row.kind !== "leaf";
+    const out: PivotSheetCell[] = [];
+    if (layout === "tabular") {
+      for (let i = 0; i < dimCols; i++) {
+        const show = row.kind === "grandTotal" ? i === 0 : row.depth === i;
+        out.push({ v: show ? row.label : null, role, depth: row.depth, bold });
+      }
+      if (row.kind === "grandTotal" && dimCols > 1) {
+        merges.push({ row: headerCount + rowIndex, col: 0, rowSpan: 1, colSpan: dimCols });
+      }
+    } else {
+      out.push({ v: indent.repeat(Math.max(0, row.depth)) + row.label, role, depth: row.depth, bold });
+    }
+    row.cells.forEach((cell, i) => {
+      const col = model.columns[i]!;
+      out.push({
+        v: cell.value,
+        numFmt: numFmtOf(cell.showAs, col.excelNumFmt, col.excelPercentNumFmt),
+        role,
+        bold,
+        ...(cell.heat !== undefined ? { heat: cell.heat } : {}),
+      });
+    });
+    cells.push(out);
+  });
+
+  // Tabular row-dimension spans (a group label covers its visible descendants).
+  if (layout === "tabular") {
+    model.spans.forEach((levelSpans, level) => {
+      for (const s of levelSpans) {
+        // A group's `subtotal: "end"` row prints its label in the group's column (Excel), outside the merge.
+        const last = model.rows[s.rowIndex + s.span - 1];
+        const span = last?.kind === "subtotal" && last.depth === level ? s.span - 1 : s.span;
+        if (span > 1) merges.push({ row: headerCount + s.rowIndex, col: level, rowSpan: span, colSpan: 1 });
+      }
+    });
+  }
+
+  return {
+    ...(model.title !== undefined ? { title: model.title } : {}),
+    ...(model.filters?.length ? { filters: model.filters.map((f) => f.text) } : {}),
+    cells,
+    merges,
+    frozenRows: headerCount,
+    frozenCols: dimCols,
+    rowHeaderColumnCount: dimCols,
+    columnCount: dimCols + model.columns.length,
+  };
+}
+
+/** Plain text/number matrix (e.g. for `matrixToTsv` or CSV writers). */
+export function pivotSheetToMatrix(sheet: PivotSheet): (string | number | null)[][] {
+  return sheet.cells.map((row) => row.map((c) => c.v));
+}

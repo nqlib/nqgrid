@@ -11,7 +11,7 @@ import type {
   RichSchemaColumnDef,
   StatusRichColumn,
 } from "./rich-schema";
-import { getByPath, normalizePeopleList, reconcileRichPeopleWithRoster } from "./rich-value-format";
+import { getByPath, normalizePeopleList, reconcileRichPeopleWithRoster } from "../core/rich-value-format";
 
 function metaForKind(kind: RichColumnKind): NqgridRichColumnMeta {
   return { nqgridRich: { kind } };

@@ -1,0 +1,793 @@
+{
+  "description": "Shared test vectors for calculated-measure expressions (PivotMeasure.calculate). Consumed by src/core/pivot/calc.test.ts and integrations/python/tests/test_calc.py. An expr may be a JSON string or {\"concat\": [parts]} where a part is a string or {\"repeat\": s, \"times\": n}. Valid cases: evaluate with `values` (null = no value) and compare to `result` (relative tolerance 1e-12; null = no value); `references` (when given) is the ordered list of referenced names. Invalid cases: parse fails with `code` (and `position`, in UTF-16 code units, when given); `measures` (when given) are the known reference names.",
+  "limits": {
+    "maxLength": 1000,
+    "maxDepth": 64,
+    "maxArgs": 32
+  },
+  "functions": [
+    "abs",
+    "sqrt",
+    "floor",
+    "ceil",
+    "round",
+    "min",
+    "max",
+    "if",
+    "coalesce",
+    "ifnull"
+  ],
+  "valid": [
+    {
+      "expr": "actual / plan - 1",
+      "values": {
+        "actual": 110,
+        "plan": 100
+      },
+      "result": 0.1,
+      "references": [
+        "actual",
+        "plan"
+      ]
+    },
+    {
+      "expr": "actual - plan",
+      "values": {
+        "actual": 5,
+        "plan": null
+      },
+      "result": null
+    },
+    {
+      "expr": "actual / plan",
+      "values": {
+        "actual": 5,
+        "plan": 0
+      },
+      "result": null
+    },
+    {
+      "expr": "coalesce(plan, 0) + actual",
+      "values": {
+        "actual": 5,
+        "plan": null
+      },
+      "result": 5
+    },
+    {
+      "expr": "ifnull(plan, actual)",
+      "values": {
+        "actual": 5,
+        "plan": null
+      },
+      "result": 5
+    },
+    {
+      "expr": "if(actual > plan, 1, -1)",
+      "values": {
+        "actual": 10,
+        "plan": 5
+      },
+      "result": 1
+    },
+    {
+      "expr": "IF(actual < plan, 1)",
+      "values": {
+        "actual": 10,
+        "plan": 5
+      },
+      "result": null
+    },
+    {
+      "expr": "if(plan, actual / plan, 0)",
+      "values": {
+        "actual": 1,
+        "plan": null
+      },
+      "result": 0
+    },
+    {
+      "expr": "-2^2",
+      "values": {},
+      "result": -4
+    },
+    {
+      "expr": "2^3^2",
+      "values": {},
+      "result": 512
+    },
+    {
+      "expr": "2^-1",
+      "values": {},
+      "result": 0.5
+    },
+    {
+      "expr": "(1 + 2) * 3 - 4 / 2",
+      "values": {},
+      "result": 7
+    },
+    {
+      "expr": "10 % 3",
+      "values": {},
+      "result": 1
+    },
+    {
+      "expr": "-7 % 3",
+      "values": {},
+      "result": -1
+    },
+    {
+      "expr": "7.5 % 2",
+      "values": {},
+      "result": 1.5
+    },
+    {
+      "expr": "7 % 0",
+      "values": {},
+      "result": null
+    },
+    {
+      "expr": "round(2.5) + round(-2.5)",
+      "values": {},
+      "result": 0
+    },
+    {
+      "expr": "round(-2.5)",
+      "values": {},
+      "result": -3
+    },
+    {
+      "expr": "round(1234.5678, 2)",
+      "values": {},
+      "result": 1234.57
+    },
+    {
+      "expr": "round(1250, -2)",
+      "values": {},
+      "result": 1300
+    },
+    {
+      "expr": "round(actual, null)",
+      "values": {
+        "actual": 1
+      },
+      "result": null
+    },
+    {
+      "expr": "min(actual, plan, null)",
+      "values": {
+        "actual": 3,
+        "plan": 2
+      },
+      "result": 2
+    },
+    {
+      "expr": "max(null, null)",
+      "values": {},
+      "result": null
+    },
+    {
+      "expr": "abs(-3) + sqrt(16) + floor(1.7) + ceil(1.2)",
+      "values": {},
+      "result": 10
+    },
+    {
+      "expr": "sqrt(-1)",
+      "values": {},
+      "result": null
+    },
+    {
+      "expr": "not actual",
+      "values": {
+        "actual": 0
+      },
+      "result": 1
+    },
+    {
+      "expr": "NOT null",
+      "values": {},
+      "result": 1
+    },
+    {
+      "expr": "actual and plan",
+      "values": {
+        "actual": 1,
+        "plan": 0
+      },
+      "result": 0
+    },
+    {
+      "expr": "actual Or null",
+      "values": {
+        "actual": 2
+      },
+      "result": 1
+    },
+    {
+      "expr": "actual && plan || !actual",
+      "values": {
+        "actual": 1,
+        "plan": 1
+      },
+      "result": 1
+    },
+    {
+      "expr": "actual = plan",
+      "values": {
+        "actual": 1,
+        "plan": 1
+      },
+      "result": 1
+    },
+    {
+      "expr": "actual == plan",
+      "values": {
+        "actual": 1,
+        "plan": 2
+      },
+      "result": 0
+    },
+    {
+      "expr": "actual <> plan",
+      "values": {
+        "actual": 1,
+        "plan": 2
+      },
+      "result": 1
+    },
+    {
+      "expr": "actual != plan",
+      "values": {
+        "actual": 1,
+        "plan": 1
+      },
+      "result": 0
+    },
+    {
+      "expr": "actual >= plan",
+      "values": {
+        "actual": 1,
+        "plan": 1
+      },
+      "result": 1
+    },
+    {
+      "expr": "5 > null",
+      "values": {},
+      "result": null
+    },
+    {
+      "expr": "[prior year] * 1.05",
+      "values": {
+        "prior year": 100
+      },
+      "result": 105,
+      "references": [
+        "prior year"
+      ]
+    },
+    {
+      "expr": "[Umsatz \u00c4] / 2",
+      "values": {
+        "Umsatz \u00c4": 9
+      },
+      "result": 4.5
+    },
+    {
+      "expr": "[Plan-2026] + [a.b]",
+      "values": {
+        "Plan-2026": 1,
+        "a.b": 2
+      },
+      "result": 3
+    },
+    {
+      "expr": "1e3 + .5 + 2.",
+      "values": {},
+      "result": 1002.5
+    },
+    {
+      "expr": "1e308 * 10",
+      "values": {},
+      "result": null
+    },
+    {
+      "expr": "actual\n/\tplan\r\n",
+      "values": {
+        "actual": 6,
+        "plan": 3
+      },
+      "result": 2
+    },
+    {
+      "expr": "abs + 1",
+      "values": {
+        "abs": 1
+      },
+      "result": 2,
+      "references": [
+        "abs"
+      ]
+    },
+    {
+      "expr": "actual + actual * plan",
+      "values": {
+        "actual": 2,
+        "plan": 3
+      },
+      "result": 8,
+      "references": [
+        "actual",
+        "plan"
+      ]
+    },
+    {
+      "expr": "null",
+      "values": {},
+      "result": null
+    },
+    {
+      "expr": "+actual",
+      "values": {
+        "actual": 2
+      },
+      "result": 2
+    },
+    {
+      "expr": {
+        "concat": [
+          {
+            "repeat": "(",
+            "times": 64
+          },
+          "1",
+          {
+            "repeat": ")",
+            "times": 64
+          }
+        ]
+      },
+      "values": {},
+      "result": 1,
+      "note": "64 nested parentheses (the limit)"
+    },
+    {
+      "expr": {
+        "concat": [
+          "1",
+          {
+            "repeat": "+1",
+            "times": 63
+          }
+        ]
+      },
+      "values": {},
+      "result": 64,
+      "note": "operator chain of depth 64 (the limit)"
+    },
+    {
+      "expr": {
+        "concat": [
+          "min(",
+          {
+            "repeat": "1,",
+            "times": 31
+          },
+          "2)"
+        ]
+      },
+      "values": {},
+      "result": 1,
+      "note": "32 arguments (the limit)"
+    }
+  ],
+  "invalid": [
+    {
+      "expr": "",
+      "code": "empty"
+    },
+    {
+      "expr": " \t\n",
+      "code": "empty"
+    },
+    {
+      "expr": 123,
+      "code": "notAString"
+    },
+    {
+      "expr": null,
+      "code": "notAString"
+    },
+    {
+      "expr": {
+        "concat": [
+          {
+            "repeat": "1+",
+            "times": 500
+          },
+          "1"
+        ]
+      },
+      "code": "tooLong",
+      "note": "1001 characters"
+    },
+    {
+      "expr": {
+        "concat": [
+          "[",
+          {
+            "repeat": "x",
+            "times": 999
+          },
+          "]"
+        ]
+      },
+      "code": "tooLong",
+      "note": "1001 characters"
+    },
+    {
+      "expr": {
+        "concat": [
+          {
+            "repeat": "(",
+            "times": 65
+          },
+          "1",
+          {
+            "repeat": ")",
+            "times": 65
+          }
+        ]
+      },
+      "code": "tooDeep",
+      "position": 64
+    },
+    {
+      "expr": {
+        "concat": [
+          {
+            "repeat": "-",
+            "times": 65
+          },
+          "1"
+        ]
+      },
+      "code": "tooDeep"
+    },
+    {
+      "expr": {
+        "concat": [
+          {
+            "repeat": "not ",
+            "times": 65
+          },
+          "1"
+        ]
+      },
+      "code": "tooDeep"
+    },
+    {
+      "expr": {
+        "concat": [
+          {
+            "repeat": "abs(",
+            "times": 65
+          },
+          "1",
+          {
+            "repeat": ")",
+            "times": 65
+          }
+        ]
+      },
+      "code": "tooDeep"
+    },
+    {
+      "expr": {
+        "concat": [
+          "1",
+          {
+            "repeat": "+1",
+            "times": 64
+          }
+        ]
+      },
+      "code": "tooDeep"
+    },
+    {
+      "expr": {
+        "concat": [
+          "1",
+          {
+            "repeat": "^1",
+            "times": 64
+          }
+        ]
+      },
+      "code": "tooDeep"
+    },
+    {
+      "expr": {
+        "concat": [
+          "min(",
+          {
+            "repeat": "1,",
+            "times": 32
+          },
+          "2)"
+        ]
+      },
+      "code": "arity"
+    },
+    {
+      "expr": "constructor",
+      "code": "reservedName",
+      "position": 0
+    },
+    {
+      "expr": "__proto__ + 1",
+      "code": "reservedName"
+    },
+    {
+      "expr": "1 + [constructor]",
+      "code": "reservedName",
+      "position": 4
+    },
+    {
+      "expr": "prototype",
+      "code": "reservedName"
+    },
+    {
+      "expr": "eval(1)",
+      "code": "unknownFunction",
+      "position": 0
+    },
+    {
+      "expr": "Function(1)",
+      "code": "unknownFunction"
+    },
+    {
+      "expr": "constructor(1)",
+      "code": "unknownFunction"
+    },
+    {
+      "expr": "__proto__(1)",
+      "code": "unknownFunction"
+    },
+    {
+      "expr": "require(x)",
+      "code": "unknownFunction"
+    },
+    {
+      "expr": "process.exit()",
+      "code": "invalidCharacter",
+      "position": 7
+    },
+    {
+      "expr": "x.constructor",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "abs(1, 2)",
+      "code": "arity"
+    },
+    {
+      "expr": "if(1)",
+      "code": "arity"
+    },
+    {
+      "expr": "round()",
+      "code": "arity"
+    },
+    {
+      "expr": "min()",
+      "code": "arity"
+    },
+    {
+      "expr": "ifnull(1)",
+      "code": "arity"
+    },
+    {
+      "expr": "1 +",
+      "code": "unexpectedEnd",
+      "position": 3
+    },
+    {
+      "expr": "(1",
+      "code": "unexpectedEnd"
+    },
+    {
+      "expr": "abs(1",
+      "code": "unexpectedEnd"
+    },
+    {
+      "expr": "1)",
+      "code": "unexpectedToken",
+      "position": 1
+    },
+    {
+      "expr": "1 2",
+      "code": "unexpectedToken",
+      "position": 2
+    },
+    {
+      "expr": ", 1",
+      "code": "unexpectedToken"
+    },
+    {
+      "expr": "()",
+      "code": "unexpectedToken"
+    },
+    {
+      "expr": "abs(1,)",
+      "code": "unexpectedToken"
+    },
+    {
+      "expr": "1 < 2 < 3",
+      "code": "unexpectedToken",
+      "position": 6
+    },
+    {
+      "expr": "and",
+      "code": "unexpectedToken"
+    },
+    {
+      "expr": "not",
+      "code": "unexpectedEnd"
+    },
+    {
+      "expr": "[x](1)",
+      "code": "unexpectedToken"
+    },
+    {
+      "expr": "1 = = 2",
+      "code": "unexpectedToken"
+    },
+    {
+      "expr": "actual \uff0b plan",
+      "code": "invalidCharacter",
+      "position": 7,
+      "note": "fullwidth plus"
+    },
+    {
+      "expr": "actual\u202e+plan",
+      "code": "invalidCharacter",
+      "position": 6,
+      "note": "right-to-left override"
+    },
+    {
+      "expr": "act\u200bual",
+      "code": "invalidCharacter",
+      "position": 3,
+      "note": "zero-width space"
+    },
+    {
+      "expr": "[a\u200bb]",
+      "code": "invalidCharacter",
+      "position": 2
+    },
+    {
+      "expr": "[a\u2066b]",
+      "code": "invalidCharacter",
+      "note": "bidi isolate"
+    },
+    {
+      "expr": "\ufeffactual",
+      "code": "invalidCharacter",
+      "position": 0,
+      "note": "BOM"
+    },
+    {
+      "expr": "\u00a0",
+      "code": "invalidCharacter",
+      "note": "no-break space is not whitespace here"
+    },
+    {
+      "expr": "\u0430ctual",
+      "code": "invalidCharacter",
+      "position": 0,
+      "note": "Cyrillic a"
+    },
+    {
+      "expr": "[a\u0000b]",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "[a\nb]",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "actual\u0085",
+      "code": "invalidCharacter",
+      "note": "C1 control"
+    },
+    {
+      "expr": "1 + \ud83d\ude00",
+      "code": "invalidCharacter",
+      "position": 4
+    },
+    {
+      "expr": "[unclosed",
+      "code": "unterminatedReference",
+      "position": 0
+    },
+    {
+      "expr": "[]",
+      "code": "emptyReference"
+    },
+    {
+      "expr": "[a[b]",
+      "code": "invalidCharacter",
+      "position": 2
+    },
+    {
+      "expr": "1e",
+      "code": "invalidNumber"
+    },
+    {
+      "expr": "1e999",
+      "code": "invalidNumber"
+    },
+    {
+      "expr": "1.2.3",
+      "code": "invalidNumber"
+    },
+    {
+      "expr": "2x",
+      "code": "invalidNumber"
+    },
+    {
+      "expr": "'a'",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "\"a\"",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "a;b",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "`x`",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "$x",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "a ? b : c",
+      "code": "invalidCharacter"
+    },
+    {
+      "expr": "a => b",
+      "code": "unexpectedToken"
+    },
+    {
+      "expr": "plann / 2",
+      "code": "unknownReference",
+      "position": 0,
+      "measures": [
+        "actual",
+        "plan"
+      ]
+    },
+    {
+      "expr": "actual / [Plan]",
+      "code": "unknownReference",
+      "position": 9,
+      "measures": [
+        "actual",
+        "plan"
+      ]
+    },
+    {
+      "expr": "[\ud83d\ude00]",
+      "code": "unknownReference",
+      "measures": [
+        "actual"
+      ]
+    }
+  ]
+}
