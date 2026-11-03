@@ -22,7 +22,7 @@ from nqgrid_export import (
 )
 from nqgrid_export.models import Options, RatioAggregate
 from nqgrid_export.request import dumps_request
-from nqgrid_export.validation import example_spec
+from nqgrid_export.validation import example_spec, filtered_example_spec
 
 from .conftest import CONTRACT, EXAMPLES, load_example
 
@@ -50,6 +50,13 @@ INVALID_SPECS: dict[str, dict[str, Any]] = {
     "bad heat scope": {**MINIMAL, "heat": {"scope": "diagonal"}},
     "bad heat levels": {**MINIMAL, "heat": {"levels": 1}},
     "unknown key": {**MINIMAL, "css": "body{}"},
+    "filter without field": {**MINIMAL, "filters": [{"include": ["a"]}]},
+    "non-string include": {**MINIMAL, "filters": [{"field": "a", "include": [1]}]},
+    "bad match op": {**MINIMAL, "filters": [{"field": "a", "match": {"op": "like", "value": "x"}}]},
+    "topN count 0": {**MINIMAL, "rows": [{"field": "a", "topN": {"measure": "m", "count": 0}}]},
+    "topN without measure": {**MINIMAL, "rows": [{"field": "a", "topN": {"count": 3}}]},
+    "bad sortBy direction": {**MINIMAL, "rows": [{"field": "a", "sortBy": {"measure": "m", "direction": "up"}}]},
+    "bad facet": {**MINIMAL, "facets": [{"label": "x"}]},
     "bad currency": {
         **MINIMAL,
         "measures": [{"id": "m", "field": "v", "format": {"style": "currency", "currency": "US"}}],
@@ -64,6 +71,7 @@ def test_schema_copies_in_the_package_match_the_contract() -> None:
     for name in ("pivot-spec.schema.json", "export-request.schema.json"):
         assert json.loads(pkg.joinpath(name).read_text("utf-8")) == json.loads((CONTRACT / name).read_text()), name
     assert example_spec() == load_example("planning.spec.json")
+    assert filtered_example_spec() == load_example("planning-filtered.spec.json")
 
 
 def test_schemas_are_valid_2020_12() -> None:
@@ -80,6 +88,16 @@ def test_golden_spec_validates_everywhere(planning_spec: dict[str, Any]) -> None
     assert model.model_dump(mode="json", exclude_unset=True) == planning_spec
     assert validate_pivot_spec(MINIMAL) == []
     PivotSpec.model_validate(MINIMAL)
+
+
+def test_filtered_spec_validates_everywhere(filtered_spec: dict[str, Any], planning_rows: list[dict[str, Any]]) -> None:
+    assert list(spec_validator.iter_errors(filtered_spec)) == []
+    assert validate_pivot_spec(filtered_spec) == []
+    model = PivotSpec.model_validate(filtered_spec)
+    assert model.filters is not None and model.filters[1].match is not None
+    assert model.rows[1].topN is not None and model.rows[1].topN.other is True
+    assert model.model_dump(mode="json", exclude_unset=True) == filtered_spec
+    assert check_fields(filtered_spec, planning_rows) == []
 
 
 @pytest.mark.parametrize("name", sorted(INVALID_SPECS))
@@ -105,6 +123,25 @@ def test_referential_checks_the_schema_cannot_express(planning_spec: dict[str, A
     assert any(e.startswith("spec.heat.measure references unknown measure 'missing'") for e in errors)
     assert any(e.startswith("spec.kpis[2].compareTo references unknown measure 'budget'") for e in errors)
     assert any("custom aggregator 'median'" in e for e in errors)
+
+
+def test_filter_sort_topn_referential_checks(
+    filtered_spec: dict[str, Any], planning_rows: list[dict[str, Any]]
+) -> None:
+    spec = copy.deepcopy(filtered_spec)
+    spec["rows"][1]["sortBy"]["measure"] = "margin"
+    spec["rows"][1]["topN"]["measure"] = "units"
+    spec["columns"]["topN"] = {"measure": "actual", "count": 3}
+    spec["facets"].append({"field": "line", "label": "Line again"})
+    spec["filters"].append({"field": "regoin", "exclude": ["North"]})
+    assert spec_validator.is_valid(spec)  # structurally fine…
+    errors = validate_pivot_spec(spec)
+    assert any(e.startswith("rows[1].sortBy.measure references unknown measure 'margin'") for e in errors)
+    assert any(e.startswith("rows[1].topN.measure references unknown measure 'units'") for e in errors)
+    assert "columns.topN is only supported on row dimensions" in errors
+    assert "facets[2] 'line' is duplicated" in errors
+    # Filter fields are checked against the rows like any other field (a typo would drop every row).
+    assert [e.split(":")[0] for e in check_fields(spec, planning_rows)] == ["spec.filters[2].field"]
 
 
 def test_measure_field_rule_is_schema_only() -> None:
@@ -198,4 +235,8 @@ def test_examples_directory_is_complete() -> None:
         "planning.model.json",
         "planning.sheet.json",
         "planning.request.json",
+        "planning-filtered.spec.json",
+        "planning-filtered.model.json",
+        "planning-filtered.sheet.json",
+        "planning-filtered.html",
     } <= names

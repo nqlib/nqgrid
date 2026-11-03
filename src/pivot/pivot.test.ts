@@ -57,7 +57,7 @@ describe("usePivotGrid", () => {
     expect(seen!.model).toEqual(model);
   });
 
-  it("controlled mode reports the next spec instead of storing it", () => {
+  it("controlled mode reports the next spec instead of storing it; dispatches before a re-render chain", () => {
     const reported: PivotSpec[] = [];
     function Probe() {
       const grid = usePivotGrid(planningPivotSpec, rows, { onSpecChange: (s) => reported.push(s) });
@@ -66,7 +66,8 @@ describe("usePivotGrid", () => {
       return null;
     }
     renderToStaticMarkup(createElement(Probe));
-    expect(reported.map((s) => s.heat?.scope)).toEqual(["column", "all"]);
+    // The second action builds on the first (no lost update when a handler dispatches twice).
+    expect(reported.map((s) => s.heat?.scope)).toEqual(["column", "column"]);
     expect(reported[1]!.expanded).toEqual([["Camp"], ["Packs"], ["Footwear"]]);
   });
 });

@@ -4,8 +4,9 @@ Three layers, cheapest first:
 
 1. JSON Schema (``contract/pivot/v1/*.schema.json``, shipped in this package) — structure.
 2. Referential checks the schema cannot express (mirrors ``validatePivotSpec`` in nqgrid core):
-   unknown measure ids in ``values`` / ``heat`` / ``headerCharts`` / ``kpis``, duplicate ids, and
-   custom aggregators (not available in nqgrid-export).
+   unknown measure ids in ``values`` / ``heat`` / ``headerCharts`` / ``kpis`` / ``sortBy`` / ``topN``,
+   ``sortBy`` / ``topN`` on the column dimension, duplicate measure ids and facets, and custom
+   aggregators (not available in nqgrid-export).
 3. nqgrid-export itself (authoritative): ``NqgridInvalidInput.details``.
 
 Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
@@ -53,6 +54,11 @@ def export_options_schema() -> dict[str, Any]:
 def example_spec() -> dict[str, Any]:
     """The golden ``planning.spec.json`` example."""
     return _load("planning.spec.json")
+
+
+def filtered_example_spec() -> dict[str, Any]:
+    """The golden ``planning-filtered.spec.json`` example (filters, label filter, Top N + Other, sortBy, facets)."""
+    return _load("planning-filtered.spec.json")
 
 
 @cache
@@ -120,6 +126,24 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
         if isinstance(k, dict):
             ref(k.get("measure"), f"kpis[{i}].measure")
             ref(k.get("compareTo"), f"kpis[{i}].compareTo")
+    for i, d in enumerate(spec.get("rows") or []):
+        if not isinstance(d, dict):
+            continue
+        for key in ("sortBy", "topN"):
+            if isinstance(d.get(key), dict):
+                ref(d[key].get("measure"), f"rows[{i}].{key}.measure")
+    columns = spec.get("columns")
+    if isinstance(columns, dict):
+        for key in ("sortBy", "topN"):
+            if key in columns:
+                errors.append(f"{prefix}columns.{key} is only supported on row dimensions")
+    seen: set[str] = set()
+    for i, f in enumerate(spec.get("facets") or []):
+        field = f if isinstance(f, str) else f.get("field") if isinstance(f, dict) else None
+        if isinstance(field, str):
+            if field in seen:
+                errors.append(f"{prefix}facets[{i}] {field!r} is duplicated")
+            seen.add(field)
     return errors
 
 
@@ -149,7 +173,7 @@ def validate_export_request(request: Any) -> list[str]:
 
 
 def spec_fields(spec: dict[str, Any]) -> list[tuple[str, str]]:
-    """``(path, field)`` for every row field a spec reads."""
+    """``(path, field)`` for every row field a spec reads (dimensions, measures, filters, facets)."""
     out: list[tuple[str, str]] = []
     dims = [(f"rows[{i}]", d) for i, d in enumerate(spec.get("rows") or [])]
     if isinstance(spec.get("columns"), dict):
@@ -171,6 +195,13 @@ def spec_fields(spec: dict[str, Any]) -> list[tuple[str, str]]:
             for key in ("weightField", "numeratorField", "denominatorField"):
                 if isinstance(agg.get(key), str):
                     out.append((f"measures[{i}].aggregate.{key}", agg[key]))
+    for i, f in enumerate(spec.get("filters") or []):
+        if isinstance(f, dict) and isinstance(f.get("field"), str):
+            out.append((f"filters[{i}].field", f["field"]))
+    for i, f in enumerate(spec.get("facets") or []):
+        field = f if isinstance(f, str) else f.get("field") if isinstance(f, dict) else None
+        if isinstance(field, str):
+            out.append((f"facets[{i}]", field))
     return out
 
 

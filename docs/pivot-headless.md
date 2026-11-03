@@ -62,6 +62,109 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
 - `kpis` + `kpiLevels` — KPI values (with optional `compareTo` delta) for the side panel.
 - `expanded` — `"all"` (default), `"none"`, or key paths like `[["Camp"], ["Packs"]]`.
   Paths are plain strings, so any language can produce them.
+- `filters`, `facets`, and per row dimension `sortBy` / `topN`: see [Filters, slicers & sorting](#filters-slicers--sorting-excel-parity).
+
+## Filters, slicers & sorting (Excel parity)
+
+All of it is plain JSON in the spec, so it round-trips through "export what I see", the PDF header and the
+Python backend. The golden example is `contract/pivot/v1/examples/planning-filtered.*`.
+
+```jsonc
+{
+  "version": 1,
+  "rows": [
+    { "field": "department", "label": "Department" },
+    {
+      "field": "line", "label": "Line",
+      "sortBy": { "measure": "actual", "direction": "desc" },            // siblings by value, per parent
+      "topN":   { "measure": "actual", "count": 3, "other": true }       // top 3 per department + "Other"
+    }
+  ],
+  "columns": { "field": "month", "order": ["Nov", "Dec", "…"], "keepEmpty": true },
+  "measures": [{ "id": "actual", "field": "actual" }],
+  "filters": [
+    { "field": "department", "include": ["Camp", "Packs"] },             // report / slicer filter
+    { "field": "region", "exclude": ["Online"] },                        // any field, not only rows / columns
+    { "field": "line", "match": { "op": "notContains", "value": "kids" } } // label filter
+  ],
+  "facets": ["department", "line"]                                       // slicer data in model.facets
+}
+```
+
+**Semantics**
+
+| Topic | Rule |
+|-------|------|
+| Order of operations | 1. Report and label `filters` drop records. 2. `topN` per row level, outermost first; each level ranks on what the levels above kept. 3. Aggregation. 4. Sibling ordering. |
+| Totals | Group totals, the grand total, `showAs` denominators, KPIs and header bars all reflect the filtered records (Excel's default for value filters too). Keys excluded by Top N leave every total, unless `other: true` folds them into one "Other" row, which keeps totals complete. |
+| Matching | Keys compare as strings (`null` → `""`, `2024` → `"2024"`). `include` keeps only the listed keys (`include: []` keeps nothing), `exclude` drops keys, `match` tests the key with `contains`, `notContains`, `beginsWith`, `endsWith`, `equals` or `notEquals`, case-insensitive unless `caseSensitive`. The parts of one filter are ANDed, and so are filters on different fields. A filter with none of the three is inactive. |
+| Top N | `count` keys per parent group by `measure` (raw value, before `showAs`), using the row total or `columnKey`. `direction: "bottom"` keeps the smallest. Keys without a value rank last. Ties are cut strictly at `count` in natural order (`order` → `sort` → first seen), so Excel's "include ties" is **not** applied. The "Other" row uses the key `PIVOT_OTHER_KEY` (`"\u0000other"`, safe in `expanded` paths), the label `otherLabel` (default `Other`) and `otherCount`, and always sorts last. |
+| Sort precedence | `sortBy` (value) > `order` > `sort` (label) > first seen. The lower rules only break ties. Keys without a value sort last in both directions. Value sorting is per parent group and for row dimensions only. The column dimension supports `order` / `sort` / `keepEmpty`, and `validatePivotSpec` rejects `columns.sortBy` / `columns.topN`. |
+| Facets | For each field in `facets`, every distinct key in the data gets: `count` (records that pass the filters on **other** fields, i.e. cross-filtered like an Excel slicer), `total` (unfiltered), `hasData` (`count > 0`; slicers grey the rest out) and `selected` (passes the field's own filter, or every key when the field is unfiltered). Values follow dimension order for row / column fields and ascending order otherwise. Top N does not affect facets. |
+| Model | Present only when used, so existing models stay identical: `filters` (`{ field, label, kind: "items" \| "label" \| "value", text }`, e.g. `Department = Camp, Packs`), `recordCount: { total, matched }`, `facets`, `rowDimensions[i].sort / sortBy / topN / filtered` (for header indicators) and `PivotBodyRow.otherCount`. |
+
+**Pure spec helpers** (`@nqlib/nqgrid/core`) return a new spec. Rebuild the model afterwards.
+
+```ts
+import {
+  setPivotFilter, togglePivotFilterValue, setPivotFilterValues, clearPivotFilter, clearPivotFilters,
+  setPivotSort, setPivotTopN, pivotFilterForSelection,
+} from "@nqlib/nqgrid/core";
+
+spec = togglePivotFilterValue(spec, "department", "Camp", { mode: "only" }); // slicer click → include ["Camp"]
+spec = togglePivotFilterValue(spec, "department", "Packs");                  // Ctrl-click → include ["Camp","Packs"]
+spec = togglePivotFilterValue(spec, "line", "Kids");                         // from "all" → exclude ["Kids"]
+spec = setPivotFilterValues(spec, "line", allKeys, checkedKeys);             // checkbox list (shorter of include/exclude)
+spec = setPivotFilter(spec, { field: "line", match: { op: "contains", value: "pack" } }); // replaces the field's filters
+spec = setPivotSort(spec, "line", { by: "value", measure: "actual", direction: "desc" }); // or { by: "label", direction }
+spec = setPivotTopN(spec, "line", { measure: "actual", count: 5, other: true });         // null removes
+spec = clearPivotFilter(spec, "line"); spec = clearPivotFilters(spec);       // the `filters` key is dropped when empty
+```
+
+Deselecting the last key of an include list, or the last excluded key, clears the filter, like an Excel slicer
+returning to "all". `describePivotFilters(spec)` gives the printable summary without building a model.
+
+**React components** (`@nqlib/nqgrid/pivot`) are plain props, class slots and no portals. They also work without
+`@nqlib/nqui`.
+
+```tsx
+const grid = usePivotGrid({ ...spec, facets: ["department", "line"] }, rows);
+// Keep it stable (PivotTable is memoized).
+const renderDimensionHeader = useCallback(
+  (ctx: PivotDimensionHeaderContext) => (
+    <>
+      {ctx.label}
+      {ctx.indicator}
+      {ctx.dimension.field === "line" ? (
+        <PivotHeaderMenu label="Filter Line" active={ctx.status.filtered}>
+          {(close) => <PivotFilterMenu {...pivotFilterMenuProps(grid, "line")} onClose={close} />}
+        </PivotHeaderMenu>
+      ) : null}
+    </>
+  ),
+  [grid],
+);
+
+<PivotSlicer {...pivotSlicerProps(grid, "department")} columns={2} />   {/* click / Ctrl-click / clear */}
+<PivotTable model={grid.model} onToggleGroup={grid.toggleGroup} renderDimensionHeader={renderDimensionHeader} />
+```
+
+| Export | Purpose |
+|--------|---------|
+| `PivotSlicer` | Excel-style slicer for one `PivotFacet`: grid of value buttons (`columns`), selected values highlighted (all of them while unfiltered), items with no data greyed out and listed last (`noDataLast`, `hideItemsWithNoData`), clear button, optional multi-select toggle (`multiSelect` / `onMultiSelectChange`), `showCounts`, `renderItem`, `classNames` slots. ARIA: `group` + multi-select `listbox` of `option` buttons with one roving tab stop. Keys: arrows / Home / End move, Enter selects only, Space toggles, Delete or Alt+C clears. Stateless. |
+| `PivotFilterMenu` | Header filter panel: sort (A→Z, Z→A, by a measure, largest / smallest), Top / Bottom N with "Other", searchable checkbox list with tri-state "Select all" and counts. The list and Top N are drafts until Apply, and sort applies immediately. Callbacks: `onApplyValues`, `onTopNChange`, `onSortChange`, `onClear`, `onClose`. Native inputs, `labels` for i18n, `classNames` slots. Put it in any popover (the playground uses the nqui `Popover`). |
+| `PivotHeaderMenu` | Minimal inline disclosure (trigger plus absolutely positioned `role="dialog"` panel, no portal, no effects). Escape or focus leaving the menu closes it. |
+| `PivotHeaderIndicator`, `pivotDimensionStatus`, `pivotAriaSort` | Sort arrow and funnel with an accessible description ("Sorted by Actual, descending · Line: Top 3 by Actual"). `PivotTable` shows them on dimension headers (also in static mode) and sets `aria-sort`. |
+| `pivotSlicerProps(grid, field)`, `pivotFilterMenuProps(grid, field)`, `pivotFacetOf(model, field)` | Bind the components to `usePivotGrid`. The field must be listed in `spec.facets`. |
+| `usePivotGrid` actions | `setFilter`, `setFilterValues`, `toggleFilterValue(field, key, mode)`, `clearFilter`, `clearFilters`, `setSort`, `setTopN`, which are also `reducePivotGridSpec` actions. Several actions dispatched before the next render chain on each other. |
+
+**Exports.** `renderPivotHtml` prints "Filters: Department = Camp, Packs · Line: Top 3 by Actual, rest as Other"
+under the title (`locale.filters` renames the label). `PivotSheet.filters` carries the same lines. The
+`nqgrid-export` XLSX lists them under the KPIs and on the hidden `Spec` sheet.
+
+**Performance.** Filters and facets run in one pass over column-encoded records, and the aggregated cube is reused
+for view-only changes (expanded state, heat, labels, formats). `usePivotGrid` does this automatically. Headless
+callers use `createPivotModelBuilder()`. Numbers are in [pivot-performance.md](./pivot-performance.md).
 
 ### Formatting is deterministic
 
@@ -80,12 +183,14 @@ Everything a non-JS producer needs is in [`contract/pivot/v1`](../contract/pivot
 | `examples/planning.model.json` | Expected `buildPivotModel` output. |
 | `examples/planning.sheet.json` | Expected `pivotModelToSheet` output (what an XLSX writer consumes). |
 | `examples/planning.html` | Expected `renderPivotHtml` output (`generatedAt: "2026-01-15 09:30 UTC"`), i.e. what the PDF prints. |
+| `examples/planning-filtered.{spec,model,sheet}.json` + `.html` | Same rows with filters, a label filter, Top 3 + "Other", sort by value and facets. |
 | `export-request.schema.json` + `examples/planning.request.json` | The export request `{ spec, rows \| dataset, format?, options? }` (CLI / `POST /export`, and app → backend with a `dataset` reference). TS: `buildPivotExportRequest`, `PIVOT_EXPORT_REQUEST_JSON_SCHEMA`; Python: [`integrations/python`](../integrations/python/README.md). |
 
 The golden files are regenerated by `src/core/pivot/contract.test.ts` and `src/render-static/render-static.test.ts` (`pnpm test -u`);
 any diff is a contract change and should bump the spec `version` if it is breaking.
 `validatePivotSpec` additionally checks references the schema cannot express
-(unknown measure ids in `values`, `heat`, `headerCharts`, `kpis`; duplicate measure ids).
+(unknown measure ids in `values`, `heat`, `headerCharts`, `kpis`, `sortBy`, `topN`; duplicate measure ids and facets;
+`sortBy` / `topN` only on row dimensions).
 
 ### XLSX without Node
 
@@ -111,8 +216,8 @@ renderToStaticMarkup(<PivotTable model={model} mode="static" />);   // same layo
 
 | Export | Purpose |
 |--------|---------|
-| `usePivotGrid(spec, rows, options)` | Spec state (controlled via `onSpecChange`, otherwise uncontrolled) + memoized `buildPivotModel`; actions `toggleGroup`, `expandAll`, `collapseAll`, `setHeatScope`, `setSpec`, `dispatch`. The pure transition is `reducePivotGridSpec(spec, model, action)`. |
-| `PivotTable` | Semantic `<table>`: header chart band, row-dimension columns, outer-dimension span cell with `PivotKpiPanel`, heat cells. Props: `mode`, widths, `headerChart`, `headerSummary`, `kpiHeadlineId`, `kpiCaptionAttribute`, `renderSpanCell` (KPI side-panel slot). |
+| `usePivotGrid(spec, rows, options)` | Spec state (controlled via `onSpecChange`, otherwise uncontrolled) + memoized model (`createPivotModelBuilder`: view-only changes reuse the aggregation); actions `toggleGroup`, `expandAll`, `collapseAll`, `setHeatScope`, filter / sort / Top N actions, `setSpec`, `dispatch`. The pure transition is `reducePivotGridSpec(spec, model, action)`. |
+| `PivotTable` | Semantic `<table>` (memoized): header chart band, row-dimension columns, outer-dimension span cell with `PivotKpiPanel`, heat cells, sort / filter indicators. Props: `mode`, widths, `headerChart`, `headerSummary`, `kpiHeadlineId`, `kpiCaptionAttribute`, `renderSpanCell` (KPI side-panel slot), `renderDimensionHeader` (filter-menu slot). |
 | `PivotHeaderChartBand`, `PivotHeaderBar`, `PivotHeaderSummary` | Inline-SVG header bars (stacked by top-level group when `headerCharts.breakdown`), as a `<thead>` row so bars align with their columns. |
 | `PivotKpiPanel`, `PivotKpiDelta` | Group KPIs: signed headline, label/value rows, "vs Plan" deltas (`PivotKpiValue.compareLabel`), owner caption. |
 | `pivotHeatCellProps(cell, levels)` | `nqg-heat-N` class, `data-heat` and `var(--nqg-heat-N, …)` background for your own cells. |
@@ -236,3 +341,7 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
    and an MCP server with `export_pivot_report` / `describe_pivot_spec`); the playground Export button (request JSON,
    optional PDF / XLSX via `VITE_NQGRID_EXPORT_URL`); CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
    Contract tests run on both sides against `contract/pivot/v1/examples`.
+6. **Excel parity, step 1 — done.** Report / slicer / label filters, cross-filtered facets, sort by value and
+   Top / Bottom N (with "Other") in the spec; `PivotSlicer`, `PivotFilterMenu`, `PivotHeaderMenu` and header
+   indicators; filters in the PDF header and XLSX; a faster engine with an aggregate / view split
+   ([pivot-performance.md](./pivot-performance.md)). Next: field list + drag-and-drop (step 2).

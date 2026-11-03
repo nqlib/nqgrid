@@ -111,3 +111,28 @@ export const planningPivotSpec: PivotSpec = {
   ],
   kpiLevels: [0],
 };
+
+/**
+ * `planningPivotSpec` with filters (golden `planning-filtered.*`): Camp and Packs only, no "Kids"
+ * line, the top 3 lines per department by actuals (the rest folded into "Other"), lines sorted by
+ * actuals, and slicer facets for Department and Line.
+ */
+export const planningFilteredPivotSpec: PivotSpec = {
+  ...planningPivotSpec,
+  id: "planning-fy26-filtered",
+  subtitle: "Camp & Packs · top 3 lines",
+  rows: [
+    planningPivotSpec.rows[0]!,
+    {
+      ...planningPivotSpec.rows[1]!,
+      sortBy: { measure: "actual", direction: "desc" },
+      topN: { measure: "actual", count: 3, other: true },
+    },
+  ],
+  expanded: "all",
+  filters: [
+    { field: "department", include: ["Camp", "Packs"] },
+    { field: "line", match: { op: "notContains", value: "kids" } },
+  ],
+  facets: ["department", "line"],
+};

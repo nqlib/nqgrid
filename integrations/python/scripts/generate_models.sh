@@ -13,7 +13,8 @@ codegen="$bin/datamodel-codegen"
 [[ -x "$codegen" ]] || codegen="datamodel-codegen"
 
 mkdir -p "$pkg/schemas"
-cp "$contract/pivot-spec.schema.json" "$contract/export-request.schema.json" "$contract/examples/planning.spec.json" "$pkg/schemas/"
+cp "$contract/pivot-spec.schema.json" "$contract/export-request.schema.json" "$contract/examples/planning.spec.json" \
+  "$contract/examples/planning-filtered.spec.json" "$pkg/schemas/"
 
 # export-request.schema.json $refs pivot-spec.schema.json, so one run emits both models.
 (

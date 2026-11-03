@@ -1,7 +1,7 @@
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 
-import { planningPivotSpec } from "../../fixtures/planning-pivot-mock";
+import { planningFilteredPivotSpec, planningPivotSpec } from "../../fixtures/planning-pivot-mock";
 import { PIVOT_SPEC_JSON_SCHEMA } from "./schema";
 import { assertPivotSpec, validatePivotSpec } from "./validate";
 
@@ -25,11 +25,18 @@ const structurallyInvalid: Record<string, unknown> = {
   "bad expanded": { ...minimal, expanded: [[1]] },
   "bad heat scope": { ...minimal, heat: { scope: "diagonal" } },
   "bad heat levels": { ...minimal, heat: { levels: 1 } },
+  "filter without field": { ...minimal, filters: [{ include: ["a"] }] },
+  "non-string include": { ...minimal, filters: [{ field: "a", include: [1] }] },
+  "bad match op": { ...minimal, filters: [{ field: "a", match: { op: "like", value: "x" } }] },
+  "topN count 0": { ...minimal, rows: [{ field: "a", topN: { measure: "m", count: 0 } }] },
+  "topN without measure": { ...minimal, rows: [{ field: "a", topN: { count: 3 } }] },
+  "bad sortBy direction": { ...minimal, rows: [{ field: "a", sortBy: { measure: "m", direction: "up" } }] },
+  "bad facet": { ...minimal, facets: [{ label: "x" }] },
 };
 
 describe("pivot spec contract", () => {
   it("accepts the planning fixture and a minimal spec", () => {
-    for (const spec of [planningPivotSpec, minimal]) {
+    for (const spec of [planningPivotSpec, planningFilteredPivotSpec, minimal]) {
       expect(validateSchema(spec), JSON.stringify(validateSchema.errors)).toBe(true);
       expect(validatePivotSpec(spec)).toMatchObject({ ok: true });
     }

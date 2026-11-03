@@ -13,3 +13,6 @@ export * from "./heat";
 export * from "./pivot-kpi-panel";
 export * from "./pivot-header-chart";
 export * from "./pivot-table";
+export * from "./pivot-header-indicator";
+export * from "./pivot-slicer";
+export * from "./pivot-filter-menu";

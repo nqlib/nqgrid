@@ -94,6 +94,19 @@ def test_real_cli(
 
 
 @pytest.mark.e2e
+def test_real_cli_filtered(
+    cli_command: list[str],
+    filtered_spec: dict[str, Any],
+    planning_rows: list[dict[str, Any]],
+    filtered_model: dict[str, Any],
+    filtered_sheet: dict[str, Any],
+) -> None:
+    exporter = SubprocessExporter(cli_command, timeout=120)
+    assert exporter.export(filtered_spec, planning_rows, format="model") == filtered_model
+    assert exporter.export(filtered_spec, planning_rows, format="sheet") == filtered_sheet
+
+
+@pytest.mark.e2e
 def test_real_cli_invalid_input(cli_command: list[str], planning_spec: dict[str, Any]) -> None:
     with pytest.raises(NqgridInvalidInput) as info:
         SubprocessExporter(cli_command).export(

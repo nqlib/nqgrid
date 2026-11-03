@@ -1,0 +1,2164 @@
+{
+  "version": 1,
+  "id": "planning-fy26-filtered",
+  "title": "FY26 Sales Plan",
+  "subtitle": "Camp & Packs · top 3 lines",
+  "layout": "tabular",
+  "rowDimensions": [
+    {
+      "field": "department",
+      "label": "Department",
+      "filtered": true
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "sortBy": {
+        "measure": "actual",
+        "direction": "desc"
+      },
+      "topN": {
+        "measure": "actual",
+        "count": 3,
+        "other": true
+      },
+      "filtered": true
+    }
+  ],
+  "columnDimension": {
+    "field": "month",
+    "label": "Month"
+  },
+  "columnKeys": [
+    {
+      "key": "Nov",
+      "label": "Nov"
+    },
+    {
+      "key": "Dec",
+      "label": "Dec"
+    },
+    {
+      "key": "Jan",
+      "label": "Jan"
+    },
+    {
+      "key": "Feb",
+      "label": "Feb"
+    },
+    {
+      "key": "Mar",
+      "label": "Mar"
+    },
+    {
+      "key": "Apr",
+      "label": "Apr"
+    },
+    {
+      "key": "May",
+      "label": "May"
+    },
+    {
+      "key": "Jun",
+      "label": "Jun"
+    },
+    {
+      "key": "Jul",
+      "label": "Jul"
+    },
+    {
+      "key": "Aug",
+      "label": "Aug"
+    },
+    {
+      "key": "Sep",
+      "label": "Sep"
+    },
+    {
+      "key": "Oct",
+      "label": "Oct"
+    }
+  ],
+  "columns": [
+    {
+      "id": "c:Nov:actual",
+      "columnKey": "Nov",
+      "columnLabel": "Nov",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Nov"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Dec:actual",
+      "columnKey": "Dec",
+      "columnLabel": "Dec",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Dec"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Jan:actual",
+      "columnKey": "Jan",
+      "columnLabel": "Jan",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Jan"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Feb:actual",
+      "columnKey": "Feb",
+      "columnLabel": "Feb",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Feb"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Mar:actual",
+      "columnKey": "Mar",
+      "columnLabel": "Mar",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Mar"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Apr:actual",
+      "columnKey": "Apr",
+      "columnLabel": "Apr",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Apr"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:May:actual",
+      "columnKey": "May",
+      "columnLabel": "May",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "May"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Jun:actual",
+      "columnKey": "Jun",
+      "columnLabel": "Jun",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Jun"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Jul:actual",
+      "columnKey": "Jul",
+      "columnLabel": "Jul",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Jul"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Aug:actual",
+      "columnKey": "Aug",
+      "columnLabel": "Aug",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Aug"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Sep:actual",
+      "columnKey": "Sep",
+      "columnLabel": "Sep",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Sep"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Oct:actual",
+      "columnKey": "Oct",
+      "columnLabel": "Oct",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Oct"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "compact": true
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelPercentNumFmt": "#,##0%"
+    }
+  ],
+  "headerRows": [
+    [
+      {
+        "label": "Nov",
+        "colSpan": 1,
+        "columnKey": "Nov",
+        "measureId": "actual"
+      },
+      {
+        "label": "Dec",
+        "colSpan": 1,
+        "columnKey": "Dec",
+        "measureId": "actual"
+      },
+      {
+        "label": "Jan",
+        "colSpan": 1,
+        "columnKey": "Jan",
+        "measureId": "actual"
+      },
+      {
+        "label": "Feb",
+        "colSpan": 1,
+        "columnKey": "Feb",
+        "measureId": "actual"
+      },
+      {
+        "label": "Mar",
+        "colSpan": 1,
+        "columnKey": "Mar",
+        "measureId": "actual"
+      },
+      {
+        "label": "Apr",
+        "colSpan": 1,
+        "columnKey": "Apr",
+        "measureId": "actual"
+      },
+      {
+        "label": "May",
+        "colSpan": 1,
+        "columnKey": "May",
+        "measureId": "actual"
+      },
+      {
+        "label": "Jun",
+        "colSpan": 1,
+        "columnKey": "Jun",
+        "measureId": "actual"
+      },
+      {
+        "label": "Jul",
+        "colSpan": 1,
+        "columnKey": "Jul",
+        "measureId": "actual"
+      },
+      {
+        "label": "Aug",
+        "colSpan": 1,
+        "columnKey": "Aug",
+        "measureId": "actual"
+      },
+      {
+        "label": "Sep",
+        "colSpan": 1,
+        "columnKey": "Sep",
+        "measureId": "actual"
+      },
+      {
+        "label": "Oct",
+        "colSpan": 1,
+        "columnKey": "Oct",
+        "measureId": "actual"
+      }
+    ]
+  ],
+  "rows": [
+    {
+      "id": "r:Camp",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Camp"
+      ],
+      "label": "Camp",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 4,
+      "sourceRowCount": 60,
+      "cells": [
+        {
+          "value": 0.544354221245494,
+          "raw": 1052228,
+          "text": "54%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5593060534381433,
+          "raw": 1618276,
+          "text": "56%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5481414029138124,
+          "raw": 851160,
+          "text": "55%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5574297623558707,
+          "raw": 720818,
+          "text": "56%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5410756544260925,
+          "raw": 890788,
+          "text": "54%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5473744477881324,
+          "raw": 1060255,
+          "text": "55%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5327590639935191,
+          "raw": 1237017,
+          "text": "53%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5770231352674857,
+          "raw": 1417762,
+          "text": "58%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5703289896053104,
+          "raw": 1315664,
+          "text": "57%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5537024847137891,
+          "raw": 1193617,
+          "text": "55%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5400928806703661,
+          "raw": 946435,
+          "text": "54%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.5239301960412442,
+          "raw": 939268,
+          "text": "52%",
+          "showAs": "percentOfColumnTotal"
+        }
+      ],
+      "attributes": {
+        "owner": "Ingrid Solberg"
+      },
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.006985635084036934,
+          "text": "+1%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 4354903,
+          "text": "$4.35M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 13196690,
+          "text": "$13.2M",
+          "delta": 0.0036062838469359537,
+          "deltaText": "+0.4%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 13149270,
+          "text": "$13.1M"
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Tents",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Tents"
+      ],
+      "label": "Tents",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 297316,
+          "raw": 297316,
+          "text": "$297k",
+          "heat": 4
+        },
+        {
+          "value": 420661,
+          "raw": 420661,
+          "text": "$421k",
+          "heat": 8
+        },
+        {
+          "value": 228883,
+          "raw": 228883,
+          "text": "$229k",
+          "heat": 2
+        },
+        {
+          "value": 216901,
+          "raw": 216901,
+          "text": "$217k",
+          "heat": 2
+        },
+        {
+          "value": 214608,
+          "raw": 214608,
+          "text": "$215k",
+          "heat": 2
+        },
+        {
+          "value": 282840,
+          "raw": 282840,
+          "text": "$283k",
+          "heat": 4
+        },
+        {
+          "value": 307144,
+          "raw": 307144,
+          "text": "$307k",
+          "heat": 5
+        },
+        {
+          "value": 378296,
+          "raw": 378296,
+          "text": "$378k",
+          "heat": 6
+        },
+        {
+          "value": 384752,
+          "raw": 384752,
+          "text": "$385k",
+          "heat": 7
+        },
+        {
+          "value": 307480,
+          "raw": 307480,
+          "text": "$307k",
+          "heat": 5
+        },
+        {
+          "value": 258454,
+          "raw": 258454,
+          "text": "$258k",
+          "heat": 3
+        },
+        {
+          "value": 240813,
+          "raw": 240813,
+          "text": "$241k",
+          "heat": 3
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Sleeping%20Bags",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Sleeping Bags"
+      ],
+      "label": "Sleeping Bags",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 229321,
+          "raw": 229321,
+          "text": "$229k",
+          "heat": 2
+        },
+        {
+          "value": 419113,
+          "raw": 419113,
+          "text": "$419k",
+          "heat": 7
+        },
+        {
+          "value": 194434,
+          "raw": 194434,
+          "text": "$194k",
+          "heat": 2
+        },
+        {
+          "value": 162752,
+          "raw": 162752,
+          "text": "$163k",
+          "heat": 1
+        },
+        {
+          "value": 221962,
+          "raw": 221962,
+          "text": "$222k",
+          "heat": 2
+        },
+        {
+          "value": 231554,
+          "raw": 231554,
+          "text": "$232k",
+          "heat": 3
+        },
+        {
+          "value": 263584,
+          "raw": 263584,
+          "text": "$264k",
+          "heat": 3
+        },
+        {
+          "value": 352641,
+          "raw": 352641,
+          "text": "$353k",
+          "heat": 6
+        },
+        {
+          "value": 252086,
+          "raw": 252086,
+          "text": "$252k",
+          "heat": 3
+        },
+        {
+          "value": 278779,
+          "raw": 278779,
+          "text": "$279k",
+          "heat": 4
+        },
+        {
+          "value": 239994,
+          "raw": 239994,
+          "text": "$240k",
+          "heat": 3
+        },
+        {
+          "value": 216056,
+          "raw": 216056,
+          "text": "$216k",
+          "heat": 2
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/Sleeping%20Pads",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "Sleeping Pads"
+      ],
+      "label": "Sleeping Pads",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 200384,
+          "raw": 200384,
+          "text": "$200k",
+          "heat": 2
+        },
+        {
+          "value": 354402,
+          "raw": 354402,
+          "text": "$354k",
+          "heat": 6
+        },
+        {
+          "value": 186035,
+          "raw": 186035,
+          "text": "$186k",
+          "heat": 1
+        },
+        {
+          "value": 124733,
+          "raw": 124733,
+          "text": "$125k",
+          "heat": 0
+        },
+        {
+          "value": 189375,
+          "raw": 189375,
+          "text": "$189k",
+          "heat": 1
+        },
+        {
+          "value": 206239,
+          "raw": 206239,
+          "text": "$206k",
+          "heat": 2
+        },
+        {
+          "value": 267706,
+          "raw": 267706,
+          "text": "$268k",
+          "heat": 3
+        },
+        {
+          "value": 229123,
+          "raw": 229123,
+          "text": "$229k",
+          "heat": 2
+        },
+        {
+          "value": 265510,
+          "raw": 265510,
+          "text": "$266k",
+          "heat": 3
+        },
+        {
+          "value": 237917,
+          "raw": 237917,
+          "text": "$238k",
+          "heat": 3
+        },
+        {
+          "value": 167883,
+          "raw": 167883,
+          "text": "$168k",
+          "heat": 1
+        },
+        {
+          "value": 177640,
+          "raw": 177640,
+          "text": "$178k",
+          "heat": 1
+        }
+      ]
+    },
+    {
+      "id": "r:Camp/%00other",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Camp",
+        "\u0000other"
+      ],
+      "label": "Other",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 325207,
+          "raw": 325207,
+          "text": "$325k",
+          "heat": 5
+        },
+        {
+          "value": 424100,
+          "raw": 424100,
+          "text": "$424k",
+          "heat": 8
+        },
+        {
+          "value": 241808,
+          "raw": 241808,
+          "text": "$242k",
+          "heat": 3
+        },
+        {
+          "value": 216432,
+          "raw": 216432,
+          "text": "$216k",
+          "heat": 2
+        },
+        {
+          "value": 264843,
+          "raw": 264843,
+          "text": "$265k",
+          "heat": 3
+        },
+        {
+          "value": 339622,
+          "raw": 339622,
+          "text": "$340k",
+          "heat": 5
+        },
+        {
+          "value": 398583,
+          "raw": 398583,
+          "text": "$399k",
+          "heat": 7
+        },
+        {
+          "value": 457702,
+          "raw": 457702,
+          "text": "$458k",
+          "heat": 8
+        },
+        {
+          "value": 413316,
+          "raw": 413316,
+          "text": "$413k",
+          "heat": 7
+        },
+        {
+          "value": 369441,
+          "raw": 369441,
+          "text": "$369k",
+          "heat": 6
+        },
+        {
+          "value": 280104,
+          "raw": 280104,
+          "text": "$280k",
+          "heat": 4
+        },
+        {
+          "value": 304759,
+          "raw": 304759,
+          "text": "$305k",
+          "heat": 4
+        }
+      ],
+      "otherCount": 2
+    },
+    {
+      "id": "r:Packs",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Packs"
+      ],
+      "label": "Packs",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 4,
+      "sourceRowCount": 60,
+      "cells": [
+        {
+          "value": 0.45564577875450596,
+          "raw": 880756,
+          "text": "46%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.44069394656185673,
+          "raw": 1275088,
+          "text": "44%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.4518585970861876,
+          "raw": 701651,
+          "text": "45%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.4425702376441293,
+          "raw": 572292,
+          "text": "44%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.4589243455739075,
+          "raw": 755540,
+          "text": "46%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.4526255522118676,
+          "raw": 876728,
+          "text": "45%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.46724093600648087,
+          "raw": 1084890,
+          "text": "47%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.4229768647325142,
+          "raw": 1039266,
+          "text": "42%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.4296710103946896,
+          "raw": 991187,
+          "text": "43%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.44629751528621087,
+          "raw": 962084,
+          "text": "45%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.4599071193296339,
+          "raw": 805921,
+          "text": "46%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 0.47606980395875576,
+          "raw": 853467,
+          "text": "48%",
+          "showAs": "percentOfColumnTotal"
+        }
+      ],
+      "attributes": {
+        "owner": "Sam Okafor"
+      },
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.01397383373295602,
+          "text": "+1%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 3557733,
+          "text": "$3.56M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 10781001,
+          "text": "$10.8M",
+          "delta": -0.0017267227851571754,
+          "deltaText": "-0.2%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 10799649,
+          "text": "$10.8M"
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Daypacks",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Daypacks"
+      ],
+      "label": "Daypacks",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 240668,
+          "raw": 240668,
+          "text": "$241k",
+          "heat": 3
+        },
+        {
+          "value": 371758,
+          "raw": 371758,
+          "text": "$372k",
+          "heat": 6
+        },
+        {
+          "value": 177320,
+          "raw": 177320,
+          "text": "$177k",
+          "heat": 1
+        },
+        {
+          "value": 137013,
+          "raw": 137013,
+          "text": "$137k",
+          "heat": 0
+        },
+        {
+          "value": 214784,
+          "raw": 214784,
+          "text": "$215k",
+          "heat": 2
+        },
+        {
+          "value": 252560,
+          "raw": 252560,
+          "text": "$253k",
+          "heat": 3
+        },
+        {
+          "value": 289295,
+          "raw": 289295,
+          "text": "$289k",
+          "heat": 4
+        },
+        {
+          "value": 310325,
+          "raw": 310325,
+          "text": "$310k",
+          "heat": 5
+        },
+        {
+          "value": 266367,
+          "raw": 266367,
+          "text": "$266k",
+          "heat": 3
+        },
+        {
+          "value": 277814,
+          "raw": 277814,
+          "text": "$278k",
+          "heat": 4
+        },
+        {
+          "value": 219828,
+          "raw": 219828,
+          "text": "$220k",
+          "heat": 2
+        },
+        {
+          "value": 239019,
+          "raw": 239019,
+          "text": "$239k",
+          "heat": 3
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Backpacking",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Backpacking"
+      ],
+      "label": "Backpacking",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 198409,
+          "raw": 198409,
+          "text": "$198k",
+          "heat": 2
+        },
+        {
+          "value": 320100,
+          "raw": 320100,
+          "text": "$320k",
+          "heat": 5
+        },
+        {
+          "value": 175000,
+          "raw": 175000,
+          "text": "$175k",
+          "heat": 1
+        },
+        {
+          "value": 153113,
+          "raw": 153113,
+          "text": "$153k",
+          "heat": 0
+        },
+        {
+          "value": 182830,
+          "raw": 182830,
+          "text": "$183k",
+          "heat": 1
+        },
+        {
+          "value": 188579,
+          "raw": 188579,
+          "text": "$189k",
+          "heat": 1
+        },
+        {
+          "value": 266177,
+          "raw": 266177,
+          "text": "$266k",
+          "heat": 3
+        },
+        {
+          "value": 222062,
+          "raw": 222062,
+          "text": "$222k",
+          "heat": 2
+        },
+        {
+          "value": 224253,
+          "raw": 224253,
+          "text": "$224k",
+          "heat": 2
+        },
+        {
+          "value": 217163,
+          "raw": 217163,
+          "text": "$217k",
+          "heat": 2
+        },
+        {
+          "value": 209848,
+          "raw": 209848,
+          "text": "$210k",
+          "heat": 2
+        },
+        {
+          "value": 203497,
+          "raw": 203497,
+          "text": "$203k",
+          "heat": 2
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/Travel",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "Travel"
+      ],
+      "label": "Travel",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 185836,
+          "raw": 185836,
+          "text": "$186k",
+          "heat": 1
+        },
+        {
+          "value": 227865,
+          "raw": 227865,
+          "text": "$228k",
+          "heat": 2
+        },
+        {
+          "value": 151413,
+          "raw": 151413,
+          "text": "$151k",
+          "heat": 0
+        },
+        {
+          "value": 118014,
+          "raw": 118014,
+          "text": "$118k",
+          "heat": 0
+        },
+        {
+          "value": 159176,
+          "raw": 159176,
+          "text": "$159k",
+          "heat": 1
+        },
+        {
+          "value": 177213,
+          "raw": 177213,
+          "text": "$177k",
+          "heat": 1
+        },
+        {
+          "value": 229042,
+          "raw": 229042,
+          "text": "$229k",
+          "heat": 2
+        },
+        {
+          "value": 204227,
+          "raw": 204227,
+          "text": "$204k",
+          "heat": 2
+        },
+        {
+          "value": 229908,
+          "raw": 229908,
+          "text": "$230k",
+          "heat": 2
+        },
+        {
+          "value": 194801,
+          "raw": 194801,
+          "text": "$195k",
+          "heat": 2
+        },
+        {
+          "value": 149003,
+          "raw": 149003,
+          "text": "$149k",
+          "heat": 0
+        },
+        {
+          "value": 160335,
+          "raw": 160335,
+          "text": "$160k",
+          "heat": 1
+        }
+      ]
+    },
+    {
+      "id": "r:Packs/%00other",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Packs",
+        "\u0000other"
+      ],
+      "label": "Other",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 255843,
+          "raw": 255843,
+          "text": "$256k",
+          "heat": 3
+        },
+        {
+          "value": 355365,
+          "raw": 355365,
+          "text": "$355k",
+          "heat": 6
+        },
+        {
+          "value": 197918,
+          "raw": 197918,
+          "text": "$198k",
+          "heat": 2
+        },
+        {
+          "value": 164152,
+          "raw": 164152,
+          "text": "$164k",
+          "heat": 1
+        },
+        {
+          "value": 198750,
+          "raw": 198750,
+          "text": "$199k",
+          "heat": 2
+        },
+        {
+          "value": 258376,
+          "raw": 258376,
+          "text": "$258k",
+          "heat": 3
+        },
+        {
+          "value": 300376,
+          "raw": 300376,
+          "text": "$300k",
+          "heat": 4
+        },
+        {
+          "value": 302652,
+          "raw": 302652,
+          "text": "$303k",
+          "heat": 4
+        },
+        {
+          "value": 270659,
+          "raw": 270659,
+          "text": "$271k",
+          "heat": 4
+        },
+        {
+          "value": 272306,
+          "raw": 272306,
+          "text": "$272k",
+          "heat": 4
+        },
+        {
+          "value": 227242,
+          "raw": 227242,
+          "text": "$227k",
+          "heat": 2
+        },
+        {
+          "value": 250616,
+          "raw": 250616,
+          "text": "$251k",
+          "heat": 3
+        }
+      ],
+      "otherCount": 2
+    },
+    {
+      "id": "__grandTotal__",
+      "kind": "grandTotal",
+      "depth": -1,
+      "path": [],
+      "label": "Grand Total",
+      "expandable": false,
+      "expanded": true,
+      "childCount": 2,
+      "sourceRowCount": 120,
+      "cells": [
+        {
+          "value": 1,
+          "raw": 1932984,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 2893364,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 1552811,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 1293110,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 1646328,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 1936983,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 2321907,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 2457028,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 2306851,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 2155701,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 1752356,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        },
+        {
+          "value": 1,
+          "raw": 1792735,
+          "text": "100%",
+          "showAs": "percentOfColumnTotal"
+        }
+      ],
+      "kpis": [
+        {
+          "id": "growth",
+          "label": "Growth on FY25",
+          "value": 0.010112528787618702,
+          "text": "+1%"
+        },
+        {
+          "id": "forecast",
+          "label": "Forecast",
+          "value": 7912636,
+          "text": "$7.91M"
+        },
+        {
+          "id": "outlook",
+          "label": "Outlook",
+          "value": 23977691,
+          "text": "$24M",
+          "delta": 0.001201390342503661,
+          "deltaText": "+0.1%",
+          "compareLabel": "Plan"
+        },
+        {
+          "id": "plan",
+          "label": "Plan",
+          "value": 23948919,
+          "text": "$23.9M"
+        }
+      ]
+    }
+  ],
+  "grandTotal": {
+    "id": "__grandTotal__",
+    "kind": "grandTotal",
+    "depth": -1,
+    "path": [],
+    "label": "Grand Total",
+    "expandable": false,
+    "expanded": true,
+    "childCount": 2,
+    "sourceRowCount": 120,
+    "cells": [
+      {
+        "value": 1,
+        "raw": 1932984,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 2893364,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 1552811,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 1293110,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 1646328,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 1936983,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 2321907,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 2457028,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 2306851,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 2155701,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 1752356,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      },
+      {
+        "value": 1,
+        "raw": 1792735,
+        "text": "100%",
+        "showAs": "percentOfColumnTotal"
+      }
+    ],
+    "kpis": [
+      {
+        "id": "growth",
+        "label": "Growth on FY25",
+        "value": 0.010112528787618702,
+        "text": "+1%"
+      },
+      {
+        "id": "forecast",
+        "label": "Forecast",
+        "value": 7912636,
+        "text": "$7.91M"
+      },
+      {
+        "id": "outlook",
+        "label": "Outlook",
+        "value": 23977691,
+        "text": "$24M",
+        "delta": 0.001201390342503661,
+        "deltaText": "+0.1%",
+        "compareLabel": "Plan"
+      },
+      {
+        "id": "plan",
+        "label": "Plan",
+        "value": 23948919,
+        "text": "$23.9M"
+      }
+    ]
+  },
+  "spans": [
+    [
+      {
+        "rowIndex": 0,
+        "span": 5,
+        "path": [
+          "Camp"
+        ]
+      },
+      {
+        "rowIndex": 5,
+        "span": 5,
+        "path": [
+          "Packs"
+        ]
+      }
+    ],
+    [
+      {
+        "rowIndex": 1,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Tents"
+        ]
+      },
+      {
+        "rowIndex": 2,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Sleeping Bags"
+        ]
+      },
+      {
+        "rowIndex": 3,
+        "span": 1,
+        "path": [
+          "Camp",
+          "Sleeping Pads"
+        ]
+      },
+      {
+        "rowIndex": 4,
+        "span": 1,
+        "path": [
+          "Camp",
+          "\u0000other"
+        ]
+      },
+      {
+        "rowIndex": 6,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Daypacks"
+        ]
+      },
+      {
+        "rowIndex": 7,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Backpacking"
+        ]
+      },
+      {
+        "rowIndex": 8,
+        "span": 1,
+        "path": [
+          "Packs",
+          "Travel"
+        ]
+      },
+      {
+        "rowIndex": 9,
+        "span": 1,
+        "path": [
+          "Packs",
+          "\u0000other"
+        ]
+      }
+    ]
+  ],
+  "heat": {
+    "measureId": "actual",
+    "scope": "all",
+    "levels": 9,
+    "applyTo": "leaf"
+  },
+  "headerSeries": {
+    "measureId": "actual",
+    "type": "bar",
+    "points": [
+      {
+        "columnId": "c:Nov:actual",
+        "columnKey": "Nov",
+        "label": "Nov",
+        "value": 1932984,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 1052228
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 880756
+          }
+        ]
+      },
+      {
+        "columnId": "c:Dec:actual",
+        "columnKey": "Dec",
+        "label": "Dec",
+        "value": 2893364,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 1618276
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 1275088
+          }
+        ]
+      },
+      {
+        "columnId": "c:Jan:actual",
+        "columnKey": "Jan",
+        "label": "Jan",
+        "value": 1552811,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 851160
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 701651
+          }
+        ]
+      },
+      {
+        "columnId": "c:Feb:actual",
+        "columnKey": "Feb",
+        "label": "Feb",
+        "value": 1293110,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 720818
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 572292
+          }
+        ]
+      },
+      {
+        "columnId": "c:Mar:actual",
+        "columnKey": "Mar",
+        "label": "Mar",
+        "value": 1646328,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 890788
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 755540
+          }
+        ]
+      },
+      {
+        "columnId": "c:Apr:actual",
+        "columnKey": "Apr",
+        "label": "Apr",
+        "value": 1936983,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 1060255
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 876728
+          }
+        ]
+      },
+      {
+        "columnId": "c:May:actual",
+        "columnKey": "May",
+        "label": "May",
+        "value": 2321907,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 1237017
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 1084890
+          }
+        ]
+      },
+      {
+        "columnId": "c:Jun:actual",
+        "columnKey": "Jun",
+        "label": "Jun",
+        "value": 2457028,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 1417762
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 1039266
+          }
+        ]
+      },
+      {
+        "columnId": "c:Jul:actual",
+        "columnKey": "Jul",
+        "label": "Jul",
+        "value": 2306851,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 1315664
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 991187
+          }
+        ]
+      },
+      {
+        "columnId": "c:Aug:actual",
+        "columnKey": "Aug",
+        "label": "Aug",
+        "value": 2155701,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 1193617
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 962084
+          }
+        ]
+      },
+      {
+        "columnId": "c:Sep:actual",
+        "columnKey": "Sep",
+        "label": "Sep",
+        "value": 1752356,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 946435
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 805921
+          }
+        ]
+      },
+      {
+        "columnId": "c:Oct:actual",
+        "columnKey": "Oct",
+        "label": "Oct",
+        "value": 1792735,
+        "breakdown": [
+          {
+            "key": "Camp",
+            "label": "Camp",
+            "value": 939268
+          },
+          {
+            "key": "Packs",
+            "label": "Packs",
+            "value": 853467
+          }
+        ]
+      }
+    ],
+    "max": 2893364
+  },
+  "kpis": [
+    {
+      "id": "growth",
+      "label": "Growth on FY25",
+      "value": 0.010112528787618702,
+      "text": "+1%"
+    },
+    {
+      "id": "forecast",
+      "label": "Forecast",
+      "value": 7912636,
+      "text": "$7.91M"
+    },
+    {
+      "id": "outlook",
+      "label": "Outlook",
+      "value": 23977691,
+      "text": "$24M",
+      "delta": 0.001201390342503661,
+      "deltaText": "+0.1%",
+      "compareLabel": "Plan"
+    },
+    {
+      "id": "plan",
+      "label": "Plan",
+      "value": 23948919,
+      "text": "$23.9M"
+    }
+  ],
+  "filters": [
+    {
+      "field": "department",
+      "label": "Department",
+      "kind": "items",
+      "text": "Department = Camp, Packs"
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "kind": "label",
+      "text": "Line does not contain \"kids\""
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "kind": "value",
+      "text": "Line: Top 3 by Actual, rest as Other"
+    }
+  ],
+  "recordCount": {
+    "total": 264,
+    "matched": 120
+  },
+  "facets": [
+    {
+      "field": "department",
+      "label": "Department",
+      "filtered": true,
+      "values": [
+        {
+          "key": "Footwear",
+          "label": "Footwear",
+          "count": 60,
+          "total": 60,
+          "hasData": true,
+          "selected": false
+        },
+        {
+          "key": "Apparel",
+          "label": "Apparel",
+          "count": 72,
+          "total": 72,
+          "hasData": true,
+          "selected": false
+        },
+        {
+          "key": "Camp",
+          "label": "Camp",
+          "count": 60,
+          "total": 60,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Packs",
+          "label": "Packs",
+          "count": 60,
+          "total": 72,
+          "hasData": true,
+          "selected": true
+        }
+      ]
+    },
+    {
+      "field": "line",
+      "label": "Line",
+      "filtered": true,
+      "values": [
+        {
+          "key": "Trail Runners",
+          "label": "Trail Runners",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Hiking Boots",
+          "label": "Hiking Boots",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Sandals",
+          "label": "Sandals",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Approach Shoes",
+          "label": "Approach Shoes",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Socks",
+          "label": "Socks",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Jackets",
+          "label": "Jackets",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Fleece",
+          "label": "Fleece",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Base Layers",
+          "label": "Base Layers",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Pants",
+          "label": "Pants",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Shirts",
+          "label": "Shirts",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Accessories",
+          "label": "Accessories",
+          "count": 0,
+          "total": 12,
+          "hasData": false,
+          "selected": true
+        },
+        {
+          "key": "Tents",
+          "label": "Tents",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Sleeping Bags",
+          "label": "Sleeping Bags",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Sleeping Pads",
+          "label": "Sleeping Pads",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Camp Kitchen",
+          "label": "Camp Kitchen",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Camp Chairs",
+          "label": "Camp Chairs",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Daypacks",
+          "label": "Daypacks",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Backpacking",
+          "label": "Backpacking",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Travel",
+          "label": "Travel",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Hydration",
+          "label": "Hydration",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        },
+        {
+          "key": "Kids",
+          "label": "Kids",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": false
+        },
+        {
+          "key": "Duffels",
+          "label": "Duffels",
+          "count": 12,
+          "total": 12,
+          "hasData": true,
+          "selected": true
+        }
+      ]
+    }
+  ]
+}

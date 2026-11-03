@@ -135,7 +135,7 @@ Or, configured entirely from env: `nqgrid-export-mcp` / `python -m nqgrid_export
 | Tool | Signature | Returns |
 |------|-----------|---------|
 | `export_pivot_report` | `(spec: dict, rows: list[dict] \| None = None, dataset: str \| None = None, format: "pdf" \| "xlsx" = "pdf", email_to: list[str] \| None = None, subject: str \| None = None, options: dict \| None = None, body: str \| None = None)` | `{ok, format, path, filename, bytes, pages, rows, dataset, recipients, emailed, validation_errors, error}` |
-| `describe_pivot_spec` | `()` | `{guide, pivot_spec_schema, export_options_schema, example_spec, formats, datasets?}` |
+| `describe_pivot_spec` | `()` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, formats, datasets?}` (the guide covers filters, sort by value and Top N) |
 
 Resources: `nqgrid://pivot-spec/v1/schema` (JSON) and `nqgrid://pivot-spec/v1/guide` (Markdown).
 

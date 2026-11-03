@@ -90,7 +90,8 @@ def write_xlsx_from_sheet(
 
     Keeps numeric values with their Excel ``numFmt``, merges, frozen panes, bold subtotals and heat
     levels (as solid fills). ``levels`` defaults to ``spec.heat.levels`` or 9. With ``spec``, a hidden
-    ``Spec`` sheet records the spec JSON for traceability (like the Node exporter).
+    ``Spec`` sheet records the active filters (``sheet.filters``) and the spec JSON for traceability
+    (like the Node exporter).
     """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -170,6 +171,8 @@ def write_xlsx_from_sheet(
         ss = wb.create_sheet("Spec")
         ss.sheet_state = "hidden"
         ss.append(["nqgrid · PivotSpec v1 (rebuild this workbook from the spec and the same rows)"])
+        for text in sheet.get("filters") or []:
+            ss.append(["filter", str(text)])
         ss.append([])
         for line in json.dumps(spec, indent=2, ensure_ascii=False).split("\n"):
             ss.append([line])

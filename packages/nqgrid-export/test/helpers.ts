@@ -9,6 +9,7 @@ export const examples = (name: string) => fileURLToPath(new URL(`../../../contra
 export const readExample = (name: string) => readFileSync(examples(name), "utf8");
 
 export const planningSpec = JSON.parse(readExample("planning.spec.json")) as PivotSpec;
+export const planningFilteredSpec = JSON.parse(readExample("planning-filtered.spec.json")) as PivotSpec;
 export const planningRows = JSON.parse(readExample("planning.rows.json")) as PivotDataRow[];
 /** Same timestamp as the golden `planning.html` (see `src/render-static/render-static.test.ts`). */
 export const GOLDEN_GENERATED_AT = "2026-01-15 09:30 UTC";

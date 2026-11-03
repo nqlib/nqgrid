@@ -13,6 +13,8 @@ const SHOW_AS = new Set([
   "percentOfGrandTotal",
 ]);
 const HEAT_SCOPES = new Set(["all", "column", "row", "group"]);
+const MATCH_OPS = new Set(["contains", "notContains", "beginsWith", "endsWith", "equals", "notEquals"]);
+const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((k) => typeof k === "string");
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -21,7 +23,8 @@ const isNonEmptyString = (v: unknown): v is string => typeof v === "string" && v
 /**
  * Structural + referential validation for specs arriving over the wire (e.g. from Python).
  * The JSON Schema in `contract/pivot/v1` covers structure; this also checks that measure ids
- * referenced by `values`, `heat`, `headerCharts` and `kpis` exist.
+ * referenced by `values`, `heat`, `headerCharts`, `kpis`, `sortBy` and `topN` exist, that
+ * `sortBy` / `topN` sit on row dimensions, and that filters / facets are well-formed.
  */
 export function validatePivotSpec(input: unknown): PivotSpecValidation {
   const errors: string[] = [];
@@ -31,10 +34,37 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     errors.push(`version must be ${PIVOT_SPEC_VERSION} (got ${JSON.stringify(input.version)})`);
   }
 
-  const checkDimension = (d: unknown, where: string) => {
+  /** Measure references inside dimensions, checked once measures are known. */
+  const dimensionRefs: [unknown, string][] = [];
+  const checkDimension = (d: unknown, where: string, isRow: boolean) => {
     if (!isObject(d) || !isNonEmptyString(d.field)) {
       errors.push(`${where}.field must be a non-empty string`);
       return;
+    }
+    if (d.sortBy !== undefined) {
+      if (!isRow) errors.push(`${where}.sortBy is only supported on row dimensions`);
+      else if (!isObject(d.sortBy)) errors.push(`${where}.sortBy must be an object`);
+      else {
+        dimensionRefs.push([d.sortBy.measure ?? null, `${where}.sortBy.measure`]);
+        if (d.sortBy.direction !== undefined && !["asc", "desc"].includes(d.sortBy.direction as string)) {
+          errors.push(`${where}.sortBy.direction must be "asc" | "desc"`);
+        }
+        if (d.sortBy.columnKey !== undefined && typeof d.sortBy.columnKey !== "string") errors.push(`${where}.sortBy.columnKey must be a string`);
+      }
+    }
+    if (d.topN !== undefined) {
+      if (!isRow) errors.push(`${where}.topN is only supported on row dimensions`);
+      else if (!isObject(d.topN)) errors.push(`${where}.topN must be an object`);
+      else {
+        const t = d.topN;
+        dimensionRefs.push([t.measure ?? null, `${where}.topN.measure`]);
+        if (!(Number.isInteger(t.count) && (t.count as number) >= 1)) errors.push(`${where}.topN.count must be an integer ≥ 1`);
+        if (t.direction !== undefined && !["top", "bottom"].includes(t.direction as string)) {
+          errors.push(`${where}.topN.direction must be "top" | "bottom"`);
+        }
+        if (t.columnKey !== undefined && typeof t.columnKey !== "string") errors.push(`${where}.topN.columnKey must be a string`);
+        if (t.other !== undefined && typeof t.other !== "boolean") errors.push(`${where}.topN.other must be a boolean`);
+      }
     }
     if (d.order !== undefined && !(Array.isArray(d.order) && d.order.every((k) => typeof k === "string"))) {
       errors.push(`${where}.order must be an array of strings`);
@@ -47,9 +77,9 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
   if (!Array.isArray(input.rows) || input.rows.length === 0) {
     errors.push("rows must be a non-empty array of dimensions");
   } else {
-    input.rows.forEach((d, i) => checkDimension(d, `rows[${i}]`));
+    input.rows.forEach((d, i) => checkDimension(d, `rows[${i}]`, true));
   }
-  if (input.columns !== undefined) checkDimension(input.columns, "columns");
+  if (input.columns !== undefined) checkDimension(input.columns, "columns", false);
 
   const measureIds = new Set<string>();
   if (!Array.isArray(input.measures) || input.measures.length === 0) {
@@ -102,6 +132,11 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     }
   };
 
+  for (const [id, where] of dimensionRefs) {
+    if (id === null) errors.push(`${where} is required`);
+    else checkRef(id, where);
+  }
+
   if (input.values !== undefined) {
     if (!Array.isArray(input.values) || input.values.length === 0) {
       errors.push("values must be a non-empty array of measure ids");
@@ -150,6 +185,47 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
         if (k.measure === undefined) errors.push(`kpis[${i}].measure is required`);
         checkRef(k.measure, `kpis[${i}].measure`);
         checkRef(k.compareTo, `kpis[${i}].compareTo`);
+      });
+    }
+  }
+
+  if (input.filters !== undefined) {
+    if (!Array.isArray(input.filters)) {
+      errors.push("filters must be an array");
+    } else {
+      input.filters.forEach((f, i) => {
+        const where = `filters[${i}]`;
+        if (!isObject(f) || !isNonEmptyString(f.field)) {
+          errors.push(`${where}.field must be a non-empty string`);
+          return;
+        }
+        for (const key of ["include", "exclude"] as const) {
+          if (f[key] !== undefined && !isStringArray(f[key])) errors.push(`${where}.${key} must be an array of strings`);
+        }
+        if (f.match !== undefined) {
+          if (!isObject(f.match) || !MATCH_OPS.has(f.match.op as string)) {
+            errors.push(`${where}.match.op must be one of ${[...MATCH_OPS].join(" | ")}`);
+          } else if (typeof f.match.value !== "string") {
+            errors.push(`${where}.match.value must be a string`);
+          }
+        }
+      });
+    }
+  }
+
+  if (input.facets !== undefined) {
+    if (!Array.isArray(input.facets)) {
+      errors.push("facets must be an array");
+    } else {
+      const seen = new Set<string>();
+      input.facets.forEach((f, i) => {
+        const field = typeof f === "string" ? f : isObject(f) ? f.field : undefined;
+        if (!isNonEmptyString(field)) {
+          errors.push(`facets[${i}] must be a field name or { field, label? }`);
+          return;
+        }
+        if (seen.has(field)) errors.push(`facets[${i}] "${field}" is duplicated`);
+        seen.add(field);
       });
     }
   }

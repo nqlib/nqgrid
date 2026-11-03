@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildPivotModel } from "../core/pivot/build-model";
 import type { PivotSpec } from "../core/pivot/types";
-import { generatePlanningPivotRows, planningPivotSpec } from "../fixtures/planning-pivot-mock";
+import { generatePlanningPivotRows, planningFilteredPivotSpec, planningPivotSpec } from "../fixtures/planning-pivot-mock";
 import { pivotBodyGroups, pivotKpiPanelHeight } from "../pivot/layout";
 import { PIVOT_SERIES_COLORS } from "../styles";
 import {
@@ -28,6 +28,17 @@ describe("renderPivotHtml", () => {
 
   it("matches the golden planning report (contract/pivot/v1/examples/planning.html)", async () => {
     await expect(html).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning.html");
+  });
+
+  it("prints active filters in the report header (golden planning-filtered.html)", async () => {
+    const filtered = renderPivotHtmlFromSpec(planningFilteredPivotSpec, rows, { generatedAt });
+    await expect(filtered).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-filtered.html");
+    expect(filtered).toContain(
+      'data-nqg-filters="">Filters: Department = Camp, Packs · Line does not contain &quot;kids&quot; · Line: Top 3 by Actual, rest as Other</p>',
+    );
+    expect(filtered).toContain('aria-sort="descending"');
+    expect(html).not.toContain("data-nqg-filters");
+    expect(renderPivotHtmlFromSpec(planningFilteredPivotSpec, rows, { generatedAt, locale: { filters: "Filter" } })).toContain(">Filter: Department");
   });
 
   it("is deterministic and equals renderPivotHtmlFromSpec", () => {

@@ -28,6 +28,8 @@ export interface PivotStaticLabels {
   readonly of: string;
   /** PDF footer "Page 2 of 3" (default `Page`); used by `nqgrid-export`. */
   readonly page: string;
+  /** Before the active filters in the report header (default `Filters`). */
+  readonly filters: string;
 }
 
 export const PIVOT_STATIC_LABELS: PivotStaticLabels = {
@@ -36,6 +38,7 @@ export const PIVOT_STATIC_LABELS: PivotStaticLabels = {
   columns: "Columns",
   of: "of",
   page: "Page",
+  filters: "Filters",
 };
 
 /** Print-friendly defaults (narrower than the interactive `[208, 172]` / 84). */
@@ -123,6 +126,11 @@ export function pivotStaticLayout(model: PivotModel, options: RenderPivotHtmlOpt
   return { chunks, scale, columnsPerPage, page };
 }
 
+/** Active filters as one line (`Department = Camp, Packs · Line: Top 3 by Actual`), or `null`. */
+export function pivotFiltersText(model: PivotModel, separator = " · "): string | null {
+  return model.filters?.length ? model.filters.map((f) => f.text).join(separator) : null;
+}
+
 /** One table row / section per line, so golden files diff readably (whitespace there is insignificant). */
 const lineBreaks = (html: string) => html.replace(/(<\/(?:tr|thead|tbody|colgroup|header|section)>)/g, "$1\n");
 
@@ -144,14 +152,21 @@ function PivotStaticReport({ model, options, layout }: { model: PivotModel; opti
   const total = model.columns.length;
   const dimension = model.columnDimension?.label;
   const summary = model.headerSeries ? <PivotHeaderSummary model={model} /> : undefined;
+  const filters = pivotFiltersText(model);
 
   return (
     <main className="nqg-report" data-nqg-report="">
-      {title !== null && (title || generatedAt) ? (
+      {title !== null && (title || generatedAt || filters) ? (
         <header className="nqg-report-header">
           <div>
             {title ? <h1 className="nqg-report-title">{title}</h1> : null}
             {subtitle ? <p className="nqg-report-subtitle">{subtitle}</p> : null}
+            {filters ? (
+              // Reuses the subtitle styling, so reports without filters keep a byte-identical stylesheet.
+              <p className="nqg-report-subtitle nqg-report-filters" data-nqg-filters="">
+                {labels.filters}: {filters}
+              </p>
+            ) : null}
           </div>
           {generatedAt ? (
             <div className="nqg-report-meta">

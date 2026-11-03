@@ -1,6 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { memo, type CSSProperties, type ReactNode } from "react";
 
-import type { PivotBodyRow, PivotModel } from "../core/pivot/types";
+import type { PivotBodyRow, PivotModel, PivotModelDimension } from "../core/pivot/types";
 import {
   pivotCountClass,
   pivotGrandTotalCellClass,
@@ -9,6 +9,7 @@ import {
   pivotGroupLabelClass,
   pivotGroupValueClass,
   pivotHeadCellClass,
+  pivotHeadLabelClass,
   pivotHeadValueCellClass,
   pivotLabelTextClass,
   pivotLeafCellClass,
@@ -24,6 +25,7 @@ import {
 } from "../styles";
 import { cx, pivotHeatCellProps, type PivotRenderMode } from "./heat";
 import { PivotHeaderChartBand } from "./pivot-header-chart";
+import { pivotAriaSort, pivotDimensionStatus, PivotHeaderIndicator, type PivotDimensionStatus } from "./pivot-header-indicator";
 import { PivotKpiDelta, PivotKpiPanel } from "./pivot-kpi-panel";
 import {
   pivotBodyGroups,
@@ -41,6 +43,20 @@ export interface PivotSpanCellContext {
   readonly rowSpan: number;
   /** Toggle control for this group (`null` in static mode or without `onToggleGroup`). */
   readonly toggle: ReactNode;
+}
+
+export interface PivotDimensionHeaderContext {
+  readonly model: PivotModel;
+  readonly mode: PivotRenderMode;
+  /** Row-dimension level (`0` = outermost). In compact layout the single header reports level 0. */
+  readonly level: number;
+  readonly dimension: PivotModelDimension;
+  /** Sort / filter state (see `pivotDimensionStatus`). */
+  readonly status: PivotDimensionStatus;
+  /** Default header text (compact: all labels joined with " / "). */
+  readonly label: string;
+  /** Default `PivotHeaderIndicator` (`null` when nothing is active). */
+  readonly indicator: ReactNode;
 }
 
 export interface PivotTableProps {
@@ -74,12 +90,20 @@ export interface PivotTableProps {
    * panel fits without stretching the data rows (default: static mode only).
    */
   readonly fillSpanHeight?: boolean;
+  /**
+   * Replace a row-dimension header's content, e.g. to add a filter menu button
+   * (`PivotHeaderMenu` + `PivotFilterMenu`, or your own popover). Default: label + indicator.
+   */
+  readonly renderDimensionHeader?: (context: PivotDimensionHeaderContext) => ReactNode;
   /** Replace the outer span cell content (the KPI side-panel slot). */
   readonly renderSpanCell?: (row: PivotBodyRow, context: PivotSpanCellContext) => ReactNode;
   readonly className?: string;
   readonly style?: CSSProperties;
   readonly "aria-label"?: string;
 }
+
+/** Inline so static HTML (no Tailwind) keeps label and indicator on one line. */
+const HEAD_LABEL_STYLE: CSSProperties = { display: "flex", alignItems: "center", gap: 4, minWidth: 0 };
 
 function Chevron({ expanded }: { expanded: boolean }) {
   return (
@@ -103,9 +127,10 @@ function Chevron({ expanded }: { expanded: boolean }) {
  *
  * Renders from the model alone — no hooks, effects or measurement — so
  * `renderToStaticMarkup(<PivotTable model={m} mode="static" />)` gives the same layout.
- * Wrap it in a scroll container for interactive use.
+ * Wrap it in a scroll container for interactive use. Memoized (`React.memo`): re-renders only when
+ * a prop changes, e.g. a new model — keep callbacks such as `renderDimensionHeader` stable.
  */
-export function PivotTable({
+export const PivotTable = memo(function PivotTable({
   model,
   mode = "interactive",
   onToggleGroup,
@@ -121,6 +146,7 @@ export function PivotTable({
   kpiPanel = true,
   fillSpanHeight,
   renderSpanCell,
+  renderDimensionHeader,
   className,
   style,
   "aria-label": ariaLabel,
@@ -311,6 +337,37 @@ export function PivotTable({
   };
 
   const dimensionHeaders = compact ? [model.rowDimensions.map((d) => d.label).join(" / ")] : model.rowDimensions.map((d) => d.label);
+  const statuses = model.rowDimensions.map((_, level) => pivotDimensionStatus(model, level));
+  /** Header content + `aria-sort`; plain text when nothing is active (keeps markup minimal). */
+  const dimensionHeader = (label: string, col: number): { content: ReactNode; ariaSort?: "ascending" | "descending" } => {
+    const levels = compact ? statuses.map((_, i) => i) : [col];
+    const indicators = levels.map((level) => <PivotHeaderIndicator key={level} status={statuses[level]!} />);
+    const active = levels.some((level) => statuses[level]!.sort !== null || statuses[level]!.filtered);
+    const ariaSort = compact ? undefined : pivotAriaSort(statuses[col]!);
+    if (renderDimensionHeader) {
+      const level = levels[0]!;
+      const content = renderDimensionHeader({
+        model,
+        mode,
+        level,
+        dimension: model.rowDimensions[level]!,
+        status: statuses[level]!,
+        label,
+        indicator: active ? indicators : null,
+      });
+      return { content, ariaSort };
+    }
+    if (!active) return { content: label, ariaSort };
+    return {
+      content: (
+        <span className={pivotHeadLabelClass} style={HEAD_LABEL_STYLE}>
+          <span className={pivotLabelTextClass}>{label}</span>
+          {indicators}
+        </span>
+      ),
+      ariaSort,
+    };
+  };
 
   return (
     <table
@@ -337,6 +394,7 @@ export function PivotTable({
             {r === 0
               ? dimensionHeaders.map((label, col) => {
                   const pos = headCellPos(0, col);
+                  const head = dimensionHeader(label, col);
                   return (
                     <th
                       key={`dh${col}`}
@@ -344,8 +402,9 @@ export function PivotTable({
                       rowSpan={model.headerRows.length}
                       className={cx(pivotHeadCellClass, col === lastDim && pivotPinnedEdgeClass, pos.className)}
                       style={pos.style}
+                      aria-sort={head.ariaSort}
                     >
-                      {label}
+                      {head.content}
                     </th>
                   );
                 })
@@ -373,7 +432,7 @@ export function PivotTable({
       )}
     </table>
   );
-}
+});
 
 function PivotColGroup({ geometry, columns }: { geometry: PivotTableGeometry; columns: number }) {
   return (

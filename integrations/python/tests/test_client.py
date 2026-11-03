@@ -20,7 +20,7 @@ from nqgrid_export import (
     pdf_page_count,
 )
 
-from .conftest import GOLDEN_GENERATED_AT, ExportService
+from .conftest import EXAMPLES, GOLDEN_GENERATED_AT, ExportService
 
 # --- unit: error mapping ------------------------------------------------------------------------
 
@@ -144,6 +144,23 @@ def test_model_and_sheet_match_the_golden_files(
     assert client.export(planning_spec, planning_rows, format="sheet") == planning_sheet
     # Pydantic models serialize to the same spec.
     assert client.export(PivotSpec.model_validate(planning_spec), planning_rows, format="model") == planning_model
+
+
+@pytest.mark.e2e
+def test_filtered_spec_matches_the_golden_files(
+    client: NqgridExportClient,
+    filtered_spec: dict[str, Any],
+    planning_rows: list[dict[str, Any]],
+    filtered_model: dict[str, Any],
+    filtered_sheet: dict[str, Any],
+) -> None:
+    """Filters, Top N with "Other", sort by value and facets are computed by nqgrid, not by Python."""
+    assert client.export(filtered_spec, planning_rows, format="model") == filtered_model
+    assert client.export(filtered_spec, planning_rows, format="sheet") == filtered_sheet
+    assert client.export(PivotSpec.model_validate(filtered_spec), planning_rows, format="model") == filtered_model
+    html = client.export(filtered_spec, planning_rows, format="html", options=OPTIONS)
+    assert html == (EXAMPLES / "planning-filtered.html").read_text("utf-8")
+    assert "Filters: Department = Camp, Packs" in html
 
 
 @pytest.mark.e2e

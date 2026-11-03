@@ -114,10 +114,11 @@ Errors are `PivotExportError` (`code: "invalid_input" | "payload_too_large" | "i
 
 - **PDF / HTML** — `renderPivotHtml` from `@nqlib/nqgrid/render-static`: landscape A4 by default, header chart band and
   column headers repeated on every page, each department kept on one page, wide pivots split into balanced column
-  chunks (dimension columns repeated, "(cont.)" titles), KPI side panels, heat colors, light or dark.
+  chunks (dimension columns repeated, "(cont.)" titles), KPI side panels, heat colors, light or dark; active spec
+  filters / Top N print as "Filters: …" under the title.
 - **XLSX** — from `pivotModelToSheet`: numeric values with Excel `numFmt`, merges, frozen panes, bold subtotals, heat
-  fills, column widths; a `KPIs` sheet (grand + department KPIs, "vs Plan" deltas); a hidden `Spec` sheet with the
-  spec JSON for traceability.
+  fills, column widths; a `KPIs` sheet (grand + department KPIs, "vs Plan" deltas, then the active filters); a hidden
+  `Spec` sheet with the filters and the spec JSON for traceability.
 
 ## Requirements
 

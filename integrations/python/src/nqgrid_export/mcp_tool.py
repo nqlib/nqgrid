@@ -40,6 +40,7 @@ from .validation import (
     check_fields,
     example_spec,
     export_options_schema,
+    filtered_example_spec,
     pivot_spec_schema,
     validate_export_options,
     validate_pivot_spec,
@@ -182,8 +183,27 @@ only describe the layout. The PDF/XLSX matches what users see in the app.
 - `kpis`: `[{"id": "growth", "label": "Growth", "measure": "growth", "compareTo": "plan"}]`, `kpiLevels: [0]`.
 - `expanded`: `"all"` (default), `"none"`, or key paths of expanded groups, e.g. `[["Camp"], ["Packs"]]`.
 
+## Filtering, sorting and Top N (Excel parity)
+Filter in the spec instead of pre-filtering rows: the report header then prints "Filters: …", totals and
+"% of total" reflect exactly what is shown, and the user can change the filters in the app.
+- `filters`: `[{"field": "department", "include": ["Camp", "Packs"]}]` keeps only those keys;
+  `{"field": "region", "exclude": ["Online"]}` drops keys; label filters
+  `{"field": "line", "match": {"op": "contains", "value": "pack"}}` (`contains | notContains | beginsWith |
+  endsWith | equals | notEquals`, case-insensitive unless `"caseSensitive": true`). Any row field works, also
+  fields that are not rows or columns (e.g. `owner`, `region`); filters on different fields are ANDed. Keys
+  compare as strings (`2024` → `"2024"`, null → `""`). Filters apply to the rows **before** aggregation.
+- Sort a row dimension by a measure: `"sortBy": {"measure": "actual", "direction": "desc"}` on that dimension
+  (siblings are sorted within each parent; add `"columnKey": "Mar"` to rank by one column instead of the row
+  total). `sortBy` wins over `order` / `sort`, which only break ties.
+- Top / Bottom N per parent group: `"topN": {"measure": "actual", "count": 5}` on a row dimension
+  (`"direction": "bottom"` for the smallest). Excluded keys disappear from all totals; add `"other": true`
+  (and optionally `"otherLabel": "All other"`) to fold them into one "Other" row so totals stay complete.
+  Example: top 3 lines per department → `{"field": "line", "topN": {"measure": "actual", "count": 3, "other": true}}`.
+- `facets: ["department", "line"]` only matters for interactive slicers; reports do not need it.
+
 ## Rules
-- Every `field` must exist in the rows (see `datasets[].fields`); every measure id you reference must be defined.
+- Every `field` must exist in the rows (see `datasets[].fields`), including filter fields; every measure id you
+  reference (also in `sortBy` / `topN`) must be defined. `sortBy` / `topN` go on `rows` dimensions only.
 - Unknown keys are rejected. Never put HTML or CSS anywhere: styling is built in.
 - Render `options` (separate argument): `theme` (`light | dark`), `page` (`size` A4 | A3 | Letter | Legal | Tabloid,
   `orientation`), `title` / `subtitle`, `maxColumnsPerPage`, `kpiPanel`, `locale`.
@@ -260,12 +280,13 @@ class PivotReportService:
     # -- describe ------------------------------------------------------------------------------
 
     def describe_pivot_spec(self) -> dict[str, Any]:
-        """Schema, options schema, guide, example and datasets for an LLM agent."""
+        """Schema, options schema, guide, examples (plain and filtered) and datasets for an LLM agent."""
         out: dict[str, Any] = {
             "guide": PIVOT_SPEC_AUTHORING_GUIDE,
             "pivot_spec_schema": pivot_spec_schema(),
             "export_options_schema": export_options_schema(),
             "example_spec": example_spec(),
+            "filtered_example_spec": filtered_example_spec(),
             "formats": ["pdf", "xlsx"],
         }
         if isinstance(self.row_provider, DatasetCatalog):

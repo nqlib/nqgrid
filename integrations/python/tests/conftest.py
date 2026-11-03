@@ -57,6 +57,22 @@ def planning_request() -> dict[str, Any]:
     return load_example("planning.request.json")
 
 
+@pytest.fixture(scope="session")
+def filtered_spec() -> dict[str, Any]:
+    """``planning-filtered.spec.json``: filters, a label filter, Top N with "Other", sortBy and facets."""
+    return load_example("planning-filtered.spec.json")
+
+
+@pytest.fixture(scope="session")
+def filtered_model() -> dict[str, Any]:
+    return load_example("planning-filtered.model.json")
+
+
+@pytest.fixture(scope="session")
+def filtered_sheet() -> dict[str, Any]:
+    return load_example("planning-filtered.sheet.json")
+
+
 def _cli_skip_reason() -> str | None:
     if shutil.which("node") is None:
         return "node is not installed"

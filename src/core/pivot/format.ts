@@ -55,7 +55,11 @@ export function roundHalfAway(value: number, decimals: number): number {
 }
 
 function integerDigits(abs: number): number {
-  return abs >= 1 ? Math.floor(Math.log10(abs)) + 1 : 1;
+  // Comparisons first: compact formatting calls this for every cell with values in [0, 1000).
+  if (abs < 10) return 1;
+  if (abs < 100) return 2;
+  if (abs < 1000) return 3;
+  return Math.floor(Math.log10(abs)) + 1;
 }
 
 function groupInteger(intPart: string, sep: string): string {
@@ -69,11 +73,17 @@ function groupInteger(intPart: string, sep: string): string {
 }
 
 function digitsToString(abs: number, decimals: number, trim: boolean, fmt: PivotNumberFormat): string {
-  let s = abs.toFixed(decimals);
-  if (trim && s.includes(".")) s = s.replace(/0+$/, "").replace(/\.$/, "");
-  const [intPart, frac] = s.split(".");
-  const grouped = groupInteger(intPart!, fmt.groupSeparator ?? ",");
-  return frac ? `${grouped}${fmt.decimalSeparator ?? "."}${frac}` : grouped;
+  const s = abs.toFixed(decimals);
+  const dot = s.indexOf(".");
+  let end = s.length;
+  // Trim trailing fraction zeros (and a bare ".") without regexes: this runs once per cell.
+  if (trim && dot >= 0) {
+    while (end > dot + 1 && s.charCodeAt(end - 1) === 48) end--;
+    if (end === dot + 1) end = dot;
+  }
+  const hasFrac = dot >= 0 && end > dot + 1;
+  const grouped = groupInteger(dot >= 0 ? s.slice(0, dot) : s, fmt.groupSeparator ?? ",");
+  return hasFrac ? grouped + (fmt.decimalSeparator ?? ".") + s.slice(dot + 1, end) : grouped;
 }
 
 /**

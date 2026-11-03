@@ -26,6 +26,8 @@ export interface PivotSheetMerge {
  */
 export interface PivotSheet {
   readonly title?: string;
+  /** Active filters as printable lines (`model.filters[].text`), when any. */
+  readonly filters?: readonly string[];
   readonly cells: readonly (readonly PivotSheetCell[])[];
   readonly merges: readonly PivotSheetMerge[];
   readonly frozenRows: number;
@@ -112,6 +114,7 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
 
   return {
     ...(model.title !== undefined ? { title: model.title } : {}),
+    ...(model.filters?.length ? { filters: model.filters.map((f) => f.text) } : {}),
     cells,
     merges,
     frozenRows: headerCount,

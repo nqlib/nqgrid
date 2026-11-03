@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
+  Badge,
   Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   ScrollArea,
   Select,
   SelectContent,
@@ -10,10 +14,12 @@ import {
   cn,
 } from "@nqlib/nqui";
 import {
+  clearPivotFilters,
   generatePlanningPivotRows,
   planningPivotSpec,
   flightsTableShellExtraClass,
   pivotExportFilename,
+  setPivotTopN,
   tableFooterClass,
   tableScrollAreaRootClass,
   tableScrollViewportStyle,
@@ -21,8 +27,20 @@ import {
   type PivotExportFormat,
   type PivotExportRequest,
   type PivotHeatScope,
+  type PivotSpec,
 } from "@nqlib/nqgrid";
-import { PivotTable, pivotExportRequestFromGrid, usePivotGrid, type PivotGridState } from "@nqlib/nqgrid/pivot";
+import {
+  PivotFilterIcon,
+  PivotFilterMenu,
+  PivotSlicer,
+  PivotTable,
+  pivotExportRequestFromGrid,
+  pivotFilterMenuProps,
+  pivotSlicerProps,
+  usePivotGrid,
+  type PivotDimensionHeaderContext,
+  type PivotGridState,
+} from "@nqlib/nqgrid/pivot";
 
 const HEAT_SCOPES: readonly { value: PivotHeatScope; label: string }[] = [
   { value: "all", label: "All Lines" },
@@ -129,17 +147,109 @@ function ExportPanel({ grid }: { grid: PivotGridState }) {
   );
 }
 
+/** The planning spec plus slicer facets (filters, sort and Top N are added by the controls). */
+const demoSpec: PivotSpec = { ...planningPivotSpec, facets: ["department", "line"] };
+
+/** Line header: label, sort / filter indicator and an nqui popover holding `PivotFilterMenu`. */
+function LineHeaderMenu({ grid, context }: { grid: PivotGridState; context: PivotDimensionHeaderContext }) {
+  const [open, setOpen] = useState(false);
+  const active = context.status.filtered || context.status.sort !== null;
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-1">
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="truncate">{context.label}</span>
+        {context.indicator}
+      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={`Filter and sort ${context.label}`}
+            className={cn("size-6", active ? "text-primary" : "text-muted-foreground")}
+          >
+            <PivotFilterIcon filled={active} />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="max-h-[var(--radix-popover-content-available-height)] w-auto overflow-y-auto p-3">
+          <PivotFilterMenu {...pivotFilterMenuProps(grid, context.dimension.field)} onClose={() => setOpen(false)} />
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+/** Department / Line slicers plus the active-filter summary. */
+function SlicerBar({ grid }: { grid: PivotGridState }) {
+  const [multi, setMulti] = useState<Record<string, boolean>>({});
+  const filters = grid.model.filters ?? [];
+  const counts = grid.model.recordCount;
+  const slicer = (field: string, columns: number, className: string, listClassName?: string) => (
+    <PivotSlicer
+      {...pivotSlicerProps(grid, field)}
+      columns={columns}
+      multiSelect={multi[field] ?? false}
+      onMultiSelectChange={(v) => setMulti((m) => ({ ...m, [field]: v }))}
+      className={className}
+      classNames={listClassName ? { list: listClassName } : undefined}
+    />
+  );
+  return (
+    <div className="flex shrink-0 flex-col gap-2 border-b border-border/70 px-4 py-3">
+      <div className="flex flex-wrap items-start gap-3">
+        {slicer("department", 2, "w-64 shadow-none")}
+        {slicer("line", 6, "min-w-[28rem] flex-1 shadow-none", "max-h-[4.5rem] overflow-y-auto pr-1")}
+      </div>
+      <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {filters.length ? (
+          <>
+            <span>Filters</span>
+            {filters.map((f, i) => (
+              <Badge key={`${f.field}:${i}`} variant="secondary" className="font-normal">
+                {f.text}
+              </Badge>
+            ))}
+            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => grid.setSpec((s) => clearPivotFilters(s.rows.reduce((acc, d) => setPivotTopN(acc, d.field, null), s)))}>
+              Clear all
+            </Button>
+          </>
+        ) : (
+          <span>Click a slicer value to filter (Ctrl/⌘-click or the multi-select button to pick several); use the Line header menu for sort and Top N.</span>
+        )}
+        {counts ? (
+          <span className="ml-auto tabular-nums">
+            {counts.matched} of {counts.total} records
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Planning grid from `@nqlib/nqgrid/pivot`: pinned Department (KPI panel, real rowSpan) and Line
- * columns, heat-colored months and a stacked header chart band. Every control edits the spec —
- * "Export" builds the request a Tauri app sends to its backend, so the PDF/XLSX matches the screen.
+ * columns, heat-colored months and a stacked header chart band, with Department / Line slicers and
+ * an Excel-style filter menu on the Line header. Every control edits the spec — "Export" builds the
+ * request a Tauri app sends to its backend, so the PDF/XLSX matches the screen (filters included).
  */
 export function PlanningPivotDemo() {
   const rows = useMemo(() => generatePlanningPivotRows(), []);
-  const pivot = usePivotGrid(planningPivotSpec, rows);
+  const pivot = usePivotGrid(demoSpec, rows);
   const { model, spec } = pivot;
   const [showExport, setShowExport] = useState(false);
   const scope = spec.heat?.scope ?? "all";
+  const renderDimensionHeader = useCallback(
+    (context: PivotDimensionHeaderContext) =>
+      context.dimension.field === "line" ? (
+        <LineHeaderMenu grid={pivot} context={context} />
+      ) : (
+        <span className="flex min-w-0 items-center gap-1">
+          <span className="truncate">{context.label}</span>
+          {context.indicator}
+        </span>
+      ),
+    [pivot],
+  );
 
   return (
     <div className="flex h-[calc(100dvh-8.5rem)] min-h-[36rem] flex-col gap-3">
@@ -175,13 +285,20 @@ export function PlanningPivotDemo() {
           </div>
         </div>
 
+        <SlicerBar grid={pivot} />
+
         <ScrollArea
           orientation="both"
           fadeMask={false}
           className={tableScrollAreaRootClass}
           viewportStyle={tableScrollViewportStyle}
         >
-          <PivotTable model={model} onToggleGroup={pivot.toggleGroup} aria-label="FY26 sales plan pivot" />
+          <PivotTable
+            model={model}
+            onToggleGroup={pivot.toggleGroup}
+            renderDimensionHeader={renderDimensionHeader}
+            aria-label="FY26 sales plan pivot"
+          />
         </ScrollArea>
 
         <div className={tableFooterClass}>

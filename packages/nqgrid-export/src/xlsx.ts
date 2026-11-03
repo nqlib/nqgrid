@@ -60,7 +60,8 @@ const kpiFormats = (spec: PivotSpec | undefined) => {
 
 /**
  * Workbook from `pivotModelToSheet`: the pivot sheet (numeric values + numFmt, merges, frozen panes,
- * bold subtotals, heat fills, column widths), a `KPIs` sheet and a hidden `Spec` sheet.
+ * bold subtotals, heat fills, column widths), a `KPIs` sheet and a hidden `Spec` sheet. Active
+ * filters (`model.filters`) are listed under the KPIs and on the Spec sheet.
  */
 export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOptions = {}): Promise<Uint8Array> {
   const sheet = pivotModelToSheet(model);
@@ -123,6 +124,11 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
       if (scope === model.grandTotal.label) row.font = { bold: true };
     }
     [22, 18, 20, 14, 14, 10].forEach((w, i) => (ks.getColumn(i + 1).width = w));
+    if (sheet.filters?.length) {
+      ks.addRow([]);
+      ks.addRow(["Filters"]).font = { bold: true, color: { argb: argb(palette.mutedForeground) } };
+      for (const text of sheet.filters) ks.addRow([text]);
+    }
   }
 
   // --- Spec sheet (hidden, traceability) -----------------------------------------------------
@@ -130,6 +136,7 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
     const ss = wb.addWorksheet("Spec", { state: "hidden" });
     ss.addRow(["nqgrid-export · PivotSpec v1 (rebuild this workbook from the spec and the same rows)"]);
     ss.addRow(["generatedAt", options.generatedAt ?? null]);
+    for (const text of sheet.filters ?? []) ss.addRow(["filter", text]);
     ss.addRow([]);
     for (const line of JSON.stringify(options.spec, null, 2).split("\n")) ss.addRow([line]);
     ss.getColumn(1).width = 100;

@@ -84,6 +84,16 @@ def test_hidden_spec_sheet(workbook: Any) -> None:
     assert '"id": "planning-fy26",' in [c.value.strip() for c in ss["A"] if isinstance(c.value, str)]
 
 
+def test_filters_on_the_spec_sheet(filtered_sheet: dict[str, Any], filtered_spec: dict[str, Any]) -> None:
+    wb = openpyxl.load_workbook(io.BytesIO(write_xlsx_from_sheet(filtered_sheet, spec=filtered_spec)))
+    ss = wb["Spec"]
+    assert [(ss.cell(row=r, column=1).value, ss.cell(row=r, column=2).value) for r in (2, 3, 4)] == [
+        ("filter", text) for text in filtered_sheet["filters"]
+    ]
+    labels = [c.value for c in wb.worksheets[0]["B"]]
+    assert "Other" in labels and "Kids" not in labels
+
+
 def test_heat_palette_matches_typescript() -> None:
     # pivotHeatLevelFillHex(level, 9, "light") from @nqlib/nqgrid/render-static.
     assert heat_step(0, 9) == 0

@@ -97,7 +97,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:all": "vitest run && pnpm -r test",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "bench": "vitest bench --run --dir bench"
   },
   "peerDependencies": {
     "@tanstack/react-table": "^8.21.0",

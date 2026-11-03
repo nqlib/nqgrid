@@ -260,6 +260,72 @@ export const pivotDeltaNegativeClass = "nqg-pivot-down text-red-600 dark:text-re
 
 export const pivotDeltaNeutralClass = "nqg-pivot-flat text-muted-foreground";
 
+// ---------------------------------------------------------------------------
+// Pivot filters: header indicator, slicer, filter menu (`@nqlib/nqgrid/pivot`)
+// ---------------------------------------------------------------------------
+
+/** Dimension header content when a sort / filter indicator or menu is shown. */
+export const pivotHeadLabelClass = "nqg-pivot-head-label flex min-w-0 items-center gap-1";
+
+/** Sort / filter indicator next to a header label (inline SVG icons use `currentColor`). */
+export const pivotHeaderIndicatorClass = "nqg-pivot-indicator inline-flex shrink-0 items-center gap-0.5 text-primary";
+
+/** Slicer card. */
+export const pivotSlicerClass = "nqg-pivot-slicer flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card p-2 text-sm text-foreground";
+
+export const pivotSlicerHeaderClass = "nqg-pivot-slicer-header flex min-h-6 items-center justify-between gap-2 pl-1";
+
+export const pivotSlicerTitleClass = "nqg-pivot-slicer-title truncate text-xs font-medium uppercase tracking-wider text-muted-foreground";
+
+/** Icon buttons in slicer / menu headers (clear, multi-select). */
+export const pivotSlicerActionClass =
+  "nqg-pivot-slicer-action inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-accent aria-pressed:text-foreground";
+
+export const pivotSlicerListClass = "nqg-pivot-slicer-list grid gap-1 outline-none";
+
+/** Slicer item (button). Combine with the selected / no-data tokens. */
+export const pivotSlicerItemClass =
+  "nqg-pivot-slicer-item inline-flex h-8 min-w-0 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-background px-2.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+export const pivotSlicerItemSelectedClass = "nqg-pivot-slicer-item-selected border-primary/50 bg-primary/10 hover:bg-primary/15";
+
+/** Items with no data under the other filters (Excel greys them out). */
+export const pivotSlicerItemNoDataClass = "nqg-pivot-slicer-item-empty border-dashed text-muted-foreground/60";
+
+export const pivotSlicerCountClass = "nqg-pivot-slicer-count shrink-0 text-[10px] font-normal tabular-nums text-muted-foreground";
+
+/** Filter menu panel (put it in any popover, or use `PivotHeaderMenu`). */
+export const pivotFilterMenuClass = "nqg-pivot-menu flex w-80 max-w-full flex-col gap-2 text-sm text-foreground";
+
+export const pivotFilterMenuSectionClass = "nqg-pivot-menu-section flex flex-col gap-1.5 border-b border-border/70 pb-2 last:border-b-0 last:pb-0";
+
+export const pivotFilterMenuLabelClass = "nqg-pivot-menu-label text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
+
+/** Menu buttons (sort options, apply / cancel). */
+export const pivotFilterMenuButtonClass =
+  "nqg-pivot-menu-button inline-flex h-7 cursor-pointer items-center justify-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-pressed:border-primary/50 aria-pressed:bg-primary/10";
+
+export const pivotFilterMenuPrimaryButtonClass =
+  "nqg-pivot-menu-primary inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-primary bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+/** Search box, number and select inputs. */
+export const pivotFilterMenuInputClass =
+  "nqg-pivot-menu-input h-7 min-w-0 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+/** Scrollable checkbox list. */
+export const pivotFilterMenuListClass = "nqg-pivot-menu-list m-0 flex max-h-44 list-none flex-col overflow-y-auto p-0";
+
+export const pivotFilterMenuOptionClass =
+  "nqg-pivot-menu-option flex min-h-7 cursor-pointer items-center gap-2 rounded-sm px-1.5 text-xs hover:bg-accent";
+
+export const pivotFilterMenuCheckboxClass = "nqg-pivot-menu-checkbox size-3.5 shrink-0 accent-primary";
+
+/** `PivotHeaderMenu` wrapper (relative) and its inline panel (absolute, no portal). */
+export const pivotHeaderMenuClass = "nqg-pivot-header-menu relative inline-flex";
+
+export const pivotHeaderMenuPanelClass =
+  "nqg-pivot-header-menu-panel absolute left-0 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg normal-case tracking-normal font-normal";
+
 /** Default heat hue; `--nqg-heat-color` overrides it, `--nqg-heat-N` overrides one level. */
 export const PIVOT_HEAT_BASE_COLOR = "#ef6a24";
 

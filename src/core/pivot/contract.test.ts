@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { generatePlanningPivotRows, planningPivotSpec } from "../../fixtures/planning-pivot-mock";
+import { generatePlanningPivotRows, planningFilteredPivotSpec, planningPivotSpec } from "../../fixtures/planning-pivot-mock";
 import { buildPivotModel } from "./build-model";
 import { pivotModelToSheet } from "./to-sheet";
 
@@ -28,5 +28,15 @@ describe("pivot golden contract", () => {
 
   it("model is plain JSON (round-trips losslessly)", () => {
     expect(JSON.parse(JSON.stringify(model))).toEqual(model);
+  });
+
+  // Filters, label filter, Top N with "Other", sort by value and facets (same rows as planning).
+  const filtered = buildPivotModel(planningFilteredPivotSpec, rows);
+
+  it("planning-filtered example (filters, Top N, sort by value, facets)", async () => {
+    await expect(json(planningFilteredPivotSpec)).toMatchFileSnapshot(`${dir}/planning-filtered.spec.json`);
+    await expect(json(filtered)).toMatchFileSnapshot(`${dir}/planning-filtered.model.json`);
+    await expect(json(pivotModelToSheet(filtered))).toMatchFileSnapshot(`${dir}/planning-filtered.sheet.json`);
+    expect(JSON.parse(JSON.stringify(filtered))).toEqual(filtered);
   });
 });

@@ -7,7 +7,7 @@ import { pivotHeatLevelFillHex } from "@nqlib/nqgrid/render-static";
 
 import { exportPivot } from "../src/exporter";
 import { NQGRID_EXPORT_VERSION } from "../src/version";
-import { GOLDEN_GENERATED_AT, planningRows, planningSpec, readExample } from "./helpers";
+import { GOLDEN_GENERATED_AT, planningFilteredSpec, planningRows, planningSpec, readExample } from "./helpers";
 
 const colName = (c: number) => {
   let s = "";
@@ -21,6 +21,13 @@ describe("exportPivot (text formats)", () => {
     expect(await exportPivot({ spec: planningSpec, rows: planningRows, format: "sheet" })).toBe(readExample("planning.sheet.json"));
     const html = await exportPivot({ spec: planningSpec, rows: planningRows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } });
     expect(html).toBe(readExample("planning.html"));
+  });
+
+  it("planning-filtered: model / sheet / html match the golden files", async () => {
+    const args = { spec: planningFilteredSpec, rows: planningRows };
+    expect(await exportPivot({ ...args, format: "model" })).toBe(readExample("planning-filtered.model.json"));
+    expect(await exportPivot({ ...args, format: "sheet" })).toBe(readExample("planning-filtered.sheet.json"));
+    expect(await exportPivot({ ...args, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })).toBe(readExample("planning-filtered.html"));
   });
 
   it("throws invalid_input for bad specs", async () => {
@@ -99,5 +106,35 @@ describe("exportPivot (xlsx)", async () => {
       if (n >= 4) lines.push(String(row.getCell(1).value ?? ""));
     });
     expect(JSON.parse(lines.join("\n"))).toEqual(planningSpec);
+  });
+});
+
+describe("exportPivot (xlsx with filters)", async () => {
+  const bytes = await exportPivot({ spec: planningFilteredSpec, rows: planningRows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } });
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+  const filters = (JSON.parse(readExample("planning-filtered.sheet.json")) as PivotSheet).filters!;
+
+  it("lists the active filters under the KPIs and on the Spec sheet", () => {
+    expect(filters).toEqual(["Department = Camp, Packs", 'Line does not contain "kids"', "Line: Top 3 by Actual, rest as Other"]);
+    const ks = wb.getWorksheet("KPIs")!;
+    const col = (ks.getSheetValues() as unknown[][]).map((r) => r?.[1]);
+    const at = col.indexOf("Filters");
+    expect(at).toBeGreaterThan(1);
+    expect(col.slice(at + 1)).toEqual(filters);
+    const ss = wb.getWorksheet("Spec")!;
+    expect([3, 4, 5].map((r) => [ss.getCell(`A${r}`).value, ss.getCell(`B${r}`).value])).toEqual(filters.map((f) => ["filter", f]));
+    const lines: string[] = [];
+    ss.eachRow((row, n) => {
+      if (n >= 7) lines.push(String(row.getCell(1).value ?? ""));
+    });
+    expect(JSON.parse(lines.join("\n"))).toEqual(planningFilteredSpec);
+  });
+
+  it("the pivot sheet keeps the filtered values (Other rows included)", () => {
+    const ws = wb.worksheets[0]!;
+    const labels = (ws.getColumn(2).values as unknown[]).filter((v) => typeof v === "string");
+    expect(labels).toContain("Other");
+    expect(labels).not.toContain("Kids");
   });
 });

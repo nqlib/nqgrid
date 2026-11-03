@@ -49,19 +49,6 @@ class Attribute(RootModel[str]):
     root: Annotated[str, Field(min_length=1)]
 
 
-class Dimension(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    field: Annotated[str, Field(min_length=1)]
-    label: str | None = None
-    order: list[str] | None = None
-    sort: Literal["asc", "desc", "none"] | None = None
-    keepEmpty: bool | None = None
-    blankLabel: str | None = None
-    attributes: list[Attribute] | None = None
-
-
 class WeightedAvgAggregate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -108,6 +95,91 @@ class NumberFormat(BaseModel):
     empty: str | None = None
 
 
+class SortBy(BaseModel):
+    """
+    Row dimensions only: order sibling keys by an aggregated measure (wins over order / sort, which break ties). Keys without a value sort last.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    measure: Annotated[str, Field(min_length=1)]
+    direction: Literal["asc", "desc"] | None = None
+    columnKey: str | None = None
+    """
+    Rank by this column-dimension key (default: the row total).
+    """
+
+
+class TopN(BaseModel):
+    """
+    Row dimensions only: keep the top / bottom `count` keys within each parent group (outermost level first). Excluded keys leave every total unless `other` folds them into one row.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    measure: Annotated[str, Field(min_length=1)]
+    count: Annotated[int, Field(ge=1)]
+    direction: Literal["top", "bottom"] | None = None
+    columnKey: str | None = None
+    """
+    Rank by this column-dimension key (default: the row total).
+    """
+    other: bool | None = None
+    """
+    Fold the remaining keys into one row (key "\\u0000other").
+    """
+    otherLabel: str | None = None
+
+
+class LabelMatch(BaseModel):
+    """
+    Label filter on the key string (null → ""). Case-insensitive unless caseSensitive.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    op: Literal["contains", "notContains", "beginsWith", "endsWith", "equals", "notEquals"]
+    value: str
+    caseSensitive: bool | None = None
+
+
+class Filter(BaseModel):
+    """
+    Keys compare as strings (null → "", 2024 → "2024"). include: [] keeps nothing; a filter with no include / exclude / match keeps everything.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    include: list[str] | None = None
+    exclude: list[str] | None = None
+    match: LabelMatch | None = None
+    label: str | None = None
+
+
+class FacetField(RootModel[str]):
+    root: Annotated[str, Field(min_length=1, title="FacetField")]
+    """
+    A field name, or { field, label } to override the slicer label.
+    """
+
+
+class FacetWithLabel(BaseModel):
+    """
+    A field name, or { field, label } to override the slicer label.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    label: str | None = None
+
+
 class PositiveNumber(RootModel[float]):
     root: Annotated[float, Field(gt=0.0)]
 
@@ -148,6 +220,21 @@ class Kpi(BaseModel):
     compareTo: Annotated[str | None, Field(min_length=1)] = None
     format: NumberFormat | None = None
     deltaFormat: NumberFormat | None = None
+
+
+class Dimension(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    label: str | None = None
+    order: list[str] | None = None
+    sort: Literal["asc", "desc", "none"] | None = None
+    keepEmpty: bool | None = None
+    blankLabel: str | None = None
+    attributes: list[Attribute] | None = None
+    sortBy: SortBy | None = None
+    topN: TopN | None = None
 
 
 class Measure(BaseModel):
@@ -234,7 +321,7 @@ class Options(BaseModel):
 
 class PivotSpec(BaseModel):
     """
-    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis) are done by validatePivotSpec().
+    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, unique facets) are done by validatePivotSpec().
     """
 
     model_config = ConfigDict(
@@ -255,6 +342,14 @@ class PivotSpec(BaseModel):
     kpis: list[Kpi] | None = None
     kpiLevels: list[KpiLevel] | None = None
     layout: Literal["tabular", "compact"] | None = None
+    filters: list[Filter] | None = None
+    """
+    Report / slicer / label filters on any record field, applied to records before aggregation (totals reflect them). Filters on different fields are ANDed.
+    """
+    facets: list[FacetField | FacetWithLabel] | None = None
+    """
+    Fields returned as model.facets (distinct values with cross-filtered counts and selection) for slicers and filter menus.
+    """
 
 
 class PivotExportRequestWithRows(BaseModel):

@@ -69,7 +69,69 @@ export interface PivotDimension {
   readonly blankLabel?: string;
   /** Fields copied onto rows of this level (first non-null value), e.g. an owner name. */
   readonly attributes?: readonly string[];
+  /**
+   * Row dimensions only: order siblings by a measure instead of by key. Wins over `order` and
+   * `sort`, which only break ties (see "Filters & sorting" in `docs/pivot-headless.md`).
+   */
+  readonly sortBy?: PivotSortBySpec;
+  /** Row dimensions only: keep the top / bottom `count` keys within each parent group. */
+  readonly topN?: PivotTopNSpec;
 }
+
+/** Sort sibling keys by an aggregated measure (raw value, before `showAs`). */
+export interface PivotSortBySpec {
+  readonly measure: string;
+  /** Default `desc`. Keys without a value always sort last. */
+  readonly direction?: "asc" | "desc";
+  /** Rank by this column-dimension key; default: the row total across all columns. */
+  readonly columnKey?: string;
+}
+
+/**
+ * Excel "Top 10" value filter, applied within each parent group after report / label filters.
+ * Excluded keys drop out of every total, unless `other` folds them into one "Other" row.
+ */
+export interface PivotTopNSpec {
+  readonly measure: string;
+  /** Number of keys to keep per parent (≥ 1). Ties beyond `count` are cut deterministically. */
+  readonly count: number;
+  /** Default `top`. */
+  readonly direction?: "top" | "bottom";
+  /** Rank by this column-dimension key; default: the row total. */
+  readonly columnKey?: string;
+  /** Fold the remaining keys into one row (key `PIVOT_OTHER_KEY`) so totals stay complete. Default false. */
+  readonly other?: boolean;
+  /** Label of the "Other" row (default `Other`). */
+  readonly otherLabel?: string;
+}
+
+export type PivotLabelMatchOp = "contains" | "notContains" | "beginsWith" | "endsWith" | "equals" | "notEquals";
+
+/** Label filter, matched against the key string (`null` → `""`). Case-insensitive by default. */
+export interface PivotLabelMatch {
+  readonly op: PivotLabelMatchOp;
+  readonly value: string;
+  readonly caseSensitive?: boolean;
+}
+
+/**
+ * Report / slicer filter on any record field (also fields that are not rows or columns).
+ * Applied to source records before aggregation; all parts must pass, and filters on different
+ * fields are ANDed. Keys are compared as strings (`null` → `""`, `2024` → `"2024"`).
+ */
+export interface PivotFilter {
+  readonly field: string;
+  /** Keep only these keys (`[]` keeps nothing). */
+  readonly include?: readonly string[];
+  /** Drop these keys. */
+  readonly exclude?: readonly string[];
+  readonly match?: PivotLabelMatch;
+  /** Printed in filter summaries (default: the dimension / facet label, else `field`). */
+  readonly label?: string;
+}
+
+/** A slicer-ready field: `field`, or `{ field, label }`. */
+export type PivotFacetSpec = string | { readonly field: string; readonly label?: string };
 
 export type PivotBuiltInAggregate = "sum" | "avg" | "min" | "max" | "count" | "first" | "last";
 
@@ -184,6 +246,10 @@ export interface PivotSpec {
   readonly kpiLevels?: readonly number[];
   /** Renderer hint: one column per row dimension, or one indented hierarchy column. */
   readonly layout?: "tabular" | "compact";
+  /** Report / slicer / label filters, applied to records before aggregation (totals reflect them). */
+  readonly filters?: readonly PivotFilter[];
+  /** Fields to return as `model.facets` (distinct values, counts, selection) for slicers / filter menus. */
+  readonly facets?: readonly PivotFacetSpec[];
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +322,8 @@ export interface PivotBodyRow {
   readonly cells: readonly PivotCell[];
   readonly attributes?: Readonly<Record<string, unknown>>;
   readonly kpis?: readonly PivotKpiValue[];
+  /** Present on the Top-N "Other" row: how many keys it folds together. */
+  readonly otherCount?: number;
 }
 
 /** A row-dimension cell that covers `span` consecutive visible rows starting at `rowIndex`. */
@@ -281,13 +349,57 @@ export interface PivotHeaderSeries {
   readonly max: number | null;
 }
 
+/** Row dimension as the model reports it; sort / filter keys appear only when active (header indicators). */
+export interface PivotModelDimension {
+  readonly field: string;
+  readonly label: string;
+  /** Label sort (only when `asc` / `desc`). */
+  readonly sort?: "asc" | "desc";
+  readonly sortBy?: PivotSortBySpec;
+  readonly topN?: PivotTopNSpec;
+  /** A report / label filter targets this field. */
+  readonly filtered?: true;
+}
+
+/** One active filter, ready to print ("Department = Camp, Packs"). */
+export interface PivotActiveFilter {
+  readonly field: string;
+  /** Field label (dimension / facet label, else the field). */
+  readonly label: string;
+  /** `items` (include / exclude), `label` (match) or `value` (Top N). */
+  readonly kind: "items" | "label" | "value";
+  readonly text: string;
+}
+
+export interface PivotFacetValue {
+  readonly key: string;
+  readonly label: string;
+  /** Records with this key that pass every filter on *other* fields (cross-filtered, like Excel slicers). */
+  readonly count: number;
+  /** Records with this key, unfiltered. */
+  readonly total: number;
+  /** `count > 0`; slicers grey out the rest ("items with no data"). */
+  readonly hasData: boolean;
+  /** Passes this field's own filter (every value when the field is unfiltered). */
+  readonly selected: boolean;
+}
+
+export interface PivotFacet {
+  readonly field: string;
+  readonly label: string;
+  /** The field has an active report / label filter. */
+  readonly filtered: boolean;
+  /** Dimension order for row / column fields, otherwise ascending by key. */
+  readonly values: readonly PivotFacetValue[];
+}
+
 export interface PivotModel {
   readonly version: typeof PIVOT_SPEC_VERSION;
   readonly id?: string;
   readonly title?: string;
   readonly subtitle?: string;
   readonly layout: "tabular" | "compact";
-  readonly rowDimensions: readonly { readonly field: string; readonly label: string }[];
+  readonly rowDimensions: readonly PivotModelDimension[];
   readonly columnDimension: { readonly field: string; readonly label: string } | null;
   readonly columnKeys: readonly PivotKey[];
   readonly columns: readonly PivotValueColumn[];
@@ -308,4 +420,10 @@ export interface PivotModel {
   readonly headerSeries: PivotHeaderSeries | null;
   /** Grand-level KPIs. */
   readonly kpis: readonly PivotKpiValue[];
+  /** Active report / label / Top-N filters (present when any are set). */
+  readonly filters?: readonly PivotActiveFilter[];
+  /** Records before and after filtering (present when any filter or Top N is set). */
+  readonly recordCount?: { readonly total: number; readonly matched: number };
+  /** Slicer data for `spec.facets` (present when requested). */
+  readonly facets?: readonly PivotFacet[];
 }
