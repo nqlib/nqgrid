@@ -1,7 +1,16 @@
 /**
  * Left-pinned column layout (nqdg-style cumulative `left` + width metrics).
  * Invariant: pinned ids must match the first N visible leaf column ids in order.
+ *
+ * Thin adapter over the axis-generic {@link ./prefix-layout} core
+ * (offset→leftPx, size→widthPx).
  */
+
+import {
+  computePrefixLayout,
+  resolvePrefix,
+  type PrefixLayoutResult,
+} from "./prefix-layout";
 
 export interface PinnedColumnMetric {
   readonly id: string;
@@ -24,13 +33,43 @@ export function resolvePinnedLeftPrefix(
   visibleColumnIds: readonly string[],
   pinnedLeftIds: readonly string[],
 ): readonly string[] {
-  const out: string[] = [];
-  const n = Math.min(visibleColumnIds.length, pinnedLeftIds.length);
-  for (let i = 0; i < n; i++) {
-    if (visibleColumnIds[i] !== pinnedLeftIds[i]) break;
-    out.push(pinnedLeftIds[i]!);
+  return resolvePrefix(visibleColumnIds, pinnedLeftIds);
+}
+
+/**
+ * Resolve left-pinned column ids when a **leading gutter column** (row-index `#` gutter,
+ * TanStack id usually `"select"`) must stay frozen at inline-start (index 0).
+ *
+ * `dataPinnedLeftIds` applies only to visible leaves **after** the gutter — i.e. **data columns**.
+ */
+export function resolvePinnedLeftWithLeadingGutter(
+  visibleColumnIds: readonly string[],
+  dataPinnedLeftIds: readonly string[],
+  leadingGutterColumnId: string,
+): readonly string[] {
+  if (visibleColumnIds[0] !== leadingGutterColumnId) {
+    return resolvePinnedLeftPrefix(visibleColumnIds, dataPinnedLeftIds);
   }
-  return out;
+  const dataVisibleIds = visibleColumnIds.slice(1);
+  const dataPinned = resolvePinnedLeftPrefix(dataVisibleIds, dataPinnedLeftIds);
+  return dataPinned.length > 0
+    ? [leadingGutterColumnId, ...dataPinned]
+    : [leadingGutterColumnId];
+}
+
+function toPinnedResult(core: PrefixLayoutResult): PinnedLayoutResult {
+  const pinned: PinnedColumnMetric[] = core.members.map((m) => ({
+    id: m.id,
+    leftPx: m.offset,
+    widthPx: m.size,
+    pinIndex: m.index,
+  }));
+  return {
+    pinned,
+    pinnedById: new Map(pinned.map((m) => [m.id, m] as const)),
+    lastPinnedId: core.lastId,
+    totalPinnedWidthPx: core.totalSize,
+  };
 }
 
 export function computePinnedLayout(
@@ -38,41 +77,14 @@ export function computePinnedLayout(
   pinnedLeftIds: readonly string[],
   getWidthPx: (columnId: string) => number,
 ): PinnedLayoutResult {
-  if (pinnedLeftIds.length === 0) {
-    return {
-      pinned: [],
-      pinnedById: new Map(),
-      lastPinnedId: null,
-      totalPinnedWidthPx: 0,
-    };
-  }
-
-  for (let i = 0; i < pinnedLeftIds.length; i++) {
-    if (visibleColumnIds[i] !== pinnedLeftIds[i]) {
-      throw new Error(
-        "computePinnedLayout: pinnedLeftIds must be a prefix of visibleColumnIds. Use resolvePinnedLeftPrefix first.",
-      );
-    }
-  }
-
-  const pinned: PinnedColumnMetric[] = [];
-  let leftPx = 0;
-  for (let i = 0; i < pinnedLeftIds.length; i++) {
-    const id = pinnedLeftIds[i]!;
-    const widthPx = getWidthPx(id);
-    pinned.push({ id, leftPx, widthPx, pinIndex: i });
-    leftPx += widthPx;
-  }
-
-  const pinnedById = new Map(pinned.map((m) => [m.id, m] as const));
-  const lastPinnedId = pinned.length ? pinned[pinned.length - 1]!.id : null;
-
-  return {
-    pinned,
-    pinnedById,
-    lastPinnedId,
-    totalPinnedWidthPx: leftPx,
-  };
+  return toPinnedResult(
+    computePrefixLayout(
+      visibleColumnIds,
+      pinnedLeftIds,
+      getWidthPx,
+      "computePinnedLayout: pinnedLeftIds must be a prefix of visibleColumnIds. Use resolvePinnedLeftPrefix first.",
+    ),
+  );
 }
 
 export function isPinnedColumn(layout: PinnedLayoutResult, columnId: string): boolean {

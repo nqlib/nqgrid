@@ -17,4 +17,22 @@ describe("clipboard-tsv", () => {
     expect(t).toContain('"a\tb"');
     expect(tsvToMatrix(t)).toEqual(rows);
   });
+
+  it("treats a bare quote mid-cell as a literal, not a field opener", () => {
+    // `a"b<TAB>c` must split into two cells; the inch-mark quote must NOT
+    // toggle quoting and swallow the following tab.
+    expect(tsvToMatrix('a"b\tc')).toEqual([['a"b', "c"]]);
+  });
+
+  it("still parses properly quoted and escaped fields", () => {
+    expect(tsvToMatrix('"a\tb"\tc')).toEqual([["a\tb", "c"]]);
+    expect(tsvToMatrix('"a""b"\tc')).toEqual([['a"b', "c"]]);
+  });
+
+  it("round-trips cells that start with a quote (would otherwise merge columns)", () => {
+    // A leading `"` opens a quoted field on read, so the writer must quote it —
+    // otherwise `"x<TAB>y` parses back as a single merged column.
+    const rows = [['"x', "y"], ['"', "z"], ['"quoted"', "w"]];
+    expect(tsvToMatrix(matrixToTsv(rows))).toEqual(rows);
+  });
 });

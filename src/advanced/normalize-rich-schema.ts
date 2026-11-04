@@ -20,6 +20,10 @@ function accessorOf<T extends object>(
 /**
  * Normalize legacy `currency` / `percent` column defs to `kind: "number"` with `format.style`.
  * Safe to call before `buildRichColumnFromDef` / `RichColumnCell`.
+ *
+ * @deprecated Operates on the deprecated {@link RichSchemaColumnDef} union. Prefer
+ * authoring a `ColumnSchema` directly, or use `richDefToColumnSchema` (which calls
+ * this internally) to migrate onto the ColumnType registry.
  */
 export function normalizeRichSchemaColumnDef<T extends object>(
   def: RichSchemaColumnDef<T>,

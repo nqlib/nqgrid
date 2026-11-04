@@ -1,61 +1,119 @@
 import { useMemo, useState } from "react";
-import { buildGroupedFlatRows } from "@nqlib/nqgrid";
+import {
+  createColumnHelper,
+  flexRender,
+  useReactTable,
+  type ExpandedState,
+  type GroupingState,
+} from "@tanstack/react-table";
+import { Button, cn } from "@nqlib/nqui";
+import { getOutlineRowIndentStyle, withCoreSortingGroupedExpanded } from "@nqlib/nqgrid";
+import {
+  neutralTanStackRowFillClass,
+  playgroundTanStackRowStripeData,
+  useNeutralPlaygroundTable,
+} from "../lib/playground-neutral-table";
+import {
+  gridBodyHoverClass,
+  gridCellClass,
+  gridHeadCellClass,
+  gridHeaderClass,
+  gridRowClass,
+  gridTableClass,
+} from "../lib/grid-styles";
+import { EngineScrollTableShell } from "../parity/engine-scroll-table-shell";
 
-type Row = { id: string; country: string; city: string; units: number };
+export type GroupingDemoRow = { id: string; country: string; city: string; units: number };
 
-export function GroupingDemo({ data }: { data: Row[] }) {
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+const columnHelper = createColumnHelper<GroupingDemoRow>();
 
-  const { flat, isGroupRow } = useMemo(
-    () =>
-      buildGroupedFlatRows({
-        rows: data,
-        groupBy: ["country"],
-        rowGrouper: (rows, key) => {
-          const m: Record<string, Row[]> = {};
-          for (const r of rows) {
-            const k = String((r as Row)[key as "country"]);
-            (m[k] ??= []).push(r);
-          }
-          return m;
-        },
-        expandedGroupIds: expanded,
-        rowKeyGetter: (r) => r.id,
+export function GroupingDemo({ data }: { data: GroupingDemoRow[] }) {
+  const { tokens } = useNeutralPlaygroundTable();
+  const [grouping, setGrouping] = useState<GroupingState>(["country"]);
+  const [expanded, setExpanded] = useState<ExpandedState>(true);
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("country", { header: "Country", enableGrouping: true, size: 96 }),
+      columnHelper.accessor("city", { header: "City", size: 96 }),
+      columnHelper.accessor("units", {
+        header: "Units",
+        size: 72,
+        aggregationFn: "sum",
+        aggregatedCell: (info) => `Σ ${info.getValue()}`,
       }),
-    [data, expanded],
+    ],
+    [],
+  );
+
+  const table = useReactTable(
+    withCoreSortingGroupedExpanded({
+      data,
+      columns,
+      state: { grouping, expanded },
+      onGroupingChange: setGrouping,
+      onExpandedChange: setExpanded,
+      groupedColumnMode: "reorder",
+      getRowId: (r) => r.id,
+    }),
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">
-        Flattened group rows via <code className="rounded bg-muted px-1">buildGroupedFlatRows</code>. Toggle expansion per country.
-      </p>
-      <ul className="max-h-[min(60dvh,420px)] space-y-1 overflow-auto rounded-lg border p-3 text-sm">
-        {flat.map((r, i) =>
-          isGroupRow(r) ? (
-            <li key={r.id}>
-              <button
-                type="button"
-                className="font-medium text-primary underline-offset-2 hover:underline"
-                onClick={() =>
-                  setExpanded((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(r.id)) next.delete(r.id);
-                    else next.add(r.id);
-                    return next;
-                  })
-                }
-              >
-                {expanded.has(r.id) ? "▼" : "▶"} {String(r.groupKey)} ({r.childRows.length})
-              </button>
-            </li>
-          ) : (
-            <li key={r.id} className="pl-6 text-muted-foreground">
-              {r.city} — {r.units} units
-            </li>
-          ),
-        )}
-      </ul>
-    </div>
+    <EngineScrollTableShell className="max-h-[min(50dvh,360px)]">
+      <table className={gridTableClass} style={{ width: table.getTotalSize() }}>
+        <colgroup>
+          {table.getVisibleLeafColumns().map((col) => (
+            <col key={col.id} style={{ width: col.getSize() }} />
+          ))}
+        </colgroup>
+        <thead className={gridHeaderClass}>
+          {table.getHeaderGroups().map((hg) => (
+            <tr key={hg.id}>
+              {hg.headers.map((h) => (
+                <th key={h.id} className={gridHeadCellClass}>
+                  {flexRender(h.column.columnDef.header, h.getContext())}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody className={gridBodyHoverClass}>
+          {table.getRowModel().rows.map((row) => (
+            <tr
+              key={row.id}
+              className={cn(gridRowClass, neutralTanStackRowFillClass(tokens, row.index))}
+              {...playgroundTanStackRowStripeData(tokens, row.index)}
+            >
+              {row.getVisibleCells().map((cell) => (
+                <td
+                  key={cell.id}
+                  className={gridCellClass}
+                  style={row.getIsGrouped() ? getOutlineRowIndentStyle(row.depth) : undefined}
+                >
+                  {row.getIsGrouped() && cell.column.id === "country" ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={row.getToggleExpandedHandler()}
+                    >
+                      {row.getIsExpanded() ? "▼" : "▶"}{" "}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </Button>
+                  ) : row.getIsGrouped() ? (
+                    flexRender(
+                      cell.column.columnDef.aggregatedCell ?? cell.column.columnDef.cell,
+                      cell.getContext(),
+                    )
+                  ) : (
+                    flexRender(cell.column.columnDef.cell, cell.getContext())
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </EngineScrollTableShell>
   );
 }

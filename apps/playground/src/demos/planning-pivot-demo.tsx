@@ -21,19 +21,21 @@ import {
   planningDatesPivotSpec,
   planningFieldCatalog,
   planningPivotSpec,
-  flightsTableShellExtraClass,
   pivotExportFilename,
   setPivotTopN,
-  tableFooterClass,
-  tableScrollAreaRootClass,
-  tableScrollViewportStyle,
-  tableShellClass,
   type PivotDrillThroughTarget,
   type PivotExportFormat,
   type PivotExportRequest,
   type PivotHeatScope,
   type PivotSpec,
 } from "@nqlib/nqgrid";
+import {
+  flightsTableShellExtraClass,
+  tableFooterClass,
+  tableScrollAreaRootClass,
+  tableScrollViewportStyle,
+  tableShellClass,
+} from "@nqlib/nqgrid/styles";
 import {
   PivotDrillThroughPanel,
   PivotFieldList,

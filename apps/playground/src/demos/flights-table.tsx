@@ -2,13 +2,11 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   createColumnHelper,
   flexRender,
-  getCoreRowModel,
   getExpandedRowModel,
-  getSortedRowModel,
   type ExpandedState,
   type RowSelectionState,
   type SortingState,
-  type Table,
+  type Table as TanStackTable,
   type VisibilityState,
   useReactTable,
 } from "@tanstack/react-table";
@@ -24,36 +22,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
-  ScrollArea,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   cn,
 } from "@nqlib/nqui";
+import { Sortable, SortableContent, SortableItem, SortableOverlay } from "@nqlib/nqui/sortable";
 import type { FlightRow } from "@nqlib/nqgrid";
+import { createGlobalFilterFn, useInfiniteVisibleRows, withCoreSortingFiltered } from "@nqlib/nqgrid";
 import {
-  flightsTableShellExtraClass,
-  getPinnedTableCellStickyStyle,
-  isLastPinnedColumn,
-  tableCellClass,
-  tableDenseTypography,
-  tableFooterClass,
-  tableHeaderClass,
-  tableHeadClass,
-  tableNumericClass,
-  tableNumericMutedClass,
-  tableNumericStrongClass,
-  tableRowClass,
-  tableScrollAreaContentClass,
-  tableScrollAreaRootClass,
-  tableScrollViewportStyle,
-  tableShellClass,
-  useInfiniteVisibleRows,
-  usePinnedTableColumns,
-} from "@nqlib/nqgrid";
-import { usePlaygroundTableBodyClass } from "../playground-table-settings";
+  pinPlaygroundCell,
+  usePlaygroundPinnedLayout,
+} from "../lib/playground-row-index-gutter";
+import { createSelectColumn } from "../lib/playground-canonical-select-column";
+import {
+  sortableDropTargetProps,
+  usePlaygroundSortableRowDropIndicator,
+} from "../lib/playground-sortable-drop-indicator";
+import { SortableDragOverlay } from "../lib/playground-sortable-drag-chrome";
+import {
+  gridBodyHoverClass,
+  gridCellClass,
+  gridHeadCellClass,
+  gridHeaderClass,
+  gridNumericClass,
+  gridRowClass,
+  gridTableClass,
+} from "../lib/grid-styles";
+import {
+  neutralTanStackRowFillClass,
+  playgroundTanStackRowStripeData,
+  useNeutralPlaygroundTable,
+} from "../lib/playground-neutral-table";
+import { EngineScrollTableShell, useEngineScrollViewport } from "../parity/engine-scroll-table-shell";
 
 const columnHelper = createColumnHelper<FlightRow>();
 
@@ -84,35 +82,23 @@ const COLUMN_LABELS: Record<string, string> = {
   belt: "Bag belt",
 };
 
-function rowMatchesSearch(f: FlightRow, query: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const blob = [
-    f.code,
-    f.origin,
-    f.destination,
-    f.start,
-    f.end,
-    f.duration,
-    f.aircraft,
-    f.gate,
-    f.terminal,
-    f.stand,
-    f.groundHandler,
-    f.belt,
-    f.status,
-    String(f.pax ?? ""),
-    String(f.crew ?? ""),
-    String(f.delayMin ?? ""),
-    String(f.loadPct ?? ""),
-    String(f.fuel1kKg ?? ""),
-  ]
-    .join(" ")
-    .toLowerCase();
-  return blob.includes(q);
-}
+const FLIGHT_GLOBAL_FILTER_KEYS = [
+  "code",
+  "origin",
+  "destination",
+  "start",
+  "end",
+  "duration",
+  "aircraft",
+  "gate",
+  "terminal",
+  "stand",
+  "groundHandler",
+  "belt",
+  "status",
+] as const satisfies readonly (keyof FlightRow)[];
 
-const PINNED_LEFT_IDS = ["select", "code", "origin"] as const;
+const PINNED_DATA_COLUMN_IDS = ["code", "origin"] as const;
 const PINNED_WIDTH_OVERRIDES: Record<string, number> = {
   select: 48,
   code: 88,
@@ -141,7 +127,7 @@ function TimelineCell({ row }: { row: FlightRow }) {
     <div className="flex min-w-[11rem] items-center gap-1.5 sm:min-w-[13rem]">
       <span
         className={cn(
-          tableNumericClass,
+          gridNumericClass,
           delayed && "font-medium text-primary",
           cancelled && "line-through opacity-60",
         )}
@@ -159,14 +145,14 @@ function TimelineCell({ row }: { row: FlightRow }) {
         <span className="size-1 shrink-0 rounded-full bg-muted-foreground/50" aria-hidden />
         <span className="h-px flex-1 border-b border-dotted border-border" />
       </span>
-      <span className={cn(tableNumericClass, cancelled && "line-through opacity-60")}>
+      <span className={cn(gridNumericClass, cancelled && "line-through opacity-60")}>
         {row.end}
       </span>
     </div>
   );
 }
 
-function ColumnVisibilityMenu({ table }: { table: Table<FlightRow> }) {
+function ColumnVisibilityMenu({ table }: { table: TanStackTable<FlightRow> }) {
   const hideable = table.getAllLeafColumns().filter((c) => c.getCanHide());
 
   return (
@@ -200,43 +186,22 @@ function ColumnVisibilityMenu({ table }: { table: Table<FlightRow> }) {
 }
 
 export function FlightsTable({ data }: { data: FlightRow[] }) {
+  const { tokens } = useNeutralPlaygroundTable();
+  const [rowData, setRowData] = useState(data);
   const [sorting, setSorting] = useState<SortingState>([{ id: "start", desc: false }]);
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
-  const captureViewportRef = useCallback((node: HTMLDivElement | null) => {
-    setScrollRoot(node);
-  }, []);
-  const tableBodyClassName = usePlaygroundTableBodyClass();
+  const [globalFilter, setGlobalFilter] = useState("");
+  const { viewportRef, scrollRoot, scrolledX } = useEngineScrollViewport(true);
 
-  const filteredData = useMemo(() => {
-    return data.filter((f) => rowMatchesSearch(f, searchQuery));
-  }, [data, searchQuery]);
+  useEffect(() => {
+    setRowData(data);
+  }, [data]);
 
   const columns = useMemo(
     () => [
-      columnHelper.display({
-        id: "select",
-        enableHiding: false,
-        header: ({ table }) => (
-          <Checkbox
-            checked={table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? "indeterminate" : false}
-            onCheckedChange={(v) => table.toggleAllRowsSelected(!!v)}
-            aria-label="Select all"
-            className="hit-area-6"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(v) => row.toggleSelected(!!v)}
-            aria-label={`Select ${row.original.code}`}
-            className="hit-area-6"
-          />
-        ),
-      }),
+      createSelectColumn(columnHelper, { mode: "index+checkbox", getRowLabel: (r) => r.code }),
       columnHelper.accessor("code", {
         id: "code",
         enableHiding: false,
@@ -244,7 +209,9 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         cell: (info) => {
           const cancelled = info.row.original.status === "cancelled";
           return (
-            <span className={cn(tableNumericStrongClass, cancelled && "line-through opacity-60")}>{info.getValue()}</span>
+            <span className={cn(gridNumericClass, "font-medium", cancelled && "line-through opacity-60")}>
+              {info.getValue()}
+            </span>
           );
         },
       }),
@@ -285,7 +252,7 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         enableHiding: true,
         header: "Dur",
         cell: (info) => (
-          <span className={cn(tableNumericMutedClass, "whitespace-nowrap")}>{info.getValue()}</span>
+          <span className={cn(gridNumericClass, "whitespace-nowrap text-muted-foreground")}>{info.getValue()}</span>
         ),
         sortingFn: "alphanumeric",
       }),
@@ -299,13 +266,13 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         id: "aircraft",
         enableHiding: true,
         header: "Eqp",
-        cell: (info) => <span className={cn(tableNumericStrongClass, "whitespace-nowrap")}>{info.getValue() ?? "—"}</span>,
+        cell: (info) => <span className={cn(cn(gridNumericClass, "font-medium"), "whitespace-nowrap")}>{info.getValue() ?? "—"}</span>,
       }),
       columnHelper.accessor("gate", {
         id: "gate",
         enableHiding: true,
         header: "Gate",
-        cell: (info) => <span className={cn(tableNumericMutedClass, "whitespace-nowrap")}>{info.getValue() ?? "—"}</span>,
+        cell: (info) => <span className={cn(cn(gridNumericClass, "text-muted-foreground"), "whitespace-nowrap")}>{info.getValue() ?? "—"}</span>,
       }),
       columnHelper.accessor("terminal", {
         id: "terminal",
@@ -317,20 +284,20 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         id: "stand",
         enableHiding: true,
         header: "Stand",
-        cell: (info) => <span className={cn(tableNumericMutedClass, "whitespace-nowrap")}>{info.getValue() ?? "—"}</span>,
+        cell: (info) => <span className={cn(cn(gridNumericClass, "text-muted-foreground"), "whitespace-nowrap")}>{info.getValue() ?? "—"}</span>,
       }),
       columnHelper.accessor("pax", {
         id: "pax",
         enableHiding: true,
         header: () => <span className="block w-full whitespace-nowrap text-right">Pax</span>,
-        cell: (info) => <div className={cn("text-right tabular-nums", tableNumericMutedClass)}>{info.getValue() ?? "—"}</div>,
+        cell: (info) => <div className={cn("text-right tabular-nums", cn(gridNumericClass, "text-muted-foreground"))}>{info.getValue() ?? "—"}</div>,
         sortingFn: "basic",
       }),
       columnHelper.accessor("crew", {
         id: "crew",
         enableHiding: true,
         header: () => <span className="block w-full whitespace-nowrap text-right">Crew</span>,
-        cell: (info) => <div className={cn("text-right tabular-nums", tableNumericMutedClass)}>{info.getValue() ?? "—"}</div>,
+        cell: (info) => <div className={cn("text-right tabular-nums", cn(gridNumericClass, "text-muted-foreground"))}>{info.getValue() ?? "—"}</div>,
         sortingFn: "basic",
       }),
       columnHelper.accessor("delayMin", {
@@ -340,7 +307,7 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         cell: (info) => {
           const v = info.getValue() ?? 0;
           return (
-            <div className={cn("text-right tabular-nums", v > 0 ? "font-medium text-primary" : tableNumericMutedClass)}>
+            <div className={cn("text-right tabular-nums", v > 0 ? "font-medium text-primary" : cn(gridNumericClass, "text-muted-foreground"))}>
               {v ? `${v}m` : "—"}
             </div>
           );
@@ -354,7 +321,7 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         cell: (info) => {
           const v = info.getValue();
           return (
-            <div className={cn("text-right tabular-nums", tableNumericMutedClass)}>{v != null ? `${v}%` : "—"}</div>
+            <div className={cn("text-right tabular-nums", cn(gridNumericClass, "text-muted-foreground"))}>{v != null ? `${v}%` : "—"}</div>
           );
         },
         sortingFn: "basic",
@@ -365,7 +332,7 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         header: () => <span className="block w-full whitespace-nowrap text-right">Fuel</span>,
         cell: (info) => {
           const v = info.getValue();
-          return <div className={cn("text-right tabular-nums", tableNumericMutedClass)}>{v != null ? `${v}k` : "—"}</div>;
+          return <div className={cn("text-right tabular-nums", cn(gridNumericClass, "text-muted-foreground"))}>{v != null ? `${v}k` : "—"}</div>;
         },
         sortingFn: "basic",
       }),
@@ -383,7 +350,7 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         id: "belt",
         enableHiding: true,
         header: () => <span className="block w-full whitespace-nowrap text-right">Bag</span>,
-        cell: (info) => <div className={cn("text-right", tableNumericMutedClass)}>{info.getValue() ?? "—"}</div>,
+        cell: (info) => <div className={cn("text-right", cn(gridNumericClass, "text-muted-foreground"))}>{info.getValue() ?? "—"}</div>,
       }),
       columnHelper.display({
         id: "ops",
@@ -414,22 +381,26 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack useReactTable
   const table = useReactTable({
-    data: filteredData,
-    columns,
-    state: { sorting, expanded, rowSelection, columnVisibility },
-    onSortingChange: setSorting,
-    onExpandedChange: setExpanded,
-    onRowSelectionChange: setRowSelection,
-    onColumnVisibilityChange: setColumnVisibility,
-    getRowId: (r) => r.id,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    ...withCoreSortingFiltered({
+      data: rowData,
+      columns,
+      state: { sorting, expanded, rowSelection, columnVisibility, globalFilter },
+      onSortingChange: setSorting,
+      onExpandedChange: setExpanded,
+      onRowSelectionChange: setRowSelection,
+      onColumnVisibilityChange: setColumnVisibility,
+      onGlobalFilterChange: setGlobalFilter,
+      globalFilterFn: createGlobalFilterFn<FlightRow>(FLIGHT_GLOBAL_FILTER_KEYS),
+      getRowId: (r) => r.id,
+    }),
     getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: (row) => Boolean(gateNotes[row.original.id]?.length),
   });
-  const pinnedLayout = usePinnedTableColumns({
+  const leafColumns = table.getVisibleLeafColumns();
+  const pinnedLayout = usePlaygroundPinnedLayout({
     table,
-    pinnedLeftIds: PINNED_LEFT_IDS,
+    dataPinnedLeftIds: PINNED_DATA_COLUMN_IDS,
+    selectColumnMode: "full",
     widthOverrides: PINNED_WIDTH_OVERRIDES,
     defaultWidth: 120,
   });
@@ -439,7 +410,9 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
 
   useEffect(() => {
     resetVisibleRows();
-  }, [filteredData, resetVisibleRows, sorting, columnVisibility, searchQuery]);
+  }, [data, resetVisibleRows, sorting, columnVisibility, globalFilter]);
+
+  const sortableDrop = usePlaygroundSortableRowDropIndicator();
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -452,8 +425,8 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
           />
           <Input
             type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
             placeholder="Search flights, gates, cities…"
             className="h-9 pl-9"
             aria-label="Search flights"
@@ -462,122 +435,155 @@ export function FlightsTable({ data }: { data: FlightRow[] }) {
         <ColumnVisibilityMenu table={table} />
       </div>
 
-      <div className={cn(tableShellClass, flightsTableShellExtraClass)}>
-        <ScrollArea
-          orientation="both"
-          fadeMask={false}
-          className={tableScrollAreaRootClass}
-          viewportRef={captureViewportRef}
-          viewportStyle={tableScrollViewportStyle}
-        >
-          <div className={tableScrollAreaContentClass}>
-            <table className={cn(tableDenseTypography, "min-w-[1320px] isolate")}>
-              <TableHeader className={tableHeaderClass}>
-              {table.getHeaderGroups().map((hg) => (
-                <TableRow key={hg.id} className={tableRowClass}>
-                  {hg.headers.map((header) => {
-                    const id = header.column.id;
-                    const stickyStyle =
-                      header.column.getIsVisible() && pinnedLayout.pinnedById.has(id)
-                        ? getPinnedTableCellStickyStyle(pinnedLayout, id, {
-                            variant: "head",
-                            headZBase: 48,
-                          })
-                        : undefined;
-                    const pinEdge = isLastPinnedColumn(pinnedLayout, id);
-                    return (
-                      <TableHead
-                        key={header.id}
-                        data-frozen={stickyStyle ? "" : undefined}
-                        className={cn(
-                          tableHeadClass,
-                          stickyStyle && "relative",
-                          !stickyStyle && "relative z-0",
-                          pinEdge && "border-r border-border",
-                        )}
-                        style={stickyStyle}
-                      >
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              ))}
-              </TableHeader>
-              <TableBody className={tableBodyClassName}>
-              {visibleRows.map((row) => {
-                const cancelled = row.original.status === "cancelled";
-                return (
-                  <Fragment key={row.id}>
-                    <TableRow
-                      data-state={row.getIsSelected() ? "selected" : undefined}
+      <EngineScrollTableShell
+        viewportRef={viewportRef}
+        className="max-h-[min(70dvh,560px)]"
+        footer={
+          <>
+            <p className="text-sm text-muted-foreground">
+              Showing <span className="font-medium text-foreground">{visibleRows.length}</span> of{" "}
+              <span className="font-medium text-foreground">{rows.length}</span> in view
+              {globalFilter.trim() ? (
+                <>
+                  {" "}
+                  (<span className="font-medium text-foreground">{data.length}</span> total)
+                </>
+              ) : null}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {hasMore ? "Scroll to load more rows" : "All rows loaded"}
+            </p>
+          </>
+        }
+      >
+        <div ref={sortableDrop.containerRef} className={sortableDrop.containerClassName}>
+        <table className={cn(gridTableClass, "min-w-[1320px]")} style={{ width: table.getTotalSize() }}>
+          <colgroup>
+            {leafColumns.map((col) => (
+              <col key={col.id} style={{ width: col.getSize() }} />
+            ))}
+          </colgroup>
+          <thead className={gridHeaderClass}>
+            {table.getHeaderGroups().map((hg) => (
+              <tr key={hg.id}>
+                {hg.headers.map((header) => {
+                  const id = header.column.id;
+                  const pin = pinPlaygroundCell({
+                    pinnedLayout,
+                    columnId: id,
+                    variant: "head",
+                    scrolledX,
+                    rowIndexGutter: id === "select",
+                  });
+                  return (
+                    <th
+                      key={header.id}
                       className={cn(
-                        "group/row",
-                        tableRowClass,
-                        cancelled && "[&>td:not([data-frozen])]:text-muted-foreground [&>td:not([data-frozen])]:opacity-75",
+                        gridHeadCellClass,
+                        pin.className,
+                        id === "select" && "min-w-9 max-w-[3.25rem]",
+                        !pin.style && "bg-card",
                       )}
+                      style={{ width: header.getSize(), ...pin.style }}
+                      {...(pin["data-pinned"] ? { "data-pinned": true as const } : {})}
                     >
-                      {row.getVisibleCells().map((cell) => {
-                        const id = cell.column.id;
-                        const stickyStyle =
-                          cell.column.getIsVisible() && pinnedLayout.pinnedById.has(id)
-                            ? getPinnedTableCellStickyStyle(pinnedLayout, id, {
-                            variant: "body",
-                            /** Stay below `tableHeaderClass` (`z-20`) so frozen body never paints over the sticky header. */
-                            bodyZBase: 8,
-                          })
-                            : undefined;
-                        const pinEdge = isLastPinnedColumn(pinnedLayout, id);
-                        return (
-                          <TableCell
-                            key={cell.id}
-                            data-frozen={stickyStyle ? "" : undefined}
-                            className={cn(tableCellClass, pinEdge && "border-r border-border")}
-                            style={stickyStyle}
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                    {row.getIsExpanded() && gateNotes[row.original.id] ? (
-                      <TableRow className={cn(tableRowClass, "hover:bg-transparent [&>td]:bg-card/40")}>
-                        <TableCell
-                          colSpan={row.getVisibleCells().length}
-                          className="p-4 text-sm leading-normal text-muted-foreground"
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          <Sortable
+            value={rowData}
+            onValueChange={setRowData}
+            getItemValue={(r) => r.id}
+            orientation="vertical"
+            flatCursor
+            {...sortableDrop.sortableProps}
+          >
+            <SortableContent withoutSlot>
+              <tbody className={gridBodyHoverClass}>
+                {visibleRows.map((row) => {
+                  const cancelled = row.original.status === "cancelled";
+                  return (
+                    <Fragment key={row.id}>
+                      <SortableItem
+                        value={row.original.id}
+                        asChild
+                        asHandle
+                        {...sortableDropTargetProps(row.original.id)}
+                      >
+                        <tr
+                          data-state={row.getIsSelected() ? "selected" : undefined}
+                          className={cn(
+                            gridRowClass,
+                            "group/row",
+                            neutralTanStackRowFillClass(tokens, row.index),
+                            cancelled && "[&>td:not([data-frozen])]:text-muted-foreground [&>td:not([data-frozen])]:opacity-75",
+                          )}
+                          {...playgroundTanStackRowStripeData(tokens, row.index)}
                         >
-                          <ul className="list-inside list-disc space-y-1">
-                            {gateNotes[row.original.id].map((n, i) => (
-                              <li key={i}>{n}</li>
-                            ))}
-                          </ul>
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-              </TableBody>
-            </table>
-            {hasMore ? <div ref={sentinelRef} className="h-2 shrink-0" aria-hidden /> : null}
-          </div>
-        </ScrollArea>
-        <div className={tableFooterClass}>
-          <p className="text-sm leading-normal text-muted-foreground">
-            Showing <span className="font-medium text-foreground">{visibleRows.length}</span> of{" "}
-            <span className="font-medium text-foreground">{rows.length}</span> in view
-            {searchQuery.trim() ? (
-              <>
-                {" "}
-                (<span className="font-medium text-foreground">{data.length}</span> total)
-              </>
-            ) : null}
-          </p>
-          <p className="text-sm leading-normal text-muted-foreground">
-            {hasMore ? "Scroll to load more rows" : "All rows loaded"}
-          </p>
+                          {row.getVisibleCells().map((cell) => {
+                            const id = cell.column.id;
+                            const pin = pinPlaygroundCell({
+                              pinnedLayout,
+                              columnId: id,
+                              variant: "body",
+                              scrolledX,
+                              rowIndexGutter: id === "select",
+                              rowFillTokens: id === "select" ? undefined : tokens,
+                              rowIndex: id === "select" ? undefined : row.index,
+                            });
+                            return (
+                              <td
+                                key={cell.id}
+                                data-frozen={pin.style ? "" : undefined}
+                                className={cn(
+                                  gridCellClass,
+                                  id === "select" && "min-w-0 align-middle",
+                                  pin.className,
+                                )}
+                                style={{ width: cell.column.getSize(), ...pin.style }}
+                                {...(pin["data-pinned"] ? { "data-pinned": true as const } : {})}
+                              >
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </SortableItem>
+                      {row.getIsExpanded() && gateNotes[row.original.id] ? (
+                        <tr className="hover:bg-transparent [&>td]:bg-muted/30">
+                          <td
+                            colSpan={row.getVisibleCells().length}
+                            className={cn(gridCellClass, "p-4 text-sm text-muted-foreground")}
+                          >
+                            <ul className="list-inside list-disc space-y-1">
+                              {gateNotes[row.original.id].map((n, i) => (
+                                <li key={i}>{n}</li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </SortableContent>
+            <SortableOverlay>
+              {({ value }) => {
+                const f = rowData.find((x) => x.id === value);
+                return <SortableDragOverlay axis="row" label={f ? f.code : String(value)} />;
+              }}
+            </SortableOverlay>
+          </Sortable>
+        </table>
+        {sortableDrop.indicator}
+        {hasMore ? <div ref={sentinelRef} className="h-2 shrink-0" aria-hidden /> : null}
         </div>
-      </div>
+      </EngineScrollTableShell>
     </div>
   );
 }

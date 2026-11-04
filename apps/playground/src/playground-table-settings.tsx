@@ -26,15 +26,25 @@ import {
 import {
   ALL_NQGRID_FEATURE_IDS,
   NQGRID_FEATURES,
-  defaultNqgridLibraryConfig,
   formatEsmImportBlocks,
-  mergeNqgridLibraryConfig,
   resolveNqgridImportPlan,
-  tableBodyClassFromLibraryConfig,
   type NqgridFeatureId,
-  type NqgridLibraryConfig,
 } from "@nqlib/nqgrid/configurator";
-import type { TableBodyFill } from "@nqlib/nqgrid";
+import {
+  defaultNqgridLibraryConfig,
+  mergeNqgridLibraryConfig,
+  type NqgridLibraryConfig,
+} from "./lib/nqgrid-styling";
+import type { TableBodyFillMode } from "./lib/nqgrid-styling";
+import {
+  resolvePlaygroundGridBodyClass,
+  resolvePlaygroundTableClassBundle,
+  resolvePlaygroundTableColorTokens,
+} from "./lib/playground-table-tokens";
+import {
+  playgroundSheetContentClass,
+  playgroundSheetScrollClass,
+} from "./lib/playground-sheet-chrome";
 
 const LEGACY_FILL_KEY = "nqgrid-playground-table-body-fill";
 const LIBRARY_KEY = "nqgrid-playground-library-v1";
@@ -79,7 +89,7 @@ function readFeaturePlan(): NqgridFeatureId[] {
 type Ctx = {
   libraryConfig: NqgridLibraryConfig;
   setLibraryConfig: (patch: Partial<NqgridLibraryConfig>) => void;
-  setTableBodyFill: (v: TableBodyFill) => void;
+  setTableBodyFill: (v: Exclude<TableBodyFillMode, "none">) => void;
   selectedFeatureIds: NqgridFeatureId[];
   setPlannerFeature: (id: NqgridFeatureId, enabled: boolean) => void;
   selectAllPlannerFeatures: () => void;
@@ -112,7 +122,7 @@ export function PlaygroundTableSettingsProvider({ children }: { children: ReactN
     setLibraryConfigState((prev) => mergeNqgridLibraryConfig(prev, patch));
   }, []);
 
-  const setTableBodyFill = useCallback((v: TableBodyFill) => {
+  const setTableBodyFill = useCallback((v: Exclude<TableBodyFillMode, "none">) => {
     setLibraryConfigState((prev) => mergeNqgridLibraryConfig(prev, { styles: { tableBodyFill: v } }));
   }, []);
 
@@ -169,21 +179,58 @@ export function usePlaygroundTableSettings(): Ctx {
 
 export function usePlaygroundTableBodyClass(): string {
   const { libraryConfig } = usePlaygroundTableSettings();
-  return useMemo(() => tableBodyClassFromLibraryConfig(libraryConfig), [libraryConfig]);
+  return useMemo(
+    () => resolvePlaygroundTableClassBundle(libraryConfig).body,
+    [libraryConfig],
+  );
+}
+
+export function usePlaygroundResolvedTableTokens(config?: NqgridLibraryConfig) {
+  const { libraryConfig } = usePlaygroundTableSettings();
+  const resolved = config ?? libraryConfig;
+  return useMemo(
+    () => ({
+      tokens: resolvePlaygroundTableColorTokens(resolved),
+      bundle: resolvePlaygroundTableClassBundle(resolved),
+      gridBody: resolvePlaygroundGridBodyClass(resolved),
+    }),
+    [resolved],
+  );
+}
+
+export function PlaygroundRowFillToggle({ className }: { className?: string }) {
+  const { libraryConfig, setTableBodyFill } = usePlaygroundTableSettings();
+  const rowFill = libraryConfig.styles?.tableBodyFill ?? "solid";
+
+  return (
+    <ToggleGroup
+      type="single"
+      value={rowFill}
+      onValueChange={(v) => v && setTableBodyFill(v as Exclude<TableBodyFillMode, "none">)}
+      variant="outline"
+      size="sm"
+      className={className}
+      aria-label="Row background"
+    >
+      <ToggleGroupItem value="solid" className="text-xs">
+        Solid
+      </ToggleGroupItem>
+      <ToggleGroupItem value="striped" className="text-xs">
+        Striped
+      </ToggleGroupItem>
+    </ToggleGroup>
+  );
 }
 
 export function PlaygroundTableSettingsMenu() {
   const {
     libraryConfig,
     setLibraryConfig,
-    setTableBodyFill,
     selectedFeatureIds,
     setPlannerFeature,
     selectAllPlannerFeatures,
     clearPlannerFeatures,
   } = usePlaygroundTableSettings();
-
-  const rowFill = libraryConfig.styles?.tableBodyFill ?? "solid";
 
   const importSnippet = useMemo(() => {
     const plan = resolveNqgridImportPlan(selectedFeatureIds.length > 0 ? selectedFeatureIds : ALL_NQGRID_FEATURE_IDS);
@@ -206,15 +253,15 @@ export function PlaygroundTableSettingsMenu() {
           Configure
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
-        <SheetHeader className="border-b border-border/60 px-6 py-4 text-left">
+      <SheetContent side="right" className={playgroundSheetContentClass}>
+        <SheetHeader className="shrink-0 border-b border-border/60 px-6 py-4 text-left">
           <SheetTitle className="text-base">nqgrid configurator</SheetTitle>
           <p className="text-sm font-normal text-muted-foreground">
             Mirrors <code className="rounded bg-muted px-1">@nqlib/nqgrid/configurator</code>: library runtime options
             and a feature-based import plan.
           </p>
         </SheetHeader>
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className={playgroundSheetScrollClass}>
           <div className="space-y-6 px-6 py-4">
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Library runtime</h3>
@@ -222,22 +269,7 @@ export function PlaygroundTableSettingsMenu() {
                 <code className="rounded bg-muted px-1">NqgridLibraryConfig.styles.tableBodyFill</code> →{" "}
                 <code className="rounded bg-muted px-1">tableBodyClassFromLibraryConfig</code>
               </p>
-              <ToggleGroup
-                type="single"
-                value={rowFill}
-                onValueChange={(v) => v && setTableBodyFill(v as TableBodyFill)}
-                variant="outline"
-                size="sm"
-                className="w-full justify-stretch"
-                aria-label="Row background"
-              >
-                <ToggleGroupItem value="solid" className="text-xs">
-                  Solid
-                </ToggleGroupItem>
-                <ToggleGroupItem value="striped" className="text-xs">
-                  Striped
-                </ToggleGroupItem>
-              </ToggleGroup>
+              <PlaygroundRowFillToggle className="w-full justify-stretch" />
             </section>
 
             <section className="space-y-2">

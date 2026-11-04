@@ -5,6 +5,7 @@ import {
   isLastPinnedColumn,
   isPinnedColumn,
   resolvePinnedLeftPrefix,
+  resolvePinnedLeftWithLeadingGutter,
 } from "./pinned-layout";
 
 describe("computePinnedLayout", () => {
@@ -37,6 +38,24 @@ describe("resolvePinnedLeftPrefix", () => {
 
   it("returns longest matching prefix", () => {
     expect(resolvePinnedLeftPrefix(["a", "b", "c"], ["a", "b", "d"])).toEqual(["a", "b"]);
+  });
+});
+
+describe("resolvePinnedLeftWithLeadingGutter", () => {
+  it("always pins gutter at index 0 when it leads visible leaves", () => {
+    expect(
+      resolvePinnedLeftWithLeadingGutter(["select", "a", "b", "c"], ["a"], "select"),
+    ).toEqual(["select", "a"]);
+  });
+
+  it("pins gutter alone when no data columns are pinned", () => {
+    expect(resolvePinnedLeftWithLeadingGutter(["select", "a", "b"], [], "select")).toEqual([
+      "select",
+    ]);
+  });
+
+  it("falls back to data-only prefix when gutter is absent", () => {
+    expect(resolvePinnedLeftWithLeadingGutter(["a", "b"], ["a"], "select")).toEqual(["a"]);
   });
 });
 

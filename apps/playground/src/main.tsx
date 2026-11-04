@@ -15,7 +15,7 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider
       attribute="class"
       defaultTheme="light"
-      enableSystem={false}
+      enableSystem
       storageKey="nqgrid-playground-theme"
       themes={["light", "dark"]}
     >

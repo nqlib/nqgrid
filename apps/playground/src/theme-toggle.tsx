@@ -1,6 +1,6 @@
 import { Moon01Icon, Sun01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ToggleGroup, ToggleGroupItem } from "@nqlib/nqui";
+import { Button } from "@nqlib/nqui";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
@@ -15,34 +15,25 @@ export function ThemeToggle() {
   if (!mounted) {
     return (
       <div
-        className="inline-flex h-8 w-[7.25rem] shrink-0 rounded-md border border-border bg-muted/40"
+        className="inline-flex h-6 w-[4.5rem] shrink-0 rounded-full border border-border bg-muted/40"
         aria-hidden
       />
     );
   }
 
-  const value = theme === "dark" ? "dark" : "light";
+  const isDark = theme === "dark";
 
   return (
-    <ToggleGroup
-      type="single"
+    <Button
+      type="button"
       variant="outline"
       size="sm"
-      value={value}
-      onValueChange={(next) => {
-        if (next) setTheme(next);
-      }}
-      className="shrink-0"
-      aria-label="Color theme"
+      className="shrink-0 gap-1.5 px-2.5"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => setTheme(isDark ? "light" : "dark")}
     >
-      <ToggleGroupItem value="light" aria-label="Light mode" className="gap-1.5 px-2.5">
-        <HugeiconsIcon icon={Sun01Icon} className="size-4" aria-hidden />
-        Light
-      </ToggleGroupItem>
-      <ToggleGroupItem value="dark" aria-label="Dark mode" className="gap-1.5 px-2.5">
-        <HugeiconsIcon icon={Moon01Icon} className="size-4" aria-hidden />
-        Dark
-      </ToggleGroupItem>
-    </ToggleGroup>
+      <HugeiconsIcon icon={isDark ? Sun01Icon : Moon01Icon} className="size-4" aria-hidden />
+      {isDark ? "Light" : "Dark"}
+    </Button>
   );
 }

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   type ExpandedState,
   createColumnHelper,
@@ -19,7 +19,7 @@ import {
   Badge,
   Button,
   Checkbox,
-  ScrollArea,
+  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -32,27 +32,34 @@ import {
 } from "@nqlib/nqui";
 import {
   demoAssigneePerson,
-  TablePercentBattery,
-  tableCellClass,
-  tableDenseTypography,
-  tableFooterClass,
-  tableHeaderClass,
-  tableHeadClass,
-  tableNestedHeaderClass,
-  tableNestedPanelClass,
-  tableNumericMutedClass,
-  tableNumericStrongClass,
-  tableRowClass,
-  tableScrollAreaContentClass,
-  tableScrollAreaRootClass,
-  tableScrollViewportStyle,
-  tableShellClass,
   useInfiniteVisibleRows,
   type ProjectLeadPerson,
   type ProjectRow,
 } from "@nqlib/nqgrid";
+import { TablePercentBattery } from "../lib/nqgrid-styling";
+import { createSelectColumn } from "../lib/playground-canonical-select-column";
+import {
+  sortableDropTargetProps,
+  usePlaygroundSortableRowDropIndicator,
+} from "../lib/playground-sortable-drop-indicator";
+import { SortableDragOverlay } from "../lib/playground-sortable-drag-chrome";
+import {
+  gridBodyHoverClass,
+  gridCellClass,
+  gridHeadCellClass,
+  gridHeaderClass,
+  gridNumericClass,
+  gridRowClass,
+  gridTableClass,
+} from "../lib/grid-styles";
+import {
+  neutralTanStackRowFillClass,
+  playgroundTanStackRowStripeData,
+  useNeutralPlaygroundTable,
+} from "../lib/playground-neutral-table";
+import { EngineScrollTableShell, useEngineScrollViewport } from "../parity/engine-scroll-table-shell";
 import { usePlaygroundTableSettings } from "../playground-table-settings";
-import { usePlaygroundTableBodyClass } from "../playground-table-settings";
+import { Sortable, SortableContent, SortableItem, SortableOverlay } from "@nqlib/nqui/sortable";
 
 const columnHelper = createColumnHelper<ProjectRow>();
 
@@ -116,46 +123,40 @@ function statusVariant(s: ProjectRow["status"]) {
   return "outline" as const;
 }
 
-/** Nested mini-table body: same cell chrome as main grid but no row hover fill (avoids “empty” td area highlighting). */
-const subtasksMiniTableBodyClass =
-  "[&_td]:border-0 [&_td]:border-b [&_td]:border-border/40 [&_td]:bg-muted [&_tr:last-child_td]:border-b-0";
-
 function SubtasksMiniTable({ data }: { data: ProjectRow["subtasks"] }) {
   return (
-    <div className={cn(tableNestedPanelClass, "overflow-hidden")}>
-      <table className={tableDenseTypography}>
-        <TableHeader className={tableNestedHeaderClass}>
-          <TableRow className={tableRowClass}>
-            <TableHead className={cn(tableHeadClass, "h-9 w-10")}>Done</TableHead>
-            <TableHead className={cn(tableHeadClass, "h-9")}>Subtask</TableHead>
-            <TableHead className={cn(tableHeadClass, "h-9")}>Owner</TableHead>
-            <TableHead className={cn(tableHeadClass, "h-9")}>Due</TableHead>
+    <div className="overflow-hidden rounded-xl border border-border bg-muted/30 p-2">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">Done</TableHead>
+            <TableHead>Subtask</TableHead>
+            <TableHead>Owner</TableHead>
+            <TableHead>Due</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody className={subtasksMiniTableBodyClass}>
+        <TableBody>
           {data.map((t) => (
-            <TableRow key={t.id} className={tableRowClass}>
-              <TableCell className={cn(tableCellClass, "py-2")}>
+            <TableRow key={t.id}>
+              <TableCell>
                 <Checkbox checked={t.done} disabled aria-label={t.done ? "Done" : "Open"} className="hit-area-6" />
               </TableCell>
-              <TableCell className={cn(tableCellClass, "py-2 text-foreground")}>{t.title}</TableCell>
-              <TableCell className={cn(tableCellClass, "py-2")}>
-                <span className="inline-flex p-0.5">
-                  <PersonAvatarWithTooltip person={demoAssigneePerson(t.assignee)} />
-                </span>
+              <TableCell className="text-foreground">{t.title}</TableCell>
+              <TableCell>
+                <PersonAvatarWithTooltip person={demoAssigneePerson(t.assignee)} />
               </TableCell>
-              <TableCell className={cn(tableCellClass, "py-2", tableNumericMutedClass)}>{t.due}</TableCell>
+              <TableCell className="tabular-nums text-muted-foreground">{t.due}</TableCell>
             </TableRow>
           ))}
         </TableBody>
-      </table>
+      </Table>
     </div>
   );
 }
 
 function CommentsThread({ items }: { items: ProjectRow["comments"] }) {
   return (
-    <ul className={cn(tableNestedPanelClass, "flex flex-col gap-2 p-3")}>
+    <ul className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-3">
       {items.map((c) => (
         <li key={c.id} className="text-sm leading-normal">
           <span className="font-medium text-foreground">{c.author}</span>
@@ -169,38 +170,21 @@ function CommentsThread({ items }: { items: ProjectRow["comments"] }) {
 
 export function ProjectsTable({ data }: { data: ProjectRow[] }) {
   const { libraryConfig } = usePlaygroundTableSettings();
+  const { tokens } = useNeutralPlaygroundTable();
   const percentProgressDisplay = libraryConfig.styles?.percentProgressDisplay ?? "battery";
+  const [rowData, setRowData] = useState(data);
   const [sorting, setSorting] = useState<SortingState>([{ id: "updatedAt", desc: true }]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
-  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
-  const captureViewportRef = useCallback((node: HTMLDivElement | null) => {
-    setScrollRoot(node);
-  }, []);
-  const tableBodyClassName = usePlaygroundTableBodyClass();
+  const { viewportRef, scrollRoot } = useEngineScrollViewport();
+
+  useEffect(() => {
+    setRowData(data);
+  }, [data]);
 
   const columns = useMemo(
     () => [
-      columnHelper.display({
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? "indeterminate" : false}
-            onCheckedChange={(v) => table.toggleAllRowsSelected(!!v)}
-            aria-label="Select all rows"
-            className="hit-area-6"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(v) => row.toggleSelected(!!v)}
-            aria-label={`Select ${row.original.name}`}
-            className="hit-area-6"
-          />
-        ),
-        size: 36,
-      }),
+      createSelectColumn(columnHelper, { mode: "index+checkbox", getRowLabel: (r) => r.name }),
       columnHelper.accessor("name", {
         header: "Project",
         cell: (info) => <span className="font-medium leading-normal text-foreground">{info.getValue()}</span>,
@@ -221,15 +205,13 @@ export function ProjectsTable({ data }: { data: ProjectRow[] }) {
       columnHelper.accessor("updatedAt", {
         header: "Updated",
         cell: (info) => (
-          <span className={tableNumericMutedClass}>{info.getValue()}</span>
+          <span className={cn(gridNumericClass, "text-muted-foreground")}>{info.getValue()}</span>
         ),
       }),
       columnHelper.accessor("budgetUsd", {
         header: () => <span className="w-full text-right">Budget</span>,
         cell: (info) => (
-          <div className={cn("text-right", tableNumericStrongClass)}>
-            {money.format(info.getValue())}
-          </div>
+          <div className={cn("text-right tabular-nums font-medium")}>{money.format(info.getValue())}</div>
         ),
       }),
       columnHelper.accessor("progress", {
@@ -241,7 +223,7 @@ export function ProjectsTable({ data }: { data: ProjectRow[] }) {
             return <TablePercentBattery value={n} />;
           }
           return (
-            <div className={cn("text-right", tableNumericMutedClass)}>
+            <div className={cn("text-right tabular-nums text-muted-foreground")}>
               {Number.isFinite(n) ? Math.round(n) : "—"}%
             </div>
           );
@@ -275,7 +257,7 @@ export function ProjectsTable({ data }: { data: ProjectRow[] }) {
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack useReactTable
   const table = useReactTable({
-    data,
+    data: rowData,
     columns,
     state: { sorting, rowSelection, expanded },
     onSortingChange: setSorting,
@@ -294,89 +276,119 @@ export function ProjectsTable({ data }: { data: ProjectRow[] }) {
     resetVisibleRows();
   }, [data, resetVisibleRows, sorting]);
 
-  return (
-    <div className={tableShellClass}>
-      <ScrollArea
-        orientation="both"
-        fadeMask={false}
-        className={tableScrollAreaRootClass}
-        viewportRef={captureViewportRef}
-        viewportStyle={tableScrollViewportStyle}
-      >
-        <div className={tableScrollAreaContentClass}>
-        <table className={tableDenseTypography}>
-          <TableHeader className={tableHeaderClass}>
-            {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id} className={tableRowClass}>
-                {hg.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={cn(
-                      tableHeadClass,
-                      header.column.id === "budgetUsd" || header.column.id === "progress" ? "text-right" : "",
-                    )}
-                    style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
-                  >
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody className={tableBodyClassName}>
-            {visibleRows.map((row) => (
-              <Fragment key={row.id}>
-                <TableRow data-state={row.getIsSelected() && "selected"} className={tableRowClass}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className={tableCellClass}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-                {row.getIsExpanded() ? (
-                  <TableRow
-                    className={cn(
-                      tableRowClass,
-                      // Outer tbody uses `[&_tr:hover_td]:bg-accent`; match specificity so padding/gaps don’t flash accent.
-                      "[&>td]:bg-card/40 hover:[&>td]:!bg-card/40",
-                    )}
-                  >
-                    <TableCell colSpan={row.getVisibleCells().length} className="p-4">
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <div className="space-y-2">
-                          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-normal">
-                            <HugeiconsIcon icon={TaskDaily01Icon} className="size-3.5" aria-hidden />
-                            Subtasks
-                          </p>
-                          <SubtasksMiniTable data={row.original.subtasks} />
-                        </div>
-                        <div className="space-y-2">
-                          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-normal">
-                            <HugeiconsIcon icon={Comment01Icon} className="size-3.5" aria-hidden />
-                            Comments
-                          </p>
-                          <CommentsThread items={row.original.comments} />
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </Fragment>
-            ))}
-          </TableBody>
-        </table>
-        {hasMore ? <div ref={sentinelRef} className="h-1 shrink-0" aria-hidden /> : null}
-        </div>
-      </ScrollArea>
+  const sortableDrop = usePlaygroundSortableRowDropIndicator();
 
-      <div className={tableFooterClass}>
-        <p className="text-sm leading-normal text-muted-foreground">
-          {table.getSelectedRowModel().rows.length} selected · Showing {visibleRows.length} of {rows.length}
-        </p>
-        <p className="text-sm leading-normal text-muted-foreground">
-          {hasMore ? "Scroll to load more rows" : "All rows loaded"}
-        </p>
+  return (
+    <EngineScrollTableShell
+      viewportRef={viewportRef}
+      className="max-h-[min(60dvh,480px)]"
+      footer={
+        <>
+          <p className="text-sm text-muted-foreground">
+            {table.getSelectedRowModel().rows.length} selected · Showing {visibleRows.length} of {rows.length}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {hasMore ? "Scroll to load more rows" : "All rows loaded"}
+          </p>
+        </>
+      }
+    >
+      <div ref={sortableDrop.containerRef} className={sortableDrop.containerClassName}>
+      <table className={gridTableClass} style={{ width: table.getTotalSize() }}>
+        <colgroup>
+          {table.getVisibleLeafColumns().map((col) => (
+            <col key={col.id} style={{ width: col.getSize() }} />
+          ))}
+        </colgroup>
+        <thead className={gridHeaderClass}>
+          {table.getHeaderGroups().map((hg) => (
+            <tr key={hg.id}>
+              {hg.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className={cn(
+                    gridHeadCellClass,
+                    (header.column.id === "budgetUsd" || header.column.id === "progress") && "text-right",
+                    header.column.id === "select" && "min-w-9 max-w-[3.25rem]",
+                  )}
+                  style={{ width: header.getSize() }}
+                >
+                  {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <Sortable
+          value={rowData}
+          onValueChange={setRowData}
+          getItemValue={(r) => r.id}
+          orientation="vertical"
+          flatCursor
+          {...sortableDrop.sortableProps}
+        >
+          <SortableContent withoutSlot>
+            <tbody className={gridBodyHoverClass}>
+              {visibleRows.map((row) => (
+                <Fragment key={row.id}>
+                  <SortableItem
+                    value={row.original.id}
+                    asChild
+                    asHandle
+                    {...sortableDropTargetProps(row.original.id)}
+                  >
+                    <tr
+                      data-state={row.getIsSelected() ? "selected" : undefined}
+                      className={cn(gridRowClass, "group/row", neutralTanStackRowFillClass(tokens, row.index))}
+                      {...playgroundTanStackRowStripeData(tokens, row.index)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td
+                          key={cell.id}
+                          className={cn(gridCellClass, cell.column.id === "select" && "min-w-0 align-middle")}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  </SortableItem>
+                  {row.getIsExpanded() ? (
+                    <tr className="hover:bg-transparent [&>td]:bg-muted/30">
+                      <td colSpan={row.getVisibleCells().length} className={cn(gridCellClass, "p-4")}>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="space-y-2">
+                            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              <HugeiconsIcon icon={TaskDaily01Icon} className="size-3.5" aria-hidden />
+                              Subtasks
+                            </p>
+                            <SubtasksMiniTable data={row.original.subtasks} />
+                          </div>
+                          <div className="space-y-2">
+                            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              <HugeiconsIcon icon={Comment01Icon} className="size-3.5" aria-hidden />
+                              Comments
+                            </p>
+                            <CommentsThread items={row.original.comments} />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              ))}
+            </tbody>
+          </SortableContent>
+          <SortableOverlay>
+            {({ value }) => {
+              const p = rowData.find((x) => x.id === value);
+              return <SortableDragOverlay axis="row" label={p?.name ?? String(value)} />;
+            }}
+          </SortableOverlay>
+        </Sortable>
+      </table>
+      {sortableDrop.indicator}
+      {hasMore ? <div ref={sentinelRef} className="h-1 shrink-0" aria-hidden /> : null}
       </div>
-    </div>
+    </EngineScrollTableShell>
   );
 }

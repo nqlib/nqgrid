@@ -1,26 +1,31 @@
 import { useMemo, useRef, useState } from "react";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { Input, ScrollArea, TableBody, TableCell, TableHead, TableHeader, TableRow, cn } from "@nqlib/nqui";
+import { Input, cn } from "@nqlib/nqui";
+import {
+  demoAssigneePerson,
+  type ProjectLeadPerson,
+  type RichSchemaColumnDef,
+} from "@nqlib/nqgrid";
 import {
   TablePercentBattery,
   buildRichColumnFromDef,
   buildRichColumnsFromDefs,
-  demoAssigneePerson,
-  tableCellClass,
-  tableDenseTypography,
-  tableFooterClass,
-  tableHeaderClass,
-  tableHeadClass,
-  tableRowClass,
-  tableScrollAreaContentClass,
-  tableScrollAreaRootClass,
-  tableScrollViewportStyle,
-  tableShellClass,
-  type ProjectLeadPerson,
-  type RichSchemaColumnDef,
-} from "@nqlib/nqgrid";
+} from "../lib/nqgrid-styling";
+import {
+  gridBodyHoverClass,
+  gridCellClass,
+  gridHeadCellClass,
+  gridHeaderClass,
+  gridRowClass,
+  gridTableClass,
+} from "../lib/grid-styles";
+import {
+  neutralTanStackRowFillClass,
+  playgroundTanStackRowStripeData,
+  useNeutralPlaygroundTable,
+} from "../lib/playground-neutral-table";
+import { EngineScrollTableShell } from "../parity/engine-scroll-table-shell";
 import { PlaygroundPeopleComboboxCell } from "./playground-people-combobox-cell";
-import { usePlaygroundTableBodyClass } from "../playground-table-settings";
 
 /** Roster keys must match row `leads` — use {@link reconcileRichPeopleWithRoster} / name-only ids (see repo rule). */
 const TASK_TEAM_DIRECTORY: ProjectLeadPerson[] = ["ada", "ben", "chen", "maya", "jordan"].map((nick) =>
@@ -67,7 +72,7 @@ export function RichInlineTasksDemo() {
   const [rows, setRows] = useState<TaskRow[]>(() => INITIAL_TASKS.map((r) => ({ ...r, leads: [...r.leads] })));
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const escapeCancelRef = useRef(false);
-  const tableBodyClassName = usePlaygroundTableBodyClass();
+  const { tokens } = useNeutralPlaygroundTable();
 
   const columns = useMemo(() => {
     const locale = typeof navigator !== "undefined" ? navigator.language : undefined;
@@ -257,53 +262,55 @@ export function RichInlineTasksDemo() {
         <span className="font-mono">nqui</span> avatar trigger (ellipsis when there are many) with a multi-select list
         — styling is playground-only via <span className="font-mono">renderPeoplePicker</span>.
       </p>
-      <div className={tableShellClass}>
-        <ScrollArea
-          orientation="horizontal"
-          fadeMask={false}
-          className={tableScrollAreaRootClass}
-          viewportStyle={tableScrollViewportStyle}
-        >
-          <div className={tableScrollAreaContentClass}>
-            <table className={tableDenseTypography}>
-              <TableHeader className={tableHeaderClass}>
-                {table.getHeaderGroups().map((hg) => (
-                  <TableRow key={hg.id} className={tableRowClass}>
-                    {hg.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className={cn(
-                          tableHeadClass,
-                          header.column.id === "progress" ? "text-right" : "",
-                        )}
-                        style={{ width: header.getSize() }}
-                      >
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody className={tableBodyClassName}>
-                {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} className={tableRowClass}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className={tableCellClass}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </table>
-          </div>
-        </ScrollArea>
-        <div className={tableFooterClass}>
+      <EngineScrollTableShell
+        className="max-h-[min(50dvh,420px)]"
+        footer={
           <p className="text-xs text-muted-foreground">
             State is local to this tab — pattern for PM tools: same column defs + API commit on blur.
           </p>
-        </div>
-      </div>
+        }
+      >
+        <table className={gridTableClass} style={{ width: table.getTotalSize() }}>
+          <colgroup>
+            {table.getVisibleLeafColumns().map((col) => (
+              <col key={col.id} style={{ width: col.getSize() }} />
+            ))}
+          </colgroup>
+          <thead className={gridHeaderClass}>
+            {table.getHeaderGroups().map((hg) => (
+              <tr key={hg.id}>
+                {hg.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className={cn(
+                      gridHeadCellClass,
+                      header.column.id === "progress" ? "text-right" : undefined,
+                    )}
+                    style={{ width: header.getSize() }}
+                  >
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody className={gridBodyHoverClass}>
+            {table.getRowModel().rows.map((row) => (
+              <tr
+                key={row.id}
+                className={cn(gridRowClass, neutralTanStackRowFillClass(tokens, row.index))}
+                {...playgroundTanStackRowStripeData(tokens, row.index)}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className={gridCellClass}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </EngineScrollTableShell>
     </div>
   );
 }
