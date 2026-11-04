@@ -35,4 +35,26 @@ describe("clipboard-tsv", () => {
     const rows = [['"x', "y"], ['"', "z"], ['"quoted"', "w"]];
     expect(tsvToMatrix(matrixToTsv(rows))).toEqual(rows);
   });
+
+  it("keeps newlines inside quoted cells (Excel multi-line cells)", () => {
+    expect(tsvToMatrix('a\t"line1\nline2"\tc\r\nd\te\tf\r\n')).toEqual([
+      ["a", "line1\nline2", "c"],
+      ["d", "e", "f"],
+    ]);
+    const rows = [["x", "two\nlines"], ["y", "z"]];
+    expect(tsvToMatrix(matrixToTsv(rows))).toEqual(rows);
+  });
+
+  it("ignores the trailing newline Excel appends", () => {
+    expect(tsvToMatrix("1\t2\n3\t4\n")).toEqual([
+      ["1", "2"],
+      ["3", "4"],
+    ]);
+    expect(tsvToMatrix("1\t2\r\n")).toEqual([["1", "2"]]);
+  });
+
+  it("keeps empty cells and empty middle rows", () => {
+    expect(tsvToMatrix("a\t\tc\n\nd")).toEqual([["a", "", "c"], [""], ["d"]]);
+    expect(tsvToMatrix("a\t")).toEqual([["a", ""]]);
+  });
 });

@@ -40,9 +40,22 @@ describe("coerceCellValue", () => {
     expect(coerceCellValue(" 3.5 ", true)).toBe(3.5);
   });
 
-  it("falls back to 0 for non-numeric input in numeric columns", () => {
-    expect(coerceCellValue("abc", true)).toBe(0);
-    expect(coerceCellValue("", true)).toBe(0);
+  it("rejects non-numeric input in numeric columns instead of writing 0", () => {
+    expect(coerceCellValue("abc", true)).toBeNull();
+    expect(coerceCellValue("", true)).toBeNull();
+    expect(coerceCellValue("1,2", true)).toBeNull();
+    expect(coerceCellValue("12abc", true)).toBeNull();
+  });
+
+  it("accepts the number formats people type", () => {
+    expect(coerceCellValue("1,234", true)).toBe(1234);
+    expect(coerceCellValue("$5", true)).toBe(5);
+    expect(coerceCellValue("€1.5", true)).toBe(1.5);
+    expect(coerceCellValue("-$1,234.50", true)).toBe(-1234.5);
+    expect(coerceCellValue("(12)", true)).toBe(-12);
+    expect(coerceCellValue("12%", true)).toBeCloseTo(0.12);
+    expect(coerceCellValue("1e3", true)).toBe(1000);
+    expect(coerceCellValue(".5", true)).toBe(0.5);
   });
 
   it("passes text through unchanged for text columns", () => {
@@ -69,9 +82,10 @@ describe("commitCellValue", () => {
     expect(next[0]!.status).toBe("Won");
   });
 
-  it("clears a text cell to empty and a numeric cell to 0", () => {
+  it("clears a text cell to empty and keeps a numeric cell on invalid input", () => {
     expect(commitCellValue(data, "a", "country", "", false)[0]!.country).toBe("");
-    expect(commitCellValue(data, "a", "units", "", true)[0]!.units).toBe(0);
+    expect(commitCellValue(data, "a", "units", "", true)).toBe(data);
+    expect(commitCellValue(data, "a", "units", "abc", true)).toBe(data);
   });
 
   it("returns the same array when the row id is absent", () => {

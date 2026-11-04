@@ -383,6 +383,7 @@ export function SpreadsheetPage() {
           />
         ) : activeSheet === "pivot" ? (
           <PivotView
+            data={data}
             canvasMode={sheetCanvasMode}
             columnResizeEnabled={sheetResize.columnResize}
             rowResizeEnabled={sheetResize.rowResize}
@@ -394,6 +395,7 @@ export function SpreadsheetPage() {
           />
         ) : (
           <SummaryView
+            data={data}
             canvasMode={sheetCanvasMode}
             columnResizeEnabled={sheetResize.columnResize}
             rowResizeEnabled={sheetResize.rowResize}
@@ -408,7 +410,7 @@ export function SpreadsheetPage() {
 
       <StatusBar
         selectedNumbers={selectionNumbers}
-        rowCount={isOrders ? filteredRows.length : SALES_ORDERS.length}
+        rowCount={isOrders ? filteredRows.length : data.length}
         filterActive={search.trim().length > 0}
         onCopy={handleCopy}
         canCopy={isOrders && copyAvailable}

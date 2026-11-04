@@ -53,7 +53,7 @@ function rowGrouper(
 }
 
 /** Every group id, walking the tree fully expanded. */
-function collectAllGroupIds(): Set<string> {
+function collectAllGroupIds(data: readonly OrderRow[] = SALES_ORDERS): Set<string> {
   const ids = new Set<string>();
   const walk = (rows: readonly OrderRow[], keys: readonly string[], parentId?: string) => {
     if (keys.length === 0) return;
@@ -65,7 +65,7 @@ function collectAllGroupIds(): Set<string> {
       walk(childRows, rest, gid);
     }
   };
-  walk(SALES_ORDERS, GROUP_BY);
+  walk(data, GROUP_BY);
   return ids;
 }
 
@@ -115,6 +115,8 @@ function summaryCellNumeric(row: SummaryFlatRow, col: number): number | null {
 }
 
 export interface SummaryViewSheetProps {
+  /** Rows to roll up — pass the sheet's current (edited) data. Defaults to the fixture. */
+  data?: readonly OrderRow[];
   canvasMode?: SheetCanvasMode;
   columnResizeEnabled?: boolean;
   rowResizeEnabled?: boolean;
@@ -127,6 +129,7 @@ export interface SummaryViewSheetProps {
 
 /** Summary sheet — region → category roll-up of revenue, margin, and units. */
 export function SummaryView({
+  data = SALES_ORDERS,
   canvasMode = "infinite",
   columnResizeEnabled = true,
   rowResizeEnabled = false,
@@ -136,7 +139,7 @@ export function SummaryView({
   onSelectionNumbersChange,
   onCopyReady,
 }: SummaryViewSheetProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(() => collectAllGroupIds());
+  const [expanded, setExpanded] = useState<Set<string>>(() => collectAllGroupIds(data));
   const [copied, setCopied] = useState(false);
   const { bundle } = useNeutralPlaygroundTable();
   const { getRowHeightPx, setRowHeightPx } = useRowHeightOverrides(bodyRowHeightPx);
@@ -144,13 +147,13 @@ export function SummaryView({
   const flat = useMemo(
     () =>
       buildGroupedFlatRows<OrderRow>({
-        rows: SALES_ORDERS,
+        rows: data,
         groupBy: [...GROUP_BY],
         rowGrouper,
         expandedGroupIds: expanded,
         rowKeyGetter: (row) => row.id,
       }).flat,
-    [expanded],
+    [expanded, data],
   );
 
   const columnIds = useMemo(() => SUMMARY_COLUMNS.map((col) => col.id), []);
@@ -231,7 +234,7 @@ export function SummaryView({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" className="h-7" onClick={() => setExpanded(collectAllGroupIds())}>
+        <Button size="sm" variant="outline" className="h-7" onClick={() => setExpanded(collectAllGroupIds(data))}>
           Expand all
         </Button>
         <Button size="sm" variant="outline" className="h-7" onClick={() => setExpanded(new Set())}>
@@ -253,6 +256,13 @@ export function SummaryView({
             aria-rowcount={flat.length}
             aria-colcount={SUMMARY_COLUMNS.length}
             tabIndex={0}
+            // Cells preventDefault on mousedown (drag-select), which also blocks focus.
+            // Focus the grid so arrow keys work after a click; editors keep theirs.
+            onMouseDownCapture={(e) => {
+              if (!(e.target as Element).closest("input, textarea, select, button, [contenteditable='true']")) {
+                e.currentTarget.focus({ preventScroll: true });
+              }
+            }}
             onKeyDown={handleKeyDown}
             className="outline-none"
           >

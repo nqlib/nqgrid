@@ -7,18 +7,49 @@ import type { OrderRow } from "./mock-data";
 
 /**
  * Coerce a raw edited string into the value written for a column.
- * - numeric columns → Number; non-finite (incl. empty) falls back to 0.
+ * - numeric columns → a number. Accepts what people type in a spreadsheet:
+ *   thousands separators (`1,234`), currency symbols (`$5`, `€1.5`), accounting
+ *   negatives (`(12)`), percents (`12%` → 0.12) and exponents (`1e3`).
+ *   Anything else — including an empty cell — returns `null`: the edit is
+ *   rejected and the previous value kept, instead of silently writing 0.
  * - text columns → the raw string (empty string clears the cell).
  */
-export function coerceCellValue(raw: string, numeric: boolean): string | number {
+export function coerceCellValue(raw: string, numeric: boolean): string | number | null {
   if (!numeric) return raw;
-  const n = Number(raw.trim());
-  return Number.isFinite(n) ? n : 0;
+  return parseLooseNumber(raw);
+}
+
+/** Lenient number parse for typed cell input; `null` when it isn't a number. */
+export function parseLooseNumber(raw: string): number | null {
+  let s = raw.trim();
+  if (!s) return null;
+  let sign = 1;
+  if (/^\(.*\)$/.test(s)) {
+    sign = -1;
+    s = s.slice(1, -1).trim();
+  }
+  if (s.startsWith("-")) {
+    sign = -sign;
+    s = s.slice(1).trim();
+  } else if (s.startsWith("+")) {
+    s = s.slice(1).trim();
+  }
+  s = s.replace(/^[$€£¥]\s*/, "");
+  let scale = 1;
+  if (s.endsWith("%")) {
+    scale = 0.01;
+    s = s.slice(0, -1).trim();
+  }
+  // Thousands separators only between digit groups (1,234,567.8).
+  if (/^\d{1,3}(,\d{3})+(\.\d*)?$/.test(s)) s = s.replace(/,/g, "");
+  if (!/^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return null;
+  const n = Number(s) * scale * sign;
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
  * Apply an edited value to one cell, returning a new rows array (or the same
- * reference when the row id is absent). Numeric coercion is applied per `numeric`.
+ * reference when the row id is absent or the input is rejected).
  */
 export function commitCellValue(
   data: OrderRow[],
@@ -28,6 +59,7 @@ export function commitCellValue(
   numeric: boolean,
 ): OrderRow[] {
   const value = coerceCellValue(raw, numeric);
+  if (value === null) return data;
   let changed = false;
   const next = data.map((row) => {
     if (row.id !== rowId) return row;

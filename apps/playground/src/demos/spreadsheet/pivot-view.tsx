@@ -118,6 +118,8 @@ function ResizableHeaderCell({
 }
 
 export interface PivotViewSheetProps {
+  /** Rows to pivot — pass the sheet's current (edited) data. Defaults to the fixture. */
+  data?: readonly OrderRow[];
   canvasMode?: SheetCanvasMode;
   columnResizeEnabled?: boolean;
   rowResizeEnabled?: boolean;
@@ -133,6 +135,7 @@ export function buildOrdersPivot(
   rowDims: readonly (keyof OrderRow)[] = ["region", "category"],
   columnDim: keyof OrderRow = "quarter",
   measureKeys: readonly string[] = ["revenue", "margin"],
+  data: readonly OrderRow[] = SALES_ORDERS,
 ): PivotResult {
   const rows: PivotConfig<OrderRow>["rows"] = rowDims.map((key) => ({
     key: String(key),
@@ -143,7 +146,7 @@ export function buildOrdersPivot(
     const m = ORDER_MEASURES.find((x) => x.key === mk)!;
     return { key: m.key, get: (r) => r[m.key] as number, agg: m.agg, label: m.label };
   });
-  return computePivot(SALES_ORDERS, {
+  return computePivot(data, {
     rows,
     columns: [
       {
@@ -180,8 +183,9 @@ function pivotField(key: string): PivotField<OrderRow> {
 export function buildPivotFromZones(
   zones: PivotZones,
   filterSelections: FilterSelections = {},
+  data: readonly OrderRow[] = SALES_ORDERS,
 ): PivotResult {
-  const filtered = SALES_ORDERS.filter((row) =>
+  const filtered = data.filter((row) =>
     zones.filters.every((key) => {
       const selected = filterSelections[key];
       if (!selected || selected === "All") return true;
@@ -380,8 +384,9 @@ function PivotRowCells({
   );
 }
 
-/** Pivot sheet — configurable cross-tab over SALES_ORDERS driven by the field-list panel. */
+/** Pivot sheet — configurable cross-tab over the orders data driven by the field-list panel. */
 export function PivotView({
+  data = SALES_ORDERS,
   canvasMode = "infinite",
   columnResizeEnabled = true,
   rowResizeEnabled = false,
@@ -398,8 +403,8 @@ export function PivotView({
   const rowFieldKey = zones.rows.join("\0");
 
   const result = useMemo(
-    () => buildPivotFromZones(zones, filterSelections),
-    [zones, filterSelections],
+    () => buildPivotFromZones(zones, filterSelections, data),
+    [zones, filterSelections, data],
   );
 
   const rowFieldCount = zones.rows.length;
@@ -550,6 +555,13 @@ export function PivotView({
               aria-rowcount={visibleRows.length}
               aria-colcount={columnCount}
               tabIndex={0}
+              // Cells preventDefault on mousedown (drag-select), which also blocks focus.
+              // Focus the grid so arrow keys work after a click; editors keep theirs.
+              onMouseDownCapture={(e) => {
+                if (!(e.target as Element).closest("input, textarea, select, button, [contenteditable='true']")) {
+                  e.currentTarget.focus({ preventScroll: true });
+                }
+              }}
               onKeyDown={handleKeyDown}
               className="outline-none"
             >
