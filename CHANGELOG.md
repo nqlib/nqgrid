@@ -4,6 +4,10 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-04
+
+Pivot tables with Excel parity, a framework-free core and print/export tooling. Additive: every 0.2.0 export is still available.
+
 ### Added
 
 - **`@nqlib/nqgrid/core`** — framework-free entry (no React, TanStack or DOM) that runs in browsers, Tauri webviews and Node.
@@ -76,6 +80,11 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 - Field-list moves allow up to four column fields: a second field moved into Columns now nests instead of swapping (the innermost one is displaced only when Columns are full), and `swapPivotRowsColumns` transposes whole hierarchies (with `expanded` / `columnsExpanded`). Specs with one column field still write `columns` as an object.
 - Header drags in the playground used to apply immediately while "Defer layout update" was on, and Update then overwrote them with the field list's draft; they now join the draft (`usePivotLayoutDraft`).
 - Interactive value headers truncate with an ellipsis (`pivotHeadValueCellClass`); subtotal headers spanning rows wrap.
+- **`@nqlib/nqgrid/styles` is back** as an opt-in entry point (removed in 0.2.0). It holds the class tokens and CSS-variable helpers the pivot renderer uses (`pivot*Class`, `pivotThemeVars`, heat / series colors) plus the table-shell tokens. The engine entries (`.`, `./engine`, `./core`) stay headless; only `./styles`, `./pivot` and `./render-static` carry class strings.
+
+### Fixed
+
+- `tsvToMatrix` parses Excel / Sheets clipboard text as a stream: quoted cells may span lines and contain tabs or doubled quotes, CRLF line endings work, and the trailing newline Excel appends no longer adds an empty row.
 
 ## [0.2.0] - 2026-07-10
 

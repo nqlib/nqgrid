@@ -22,7 +22,7 @@
     "@hugeicons/core-free-icons": "^4.0.0",
     "@hugeicons/react": "^1.1.6",
     "@nqlib/nqgrid": "workspace:*",
-    "@nqlib/nqui": "link:../../../nqui",
+    "@nqlib/nqui": "^0.8.2",
     "@remixicon/react": "^4.9.0",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-table": "^8.21.3",

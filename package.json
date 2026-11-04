@@ -1,6 +1,6 @@
 {
   "name": "@nqlib/nqgrid",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Headless TanStack table engine helpers, layout tokens, and demo fixtures — compose UI with @nqlib/nqui",
   "type": "module",
   "main": "./dist/index.cjs",
