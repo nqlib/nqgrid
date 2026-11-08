@@ -26,21 +26,22 @@ export const PIVOT_OTHER_KEY = "\u0000other";
  * `[distinct keys]` (computed per node and bucket after the tree is built, never merged), and
  * calculated measures none (evaluated from their references when read).
  */
-const enum Kind {
-  Sum,
-  Avg,
-  Min,
-  Max,
-  First,
-  Last,
-  CountRows,
-  CountField,
-  WeightedAvg,
-  Ratio,
-  Custom,
-  DistinctCount,
-  Calc,
-}
+const Kind = {
+  Sum: 0,
+  Avg: 1,
+  Min: 2,
+  Max: 3,
+  First: 4,
+  Last: 5,
+  CountRows: 6,
+  CountField: 7,
+  WeightedAvg: 8,
+  Ratio: 9,
+  Custom: 10,
+  DistinctCount: 11,
+  Calc: 12,
+} as const;
+type Kind = (typeof Kind)[keyof typeof Kind];
 
 const SLOTS: Readonly<Record<Kind, number>> = {
   [Kind.Sum]: 2,

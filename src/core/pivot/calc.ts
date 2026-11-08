@@ -102,12 +102,12 @@ interface Token {
 }
 
 class CalcError extends Error {
-  constructor(
-    readonly code: PivotCalcErrorCode,
-    message: string,
-    readonly position: number,
-  ) {
+  readonly code: PivotCalcErrorCode;
+  readonly position: number;
+  constructor(code: PivotCalcErrorCode, message: string, position: number) {
     super(message);
+    this.code = code;
+    this.position = position;
   }
 }
 
@@ -223,11 +223,13 @@ class Parser {
   private i = 0;
   private nesting = 0;
   readonly references: string[] = [];
+  private readonly tokens: readonly Token[];
+  private readonly known: ReadonlySet<string> | null;
 
-  constructor(
-    private readonly tokens: readonly Token[],
-    private readonly known: ReadonlySet<string> | null,
-  ) {}
+  constructor(tokens: readonly Token[], known: ReadonlySet<string> | null) {
+    this.tokens = tokens;
+    this.known = known;
+  }
 
   parse(): PivotCalcNode {
     const node = this.expr();
