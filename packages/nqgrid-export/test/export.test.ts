@@ -73,7 +73,7 @@ describe("exportPivot (xlsx)", async () => {
     let numeric = 0;
     sheet.cells.forEach((row, r) =>
       row.forEach((src, c) => {
-        const cell = ws.getCell(r + 1, c + 1);
+        const cell = ws.getCell(sheet.tableRow + r + 1, c + 1);
         if (cell.isMerged && cell.master.address !== cell.address) return;
         expect(cell.value ?? null).toBe(src.v);
         if (typeof src.v === "number") {
@@ -87,12 +87,13 @@ describe("exportPivot (xlsx)", async () => {
   });
 
   it("keeps merges, frozen panes, heat fills and column widths", () => {
-    const expected = sheet.merges.map((m) => `${colName(m.col)}${m.row + 1}:${colName(m.col + m.colSpan - 1)}${m.row + m.rowSpan}`).sort();
+    const t = sheet.tableRow;
+    const expected = sheet.merges.map((m) => `${colName(m.col)}${t + m.row + 1}:${colName(m.col + m.colSpan - 1)}${t + m.row + m.rowSpan}`).sort();
     expect([...(ws.model as { merges: string[] }).merges].sort()).toEqual(expected);
-    expect(ws.views[0]).toMatchObject({ state: "frozen", xSplit: sheet.frozenCols, ySplit: sheet.frozenRows });
+    expect(ws.views[0]).toMatchObject({ state: "frozen", xSplit: sheet.frozenCols, ySplit: t + sheet.frozenRows });
     const r = sheet.cells.findIndex((row) => row.some((c) => c.heat !== undefined));
     const c = sheet.cells[r]!.findIndex((cell) => cell.heat !== undefined);
-    const fill = ws.getCell(r + 1, c + 1).fill as ExcelJS.FillPattern;
+    const fill = ws.getCell(t + r + 1, c + 1).fill as ExcelJS.FillPattern;
     expect(fill.fgColor?.argb).toBe(`FF${pivotHeatLevelFillHex(sheet.cells[r]![c]!.heat!, 9).slice(1).toUpperCase()}`);
     expect(ws.getColumn(1).width).toBeGreaterThanOrEqual(12);
     expect(ws.getColumn(3).width).toBeGreaterThanOrEqual(10);
@@ -182,14 +183,14 @@ describe("exportPivot after field-list moves (rearranged specs)", async () => {
     expect(sheet.filters).toEqual(["Region = North, East"]);
     const ws = wb.worksheets[0]!;
     // Measures are the top header row (Σ Values outermost), lines below.
-    const header = [...new Set((ws.getRow(1).values as unknown[]).filter((v) => typeof v === "string"))];
+    const header = [...new Set((ws.getRow(sheet.tableRow + 1).values as unknown[]).filter((v) => typeof v === "string"))];
     expect(header).toEqual(["Plan", "Actual", "Average of Units"]);
     expect(sheet.cells.slice(0, sheet.frozenRows).flat().map((c) => c.v)).toContain("Channel");
-    expect((ws.getRow(2).values as unknown[]).filter((v) => v === "Tents")).toHaveLength(3);
+    expect((ws.getRow(sheet.tableRow + 2).values as unknown[]).filter((v) => v === "Tents")).toHaveLength(3);
     let numeric = 0;
     sheet.cells.forEach((row, r) =>
       row.forEach((src, c) => {
-        const cell = ws.getCell(r + 1, c + 1);
+        const cell = ws.getCell(sheet.tableRow + r + 1, c + 1);
         if (cell.isMerged && cell.master.address !== cell.address) return;
         expect(cell.value ?? null).toBe(src.v);
         if (typeof src.v === "number") numeric++;
@@ -236,16 +237,17 @@ describe("several column fields and date grouping (planning-multicol / planning-
     const ws = wb.worksheets[0]!;
     const sheet = JSON.parse(readExample("planning-multicol.sheet.json")) as PivotSheet;
     expect(sheet.frozenRows).toBe(3);
-    expect(ws.views[0]).toMatchObject({ state: "frozen", ySplit: 3 });
+    expect(ws.views[0]).toMatchObject({ state: "frozen", ySplit: sheet.tableRow + 3 });
     // "North Total" covers two header rows and its two measure columns.
     const merge = sheet.merges.find((m) => m.rowSpan === 2 && m.colSpan === 2)!;
-    const master = ws.getCell(merge.row + 1, merge.col + 1);
+    const t = sheet.tableRow;
+    const master = ws.getCell(t + merge.row + 1, merge.col + 1);
     expect(master.value).toBe("North Total");
-    expect(ws.getCell(merge.row + 2, merge.col + 2).isMerged).toBe(true);
-    expect(ws.getCell(merge.row + 2, merge.col + 2).master.address).toBe(master.address);
+    expect(ws.getCell(t + merge.row + 2, merge.col + 2).isMerged).toBe(true);
+    expect(ws.getCell(t + merge.row + 2, merge.col + 2).master.address).toBe(master.address);
     sheet.cells.forEach((row, r) =>
       row.forEach((src, c) => {
-        const cell = ws.getCell(r + 1, c + 1);
+        const cell = ws.getCell(sheet.tableRow + r + 1, c + 1);
         if (cell.isMerged && cell.master.address !== cell.address) return;
         expect(cell.value ?? null).toBe(src.v);
       }),
@@ -283,7 +285,7 @@ describe("calculated measures, show-as differences, subtotal rows and distinct c
     const sheet = JSON.parse(readExample("planning-calc.sheet.json")) as PivotSheet;
     sheet.cells.forEach((row, r) =>
       row.forEach((src, c) => {
-        const cell = ws.getCell(r + 1, c + 1);
+        const cell = ws.getCell(sheet.tableRow + r + 1, c + 1);
         if (cell.isMerged && cell.master.address !== cell.address) return;
         expect(cell.value ?? null).toBe(src.v);
         if (typeof src.v === "number" && src.numFmt) expect(cell.numFmt).toBe(src.numFmt);
@@ -291,12 +293,252 @@ describe("calculated measures, show-as differences, subtotal rows and distinct c
     );
     const subtotalRow = sheet.cells.findIndex((row) => row[0]?.v === "Camp Total");
     expect(subtotalRow).toBeGreaterThan(0);
-    expect(ws.getCell(subtotalRow + 1, 1).isMerged).toBe(false);
+    expect(ws.getCell(sheet.tableRow + subtotalRow + 1, 1).isMerged).toBe(false);
     // A rejected calculated measure never reaches the renderer.
     const bad = { ...calc, measures: [...calc.measures, { id: "loop", calculate: "loop + 1" }] };
     await expect(exportPivot({ spec: bad, rows: datesRows, format: "model" })).rejects.toMatchObject({ code: "invalid_input" });
     if (!chromiumAvailable) return;
     const pdf = (await exportPivot({ spec: calc, rows: datesRows, format: "pdf", options: { generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
     expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+});
+
+describe("financial statement: sign field, % of with a global base, section subtotal labels (planning-statement)", async () => {
+  const rows = JSON.parse(readExample("planning-statement.rows.json")) as PivotDataRow[];
+  const spec = JSON.parse(readExample("planning-statement.spec.json")) as PivotSpec;
+
+  it("model / sheet / html match the golden files", async () => {
+    expect(await exportPivot({ spec, rows, format: "model" })).toBe(readExample("planning-statement.model.json"));
+    expect(await exportPivot({ spec, rows, format: "sheet" })).toBe(readExample("planning-statement.sheet.json"));
+    expect(await exportPivot({ spec, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })).toBe(readExample("planning-statement.html"));
+  });
+
+  it("xlsx: signed amounts and % of Revenue stay numeric with their formats", async () => {
+    const bytes = await exportPivot({ spec, rows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    const sheet = JSON.parse(readExample("planning-statement.sheet.json")) as PivotSheet;
+    sheet.cells.forEach((row, r) =>
+      row.forEach((src, c) => {
+        const cell = ws.getCell(sheet.tableRow + r + 1, c + 1);
+        if (cell.isMerged && cell.master.address !== cell.address) return;
+        expect(cell.value ?? null).toBe(src.v);
+        if (typeof src.v === "number" && src.numFmt) expect(cell.numFmt).toBe(src.numFmt);
+      }),
+    );
+    const income = sheet.cells.findIndex((row) => row[0]?.v === "Operating income");
+    expect(ws.getCell(sheet.tableRow + income + 1, sheet.columnCount).value).toBeCloseTo(4110 / 18600, 12);
+    // signField on a count is rejected before rendering.
+    const bad = { ...spec, measures: [...spec.measures, { id: "n", aggregate: "count", signField: "SIGN" }] } as PivotSpec;
+    await expect(exportPivot({ spec: bad, rows, format: "model" })).rejects.toMatchObject({ code: "invalid_input" });
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec, rows, format: "pdf", options: { generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+});
+
+describe("units, format.scale and diagnostics (batch A)", async () => {
+  const spec: PivotSpec = {
+    version: 1,
+    title: "P&L",
+    units: "EUR thousands",
+    rows: [{ field: "a" }],
+    measures: [{ id: "m", field: "v", format: { style: "currency", currency: "EUR", scale: 1000, decimals: 1, negative: "parentheses" } }],
+  };
+  const rows: PivotDataRow[] = [{ a: "X", v: 12_345 }, { a: "Y", v: -629 }, { a: "Z", v: "1,234.50" }];
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load((await exportPivot({ spec, rows, format: "xlsx" })) as unknown as ArrayBuffer);
+  const ws = wb.worksheets[0]!;
+
+  it("keeps real values in cells with Excel scaling commas, and prints the units in the page header", () => {
+    // Title and units above the table (rows 1–2), a blank row, the header row 4, data from row 5.
+    expect(ws.getCell(1, 1).value).toBe("P&L");
+    expect(ws.getCell(2, 1).value).toBe("EUR thousands");
+    expect(ws.getCell(5, 2).value).toBe(12_345);
+    expect(ws.getCell(5, 2).numFmt).toBe('"€"#,##0.0,;("€"#,##0.0,)');
+    expect(ws.headerFooter.oddHeader).toBe("&LP&&L&REUR thousands");
+  });
+
+  it("lists the units and diagnostics on the hidden Spec sheet", () => {
+    const ss = wb.getWorksheet("Spec")!;
+    const pairs: [unknown, unknown][] = [];
+    ss.eachRow((row) => pairs.push([row.getCell(1).value, row.getCell(2).value]));
+    expect(pairs).toContainEqual(["units", "EUR thousands"]);
+    expect(pairs.find(([k]) => k === "diagnostic")?.[1]).toMatch(/^1 value of "v" \(measures\[0\]\.field\) is not a number/);
+  });
+
+  it("html prints the scaled text and the units line", async () => {
+    const html = (await exportPivot({ spec, rows, format: "html" })) as string;
+    expect(html).toContain(">€12.3</td>");
+    expect(html).toContain(">(€0.6)</td>");
+    expect(html).toContain('data-nqg-units="">EUR thousands</p>');
+  });
+});
+
+describe("pivotDiagnosticsHeaderValue", () => {
+  it("escapes non-ASCII and stays under the header budget (samples dropped first, then entries)", async () => {
+    const { pivotDiagnosticsHeaderValue } = await import("../src/exporter");
+    const d = { code: "unparsedNumbers" as const, field: "Montant €", path: "measures[0].field", count: 3, samples: [{ row: 1, value: '"1 234,50"' }], message: "3 valeurs de « Montant € » …" };
+    const one = pivotDiagnosticsHeaderValue([d]);
+    expect(one).toMatch(/^[\x20-\x7e]+$/);
+    expect(JSON.parse(one)).toEqual([d]);
+    const many = Array.from({ length: 200 }, (_, i) => ({ ...d, field: `f${i}` }));
+    const text = pivotDiagnosticsHeaderValue(many, 2000);
+    expect(text.length).toBeLessThanOrEqual(2000);
+    const parsed = JSON.parse(text) as { samples?: unknown }[];
+    expect(parsed.length).toBeGreaterThan(0);
+    expect(parsed.every((x) => x.samples === undefined)).toBe(true);
+  });
+});
+
+describe("analyst workbook: preamble, outline, print setup, statement rules, formulas (batch B)", async () => {
+  const load = async (bytes: Uint8Array | string) => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes as Uint8Array) as unknown as ArrayBuffer);
+    return wb.worksheets[0]!;
+  };
+  const filtered = { ...planningSpec, filters: [{ field: "department", include: ["Camp", "Footwear"] }] } as PivotSpec;
+  const ws = await load(await exportPivot({ spec: filtered, rows: planningRows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } }));
+  const sheet = JSON.parse((await exportPivot({ spec: filtered, rows: planningRows, format: "sheet" })) as string) as PivotSheet;
+
+  it("writes title, subtitle and the filters line above the table and freezes below the header rows", () => {
+    expect(sheet.preamble?.map((l) => l.role)).toEqual(["title", "filters"]);
+    expect(ws.getCell(1, 1).value).toBe(filtered.title);
+    expect(ws.getCell(1, 1).font?.bold).toBe(true);
+    expect(ws.getCell(2, 1).value).toBe("Filters: Department = Camp, Footwear");
+    expect(sheet.tableRow).toBe(3);
+    expect(ws.views[0]).toMatchObject({ state: "frozen", ySplit: sheet.tableRow + sheet.frozenRows });
+  });
+
+  it("collapsed groups export their rows hidden in a row outline (summary above, + on the group row)", () => {
+    const body = sheet.tableRow + sheet.frozenRows; // 0-based sheet row of the first body row
+    sheet.bodyRows.forEach((meta, i) => {
+      const row = ws.getRow(body + i + 1);
+      expect(row.outlineLevel ?? 0).toBe(meta.outlineLevel);
+      expect(row.hidden ?? false).toBe(meta.hidden === true);
+    });
+    const footwear = sheet.bodyRows.findIndex((r, i) => r.kind === "group" && sheet.cells[sheet.frozenRows + i]![0]!.v === "Footwear");
+    expect(sheet.bodyRows[footwear]).toMatchObject({ outlineLevel: 0, collapsed: true });
+    expect(sheet.bodyRows[footwear + 1]).toMatchObject({ outlineLevel: 1, hidden: true });
+    expect(sheet.summaryBelow).toBe(false);
+    expect(ws.properties.outlineLevelRow).toBe(1);
+  });
+
+  it("print setup: landscape, one page wide, header rows repeated, title and page numbers in header / footer", () => {
+    expect(ws.pageSetup).toMatchObject({ orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 });
+    expect(ws.pageSetup.printTitlesRow).toBe(`${sheet.tableRow + 1}:${sheet.tableRow + sheet.frozenRows}`);
+    expect(ws.headerFooter.oddHeader).toBe(`&L${filtered.title}`);
+    expect(ws.headerFooter.oddFooter).toBe(`&L${GOLDEN_GENERATED_AT}&RPage &P of &N`);
+  });
+
+  it("repeats tabular row labels (no body merges) unless options.xlsx.rowLabels is merge", async () => {
+    expect(sheet.merges.every((m) => m.row < sheet.frozenRows)).toBe(true);
+    const merged = JSON.parse((await exportPivot({ spec: filtered, rows: planningRows, format: "sheet", options: { xlsx: { rowLabels: "merge" } } })) as string) as PivotSheet;
+    expect(merged.merges.some((m) => m.row >= merged.frozenRows && m.rowSpan > 1)).toBe(true);
+  });
+
+  it("statement profile: compact labels indented by alignment, rules above subtotals and a double rule under the grand total", async () => {
+    const spec = JSON.parse(readExample("planning-statement.spec.json")) as PivotSpec;
+    const rows = JSON.parse(readExample("planning-statement.rows.json")) as PivotDataRow[];
+    const out = await exportPivot({ spec, rows, format: "xlsx", options: { profile: "statement" } });
+    const st = await load(out);
+    const sh = JSON.parse((await exportPivot({ spec, rows, format: "sheet", options: { profile: "statement" } })) as string) as PivotSheet;
+    const at = (label: string) => sh.tableRow + sh.cells.findIndex((r) => r[0]!.v === label) + 1;
+    expect(st.getCell(at("Revenue"), 1).alignment?.indent).toBe(1);
+    const subtotal = sh.tableRow + sh.frozenRows + sh.bodyRows.findIndex((r) => r.kind === "subtotal") + 1;
+    expect(st.getCell(subtotal, 2).border?.top?.style).toBe("thin");
+    expect(st.getCell(subtotal, 2).font?.bold).toBe(true);
+    expect((st.getCell(subtotal, 2).fill as ExcelJS.FillPattern | undefined)?.pattern ?? "none").toBe("none");
+    const total = at("Operating income");
+    expect(st.getCell(total, 2).border?.bottom?.style).toBe("double");
+    // Summary rows below their detail (subtotal: "end"); section headers are one level deeper.
+    expect(sh.summaryBelow).toBe(true);
+    expect(st.properties.outlineProperties).toMatchObject({ summaryBelow: true });
+  });
+
+  it("subtotalFormulas: SUBTOTAL(9, …) on group and grand-total cells of sum measures, with cached values", async () => {
+    const plan = { ...filtered, values: ["plan", "growth"] } as PivotSpec;
+    const out = await exportPivot({ spec: plan, rows: planningRows, format: "xlsx", options: { xlsx: { subtotalFormulas: true } } });
+    const wf = await load(out);
+    const sh = JSON.parse((await exportPivot({ spec: plan, rows: planningRows, format: "sheet", options: { xlsx: { subtotalFormulas: true } } })) as string) as PivotSheet;
+    // The ratio measure (growth) keeps values.
+    expect(sh.cells.flat().filter((c) => c.f !== undefined && c.numFmt?.includes("%"))).toEqual([]);
+    const gt = sh.cells.length - 1;
+    const cellsWithF = sh.cells[gt]!.filter((c) => c.f !== undefined);
+    expect(cellsWithF.length).toBeGreaterThan(0);
+    const c = sh.cells[gt]!.findIndex((x) => x.f !== undefined);
+    const xc = wf.getCell(sh.tableRow + gt + 1, c + 1);
+    expect(xc.value).toMatchObject({ formula: sh.cells[gt]![c]!.f, result: sh.cells[gt]![c]!.v });
+    expect(sh.cells[gt]![c]!.f).toMatch(/^SUBTOTAL\(9,[A-Z]+\d+:[A-Z]+\d+\)$/);
+    // Leaves stay values.
+    expect(sh.cells[sh.frozenRows + 1]!.every((x) => x.f === undefined)).toBe(true);
+  });
+});
+
+describe("FP&A goldens: measure filters, closing balance, average over time (planning-fpa / planning-fpa-bs)", async () => {
+  const rows = JSON.parse(readExample("planning-fpa.rows.json")) as PivotDataRow[];
+  const spec = JSON.parse(readExample("planning-fpa.spec.json")) as PivotSpec;
+  const bs = JSON.parse(readExample("planning-fpa-bs.spec.json")) as PivotSpec;
+
+  it("model / sheet / html match the golden files", async () => {
+    for (const [name, s] of [["planning-fpa", spec], ["planning-fpa-bs", bs]] as const) {
+      expect(await exportPivot({ spec: s, rows, format: "model" })).toBe(readExample(`${name}.model.json`));
+      expect(await exportPivot({ spec: s, rows, format: "sheet" })).toBe(readExample(`${name}.sheet.json`));
+      expect(await exportPivot({ spec: s, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })).toBe(readExample(`${name}.html`));
+    }
+  });
+
+  it("statement xlsx: units in the preamble and page header, real values with scaled numFmt, outline below", async () => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load((await exportPivot({ spec, rows, format: "xlsx", options: { profile: "statement", generatedAt: GOLDEN_GENERATED_AT } })) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    expect([1, 2, 3].map((r) => ws.getCell(r, 1).value)).toEqual([spec.title, spec.subtitle, "USD thousands"]);
+    expect(ws.getCell(4, 1).value).toBe("Filters: Kind = flow");
+    expect(ws.headerFooter.oddHeader).toBe("&LManagement P&&L: budget vs actual&RUSD thousands");
+    const sheet = JSON.parse((await exportPivot({ spec, rows, format: "sheet", options: { profile: "statement" } })) as string) as PivotSheet;
+    const gt = sheet.tableRow + sheet.cells.length;
+    expect(ws.getCell(gt, 1).value).toBe("Operating income");
+    expect(ws.getCell(gt, 2).value).toBe(99_619); // Q1 actual operating income (real value; Excel shows $99.6)
+    expect(ws.getCell(gt, 2).numFmt).toBe('"$"#,##0.0,;("$"#,##0.0,)');
+    expect(ws.getCell(gt, 2).border?.bottom?.style).toBe("double");
+    expect(ws.properties.outlineProperties).toMatchObject({ summaryBelow: true });
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec: bs, rows, format: "pdf", options: { profile: "statement", generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+});
+
+describe("income statement golden: calculated items (planning-income)", async () => {
+  const rows = JSON.parse(readExample("planning-income.rows.json")) as PivotDataRow[];
+  const spec = JSON.parse(readExample("planning-income.spec.json")) as PivotSpec;
+
+  it("model / sheet / html (statement profile) match the golden files", async () => {
+    expect(await exportPivot({ spec, rows, format: "model" })).toBe(readExample("planning-income.model.json"));
+    expect(await exportPivot({ spec, rows, format: "sheet" })).toBe(readExample("planning-income.sheet.json"));
+    expect(await exportPivot({ spec, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT, profile: "statement" } })).toBe(readExample("planning-income.html"));
+  });
+
+  it("statement xlsx: calculated rows bold with a rule, percent numFmt on Gross margin %, values (no SUBTOTAL over items)", async () => {
+    const wb = new ExcelJS.Workbook();
+    const options = { profile: "statement" as const, xlsx: { subtotalFormulas: true }, generatedAt: GOLDEN_GENERATED_AT };
+    await wb.xlsx.load((await exportPivot({ spec, rows, format: "xlsx", options })) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    const sheet = JSON.parse((await exportPivot({ spec, rows, format: "sheet", options })) as string) as PivotSheet;
+    const rowOf = (label: string) => sheet.tableRow + sheet.cells.findIndex((r) => r[0]!.v === label) + 1;
+    const gm = rowOf("Gross margin");
+    expect(ws.getCell(gm, 2).value).toBe(1845);
+    expect(ws.getCell(gm, 2).font?.bold).toBe(true);
+    expect(ws.getCell(gm, 2).border?.top?.style).toBe("thin");
+    const pct = rowOf("Gross margin %");
+    expect(ws.getCell(pct, 6).value).toBeCloseTo(8190 / 13980, 12);
+    expect(ws.getCell(pct, 6).numFmt).toBe("#,##0.0%");
+    expect(ws.getCell(rowOf("EBITDA"), 6).value).toBe(4590);
+    // Section subtotals keep SUBTOTAL formulas; the grand total (items at its level) keeps its value.
+    expect(ws.getCell(rowOf("Total revenue"), 2).value).toMatchObject({ formula: expect.stringMatching(/^SUBTOTAL\(9,/), result: 3090 });
+    expect(ws.getCell(rowOf("Operating income"), 6).value).toBe(4110);
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec, rows, format: "pdf", options: { profile: "statement", generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBe(1);
   }, 60_000);
 });

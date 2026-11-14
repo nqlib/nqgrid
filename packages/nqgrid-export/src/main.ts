@@ -30,7 +30,7 @@ Options (override request.options)
   --title <text>            --generated-at <text>                     --max-columns <n>
   --format defaults to the --out extension (.pdf, .xlsx, .html). --out defaults to stdout.
 
-Exit codes: 0 ok · 2 invalid input (JSON error on stderr) · 1 internal error`;
+Exit codes: 0 ok (data diagnostics, if any, as one JSON line on stderr) · 2 invalid input (JSON error on stderr) · 1 internal error`;
 
 const readText = async (path: string, io: CliIo, what: string): Promise<string> => {
   if (path === "-") {
@@ -166,8 +166,9 @@ async function runExport(args: string[], io: CliIo): Promise<number> {
   const req = parsePivotExportRequest(merged, format as PivotExportFormat);
   const exporter = createPivotExporter();
   let result: string | Uint8Array;
+  let diagnostics: readonly unknown[];
   try {
-    result = await exporter.export(req);
+    ({ data: result, diagnostics } = await exporter.exportDetailed(req));
   } finally {
     await exporter.close();
   }
@@ -177,6 +178,8 @@ async function runExport(args: string[], io: CliIo): Promise<number> {
   } catch (error) {
     throw new PivotExportError("internal", `cannot write ${v.out}: ${(error as Error).message}`);
   }
+  // Data problems (unparsable amounts, unknown fields, …): one JSON line on stderr, exit code still 0.
+  if (diagnostics.length) await write(io.stderr, `${JSON.stringify({ level: "warn", diagnostics })}\n`);
   return 0;
 }
 

@@ -263,6 +263,7 @@ def _too_deep(pos: int) -> _Fail:
 class _Parser:
     tokens: list[_Token]
     known: frozenset[str] | None
+    allow_reserved: bool = False
     i: int = 0
     nesting: int = 0
     references: list[str] = field(default_factory=list)
@@ -405,7 +406,7 @@ class _Parser:
         return self.binary("^", base, exponent, t.pos)
 
     def reference(self, name: str, pos: int) -> Node:
-        if name in RESERVED_NAMES:
+        if not self.allow_reserved and name in RESERVED_NAMES:
             raise _Fail("reservedName", f'"{name}" is a reserved name', pos)
         if self.known is not None and name not in self.known:
             raise _Fail("unknownReference", f'unknown measure "{name}"', pos)
@@ -471,8 +472,12 @@ class _Parser:
         return self.node(Call(lower, tuple(args)), tuple(args), name.pos)
 
 
-def parse_calc(source: Any, references: Iterable[str] | None = None) -> ParseResult:
-    """Parse an expression; never raises. ``references``: known measure ids (others → ``unknownReference``)."""
+def parse_calc(source: Any, references: Iterable[str] | None = None, *, allow_reserved: bool = False) -> ParseResult:
+    """Parse an expression; never raises. ``references``: known measure ids (others → ``unknownReference``).
+
+    ``allow_reserved``: accept ``__proto__`` / ``constructor`` / ``prototype`` as references (calculated item
+    formulas name keys from data, looked up in a dict, never through attributes). Mirrors ``allowReservedNames``.
+    """
     if not isinstance(source, str):
         return ParseResult(error=CalcError("notAString", "expression must be a string", 0))
     try:
@@ -485,7 +490,7 @@ def parse_calc(source: Any, references: Iterable[str] | None = None) -> ParseRes
         return ParseResult(error=CalcError("empty", "expression is empty", 0))
     try:
         tokens = _tokenize(units)
-        parser = _Parser(tokens, frozenset(references) if references is not None else None)
+        parser = _Parser(tokens, frozenset(references) if references is not None else None, allow_reserved)
         ast = parser.parse()
         return ParseResult(ast=ast, references=tuple(parser.references))
     except _Fail as e:

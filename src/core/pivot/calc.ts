@@ -90,6 +90,12 @@ export type PivotCalcParseResult =
 export interface ParsePivotCalcOptions {
   /** Known reference names (measure ids). When given, other names fail with `unknownReference`. */
   readonly references?: Iterable<string>;
+  /**
+   * Accept `__proto__` / `constructor` / `prototype` as references (default false). Calculated item
+   * formulas reference keys from data, which can be any string; their values are looked up in a `Map`,
+   * never through object properties.
+   */
+  readonly allowReservedNames?: boolean;
 }
 
 type TokenKind = "num" | "name" | "ref" | "op" | "(" | ")" | "," | "end";
@@ -102,12 +108,12 @@ interface Token {
 }
 
 class CalcError extends Error {
-  constructor(
-    readonly code: PivotCalcErrorCode,
-    message: string,
-    readonly position: number,
-  ) {
+  readonly code: PivotCalcErrorCode;
+  readonly position: number;
+  constructor(code: PivotCalcErrorCode, message: string, position: number) {
     super(message);
+    this.code = code;
+    this.position = position;
   }
 }
 
@@ -223,11 +229,15 @@ class Parser {
   private i = 0;
   private nesting = 0;
   readonly references: string[] = [];
+  private readonly tokens: readonly Token[];
+  private readonly known: ReadonlySet<string> | null;
+  private readonly allowReserved: boolean;
 
-  constructor(
-    private readonly tokens: readonly Token[],
-    private readonly known: ReadonlySet<string> | null,
-  ) {}
+  constructor(tokens: readonly Token[], known: ReadonlySet<string> | null, allowReserved = false) {
+    this.tokens = tokens;
+    this.known = known;
+    this.allowReserved = allowReserved;
+  }
 
   parse(): PivotCalcNode {
     const node = this.expr();
@@ -369,7 +379,7 @@ class Parser {
   }
 
   private reference(name: string, pos: number): PivotCalcNode {
-    if (PIVOT_CALC_RESERVED_NAMES.includes(name)) throw new CalcError("reservedName", `"${name}" is a reserved name`, pos);
+    if (!this.allowReserved && PIVOT_CALC_RESERVED_NAMES.includes(name)) throw new CalcError("reservedName", `"${name}" is a reserved name`, pos);
     if (this.known !== null && !this.known.has(name)) throw new CalcError("unknownReference", `unknown measure "${name}"`, pos);
     if (!this.references.includes(name)) this.references.push(name);
     return { type: "ref", name };
@@ -449,7 +459,7 @@ export function parsePivotCalc(source: unknown, options: ParsePivotCalcOptions =
   try {
     const tokens = tokenize(source);
     const known = options.references ? new Set(options.references) : null;
-    const parser = new Parser(tokens, known);
+    const parser = new Parser(tokens, known, options.allowReservedNames === true);
     const ast = parser.parse();
     return { ok: true, ast, references: parser.references };
   } catch (e) {

@@ -17,3 +17,16 @@ export * from "./columns";
 export * from "./dates";
 export * from "./calc";
 export * from "./measures";
+export {
+  checkPivotCalculatedItem,
+  parsePivotItemFormula,
+  pivotItemReference,
+  pivotItemReferencers,
+  planPivotCalculatedItem,
+  removePivotCalculatedItem,
+  setPivotCalculatedItem,
+  setPivotSubtotalLabel,
+  type PivotCalculatedItemError,
+  type PivotCalculatedItemInput,
+  type PivotCalculatedItemPlan,
+} from "./calculated-items";

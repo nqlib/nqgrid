@@ -1,0 +1,1997 @@
+{
+  "title": "Income statement",
+  "subtitle": "FY 2026 · EUR",
+  "preamble": [
+    {
+      "text": "Income statement",
+      "role": "title"
+    },
+    {
+      "text": "FY 2026 · EUR",
+      "role": "subtitle"
+    }
+  ],
+  "tableRow": 3,
+  "cells": [
+    [
+      {
+        "v": null,
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": "Amount",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "% of Revenue",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "FY 2026",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      }
+    ],
+    [
+      {
+        "v": "Section / Line",
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": "Jan",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Feb",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Mar",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Apr",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "May",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Jun",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Jul",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Aug",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Sep",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Oct",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Nov",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Dec",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Jan",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Feb",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Mar",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Apr",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "May",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Jun",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Jul",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Aug",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Sep",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Oct",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Nov",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Dec",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Amount",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "% of Revenue",
+        "role": "header",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Gross margin",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Revenue",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": 1000,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1100,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1200,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1300,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1400,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1500,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1600,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1700,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1800,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 2000,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 2100,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 18600,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "COGS",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -600,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -660,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -720,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -780,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -840,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -960,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1020,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1080,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1140,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1200,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1260,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -11160,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.6,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Gross margin",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": 400,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 440,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 480,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 520,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 560,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 600,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 640,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 680,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 720,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 760,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 800,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 840,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 7440,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.4,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Operating expenses",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Salaries",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -180,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.18,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.16363636363636364,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.15,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.13846153846153847,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.12857142857142856,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.12,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.1125,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.10588235294117647,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.1,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.09473684210526316,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.09,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.08571428571428572,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -2160,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.11612903225806452,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Rent",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.05,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.045454545454545456,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.041666666666666664,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.038461538461538464,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03571428571428571,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03333333333333333,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03125,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.029411764705882353,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.027777777777777776,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.02631578947368421,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.025,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.023809523809523808,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -600,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03225806451612903,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Marketing",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -20,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -25,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -30,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -35,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -40,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -45,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -50,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -55,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -60,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -65,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -70,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -75,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.02,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.022727272727272728,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.025,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.026923076923076925,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.02857142857142857,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03125,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03235294117647059,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03333333333333333,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.034210526315789476,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.035,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03571428571428571,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -570,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.03064516129032258,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Operating expenses",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": -250,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -255,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -260,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -265,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -270,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -275,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -280,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -285,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -290,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -295,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -300,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -305,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.25,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.2318181818181818,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.21666666666666667,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.20384615384615384,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.19285714285714287,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.18333333333333332,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.175,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.1676470588235294,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.16111111111111112,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.15526315789473685,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.15,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.14523809523809525,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -3330,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.17903225806451614,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Operating income",
+        "role": "grandTotal",
+        "depth": -1,
+        "bold": true
+      },
+      {
+        "v": 150,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 185,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 220,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 255,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 290,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 325,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 360,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 395,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 430,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 465,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 500,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 535,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.15,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.16818181818181818,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.18333333333333332,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.19615384615384615,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.20714285714285716,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.21666666666666667,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.225,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.2323529411764706,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.2388888888888889,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.24473684210526317,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.25,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.25476190476190474,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 4110,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 0.22096774193548388,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      }
+    ]
+  ],
+  "merges": [
+    {
+      "row": 0,
+      "col": 1,
+      "rowSpan": 1,
+      "colSpan": 12
+    },
+    {
+      "row": 0,
+      "col": 13,
+      "rowSpan": 1,
+      "colSpan": 12
+    },
+    {
+      "row": 0,
+      "col": 25,
+      "rowSpan": 1,
+      "colSpan": 2
+    },
+    {
+      "row": 0,
+      "col": 0,
+      "rowSpan": 2,
+      "colSpan": 1
+    }
+  ],
+  "frozenRows": 2,
+  "frozenCols": 1,
+  "rowHeaderColumnCount": 1,
+  "columnCount": 27,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": true,
+  "outlineLevels": 1
+}

@@ -147,7 +147,11 @@ describe("several column fields", () => {
     expect(m.columnKeys.map((k) => k.label)).toEqual(["2025 Q1", "2025 Q2", "2025 Q3", "2026 Q1", "2026 Q4", "(blank) (blank)"]);
     // A single object and a one-element array are the same spec.
     const one = buildPivotModel({ ...ordersSpec, columns: { field: "orderDate:year" } }, orders);
-    expect(buildPivotModel({ ...ordersSpec, columns: [{ field: "orderDate:year" }] }, orders)).toEqual(one);
+    // (Only diagnostics differ: they name the spec path, `columns.field` vs `columns[0].field`.)
+    const array = buildPivotModel({ ...ordersSpec, columns: [{ field: "orderDate:year" }] }, orders);
+    expect({ ...array, diagnostics: undefined }).toEqual({ ...one, diagnostics: undefined });
+    expect(one.diagnostics?.map((d) => [d.code, d.path, d.count])).toEqual([["invalidDates", "columns.field", 1]]);
+    expect(array.diagnostics?.map((d) => d.path)).toEqual(["columns[0].field"]);
     expect(one.columnDimensions).toBeUndefined();
     expect(one.columns.map((c) => c.columnKey)).toEqual(["2025", "2026", "", null]);
   });

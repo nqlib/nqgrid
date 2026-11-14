@@ -191,7 +191,7 @@ describe("row subtotal positions", () => {
     expect(values(end.rows[4]!)).toEqual([600, 270]);
     // Spans cover the subtotal row; the sheet keeps it out of the merge and labels it in the group column.
     expect(end.spans[0]![0]).toEqual({ rowIndex: 0, span: 4, path: ["Camp"] });
-    const sheet = pivotModelToSheet(end);
+    const sheet = pivotModelToSheet(end, { rowLabels: "merge" });
     expect(sheet.merges).toContainEqual({ row: 1, col: 0, rowSpan: 3, colSpan: 1 });
     expect(sheet.cells[4]!.slice(0, 2).map((c) => c.v)).toEqual(["Camp Total", null]);
 

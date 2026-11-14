@@ -1,10 +1,11 @@
 import { pivotColumnFields, withPivotColumnFields } from "./columns";
 import { parsePivotDateFieldName, pivotDateFieldName, pivotDateGroupLabel, pivotDayOf, PIVOT_DATE_GROUPS, PIVOT_INVALID_DAY } from "./dates";
 import { parsePivotCalc } from "./calc";
-import { isPivotFilterActive } from "./filter";
+import { isPivotFilterActive, pivotMeasureFilters } from "./filter";
 import type {
   PivotAggregate,
   PivotBuiltInAggregate,
+  PivotTimeAggregateType,
   PivotDataRow,
   PivotDateGroup,
   PivotDimension,
@@ -215,6 +216,7 @@ export function resolvePivotFields(
     const agg = m.aggregate ?? "sum";
     add(m.field, agg === "count" || agg === "first" || agg === "last" ? "dimension" : "measure");
   }
+  for (const m of spec.measures) for (const f of pivotMeasureFilters(m.filter)) add(f.field, "dimension");
 
   const specLabel = (field: string): string | undefined => {
     const dim = spec.rows.find((d) => d.field === field) ?? pivotColumnFields(spec).find((d) => d.field === field);
@@ -523,10 +525,11 @@ function omitKeys<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Om
 }
 
 /**
- * A dimension on its way into Columns (no `sortBy` / `topN`). `subtotal` is valid in both areas
- * (row groups: `start` / `end` / `none` rows, column groups: subtotal columns), so it travels.
+ * A dimension on its way into Columns (no `sortBy` / `topN` / `calculatedItems` / `itemFormats`;
+ * `keepEmpty` is dropped on the way into Rows). `subtotal` and `subtotalLabels` are valid in both areas
+ * (row groups: `start` / `end` / `none` rows, column groups: subtotal columns), so they travel.
  */
-const stripColumnOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "sortBy", "topN");
+const stripColumnOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "sortBy", "topN", "calculatedItems", "itemFormats");
 const clamp = (i: number | undefined, max: number) => (i === undefined ? max : Math.max(0, Math.min(max, Math.floor(i))));
 
 /** Working copy of the layout parts a move touches. */
@@ -559,10 +562,34 @@ const AGG_LABEL: Readonly<Record<PivotBuiltInAggregate, string>> = {
 /** Counts are plain integers: they never take a field's format. */
 const isCountAggregate = (agg: PivotAggregate): boolean => agg === "count" || agg === "distinctCount";
 
-/** Default measure label: the field label for `sum`, else `Average of Units`, `Count of Region`, … */
-export function pivotMeasureLabel(fieldLabel: string, aggregate: PivotBuiltInAggregate): string {
+/** Labels of the semi-additive aggregates (`Closing balance of Cash`). */
+const TIME_AGG_LABEL: Readonly<Record<PivotTimeAggregateType, string>> = {
+  closingBalance: "Closing balance",
+  openingBalance: "Opening balance",
+  averageOverTime: "Average over time",
+};
+
+/**
+ * What "Summarize values by" can set: a built-in aggregate, or a semi-additive one with its time field
+ * (`{ type: "closingBalance", timeField: "PERIOD" }`).
+ */
+export type PivotSummarizeAggregate = PivotBuiltInAggregate | { readonly type: PivotTimeAggregateType; readonly timeField: string };
+
+/** Default measure label: the field label for `sum`, else `Average of Units`, `Count of Region`, `Closing balance of Cash`, … */
+export function pivotMeasureLabel(fieldLabel: string, aggregate: PivotSummarizeAggregate): string {
+  if (typeof aggregate === "object") return `${TIME_AGG_LABEL[aggregate.type]} of ${fieldLabel}`;
   return aggregate === "sum" ? fieldLabel : `${AGG_LABEL[aggregate]} of ${fieldLabel}`;
 }
+
+/** A `PivotSummarizeAggregate` (built-in or semi-additive) when `agg` is one, else `null` (weighted average, ratio, custom). */
+export function pivotSummarizeAggregateOf(agg: PivotAggregate | undefined): PivotSummarizeAggregate | null {
+  const a = agg ?? "sum";
+  if (typeof a === "string") return a;
+  return a.type === "closingBalance" || a.type === "openingBalance" || a.type === "averageOverTime" ? { type: a.type, timeField: a.timeField } : null;
+}
+
+const sameAggregate = (a: PivotAggregate, b: PivotSummarizeAggregate): boolean =>
+  typeof a === "string" || typeof b === "string" ? a === b : a.type === b.type && "timeField" in a && a.timeField === b.timeField;
 
 function uniqueMeasureId(measures: readonly PivotMeasure[], base: string): string {
   const ids = new Set(measures.map((m) => m.id));
@@ -812,7 +839,9 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   // Measure references: value-based sort / Top N on a measure that left Values are dropped (like
   // Excel); heat and header charts follow the first remaining value.
   const rows = layout.rows.map((d) => {
-    let out = d;
+    // `keepEmpty` is column-only (validatePivotSpec rejects it on rows); like `sortBy` / `topN` on the
+    // way into Columns, it does not travel into Rows.
+    let out = d.keepEmpty !== undefined ? omitKeys(d, "keepEmpty") : d;
     if (d.sortBy && removed.has(d.sortBy.measure)) out = omitKeys(out, "sortBy");
     if (d.topN && removed.has(d.topN.measure)) out = omitKeys(out, "topN");
     return out;
@@ -840,10 +869,14 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   for (const m of layout.measures) if (m.calculate !== undefined) referenced.add(m.id);
   addCalcDependencies(layout.measures, referenced);
   // "Show values as" along a field that left Rows / Columns falls back to plain values (Excel).
+  // A global base (`scope: "all"`) needs its field in Rows.
   const placed = new Set([...rows.map((d) => d.field), ...layout.columns.flatMap((c) => (c.kind === "dim" ? [c.dim.field] : []))]);
+  const inRows = new Set(rows.map((d) => d.field));
   const measures = layout.measures
     .filter((m) => !removed.has(m.id) || referenced.has(m.id))
-    .map((m) => (m.showAsBase && !placed.has(m.showAsBase.field) ? withoutShowAsBase(m) : m));
+    .map((m) =>
+      m.showAsBase && (!placed.has(m.showAsBase.field) || (m.showAsBase.scope === "all" && !inRows.has(m.showAsBase.field))) ? withoutShowAsBase(m) : m,
+    );
 
   // Columns: the list (with Σ Values) back to `columns` (one object for one field) + `valuesIndex`.
   const columnDims = layout.columns.flatMap((c) => (c.kind === "dim" ? [c.dim] : []));
@@ -967,30 +1000,33 @@ export function addPivotMeasure(
 }
 
 /**
- * Change a measure's aggregate (Excel's "Summarize values by"). Auto labels (`Units`,
- * `Average of Units`) follow; custom labels stay. Switching to `count` / `distinctCount` drops the
- * measure's format (counts are plain integers), restoring the catalogue format when leaving them.
- * Measures without a source field only accept `count`; calculated measures none.
+ * Change a measure's aggregate (Excel's "Summarize values by"), also to a semi-additive one
+ * (`{ type: "closingBalance" | "openingBalance" | "averageOverTime", timeField }`; refused without a
+ * `timeField`). Auto labels (`Units`, `Average of Units`, `Closing balance of Units`) follow; custom
+ * labels stay. Switching to `count` / `distinctCount` drops the measure's format (counts are plain
+ * integers), restoring the catalogue format when leaving them. Measures without a source field only
+ * accept `count`; calculated measures none.
  */
 export function setPivotMeasureAggregate(
   spec: PivotSpec,
   measureId: string,
-  aggregate: PivotBuiltInAggregate,
+  aggregate: PivotSummarizeAggregate,
   options: PivotFieldMoveOptions = {},
 ): PivotSpec {
   const m = spec.measures.find((x) => x.id === measureId);
-  if (!m || m.calculate !== undefined || (m.aggregate ?? "sum") === aggregate) return spec;
+  if (!m || m.calculate !== undefined || sameAggregate(m.aggregate ?? "sum", aggregate)) return spec;
   if (!m.field && aggregate !== "count") return spec;
-  const prev = m.aggregate ?? "sum";
+  if (typeof aggregate === "object" && !aggregate.timeField) return spec;
+  const prev = pivotSummarizeAggregateOf(m.aggregate);
   const fields = options.fields ?? resolvePivotFields(spec);
-  let next: PivotMeasure = aggregate === "sum" ? omitKeys(m, "aggregate") : { ...m, aggregate };
-  if (m.field && typeof prev === "string") {
+  let next: PivotMeasure = aggregate === "sum" ? omitKeys(m, "aggregate") : { ...m, aggregate: typeof aggregate === "object" ? { type: aggregate.type, timeField: aggregate.timeField } : aggregate };
+  if (m.field && prev !== null) {
     const info = fieldInfo(fields, m.field);
     if (m.label === undefined || m.label === pivotMeasureLabel(info.label, prev)) next = { ...next, label: pivotMeasureLabel(info.label, aggregate) };
-    if (isCountAggregate(aggregate)) next = omitKeys(next, "format");
-    else if (isCountAggregate(prev) && info.format) next = { ...next, format: info.format };
+    if (typeof aggregate === "string" && isCountAggregate(aggregate)) next = omitKeys(next, "format", "signField");
+    else if (typeof prev === "string" && isCountAggregate(prev) && info.format) next = { ...next, format: info.format };
   } else if (aggregate === "count") {
-    next = omitKeys(next, "format");
+    next = omitKeys(next, "format", "signField");
   }
   return { ...spec, measures: spec.measures.map((x) => (x === m ? next : x)) };
 }

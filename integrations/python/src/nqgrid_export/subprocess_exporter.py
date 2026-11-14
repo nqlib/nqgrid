@@ -63,6 +63,19 @@ def _stderr_error(code: int, stderr: bytes) -> NqgridExportError:
     return NqgridInternalError(f"nqgrid-export exited with {code}" + (f": {tail}" if tail else ""), code=f"exit_{code}")
 
 
+def _stderr_diagnostics(stderr: bytes) -> list[dict[str, Any]]:
+    """``{"level": "warn", "diagnostics": [...]}`` lines a successful export writes to stderr."""
+    out: list[dict[str, Any]] = []
+    for line in stderr.decode("utf-8", "replace").splitlines():
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("diagnostics"), list):
+            out += [d for d in payload["diagnostics"] if isinstance(d, dict)]
+    return out
+
+
 class SubprocessExporter(PivotExporter):
     """Same interface as :class:`~nqgrid_export.client.NqgridExportClient`, one process per export."""
 
@@ -101,10 +114,13 @@ class SubprocessExporter(PivotExporter):
             raise NqgridUnavailable(f"nqgrid-export timed out after {self.timeout:g} s", code="timeout") from e
 
     def _export_bytes(self, body: bytes, fmt: ExportFormat) -> bytes:
+        return self._export_bytes_with_diagnostics(body, fmt)[0]
+
+    def _export_bytes_with_diagnostics(self, body: bytes, fmt: ExportFormat) -> tuple[bytes, list[dict[str, Any]]]:
         proc = self._run(["--input", "-", "--format", fmt, "--out", "-"], body)
         if proc.returncode != 0:
             raise _stderr_error(proc.returncode, proc.stderr)
-        return proc.stdout
+        return proc.stdout, _stderr_diagnostics(proc.stderr)
 
     def health(self) -> dict[str, Any]:
         """``nqgrid-export --version``; the browser is only checked by an actual PDF export."""

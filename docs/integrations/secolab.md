@@ -205,6 +205,32 @@ origin (`tauri://localhost`, `http://tauri.localhost` on Windows) via CORS, or v
 with the backend URL in its capability scope. The playground's Planning pivot demo shows the request JSON and,
 with `VITE_NQGRID_EXPORT_URL` set, downloads the PDF / XLSX through a dev proxy.
 
+## Financial statements (the Statement report)
+
+The Statement report (rows SECTION → LINE, months as columns, `PL_AMOUNT`, line order from `LINE_SORT`, a Gross margin
+row, Operating income and "% of Revenue") maps to one PivotSpec: see the
+[P&L recipe](../pivot-recipes.md#financial-statement-pl--income-statement) (complete spec, result table and limits) and
+the goldens `contract/pivot/v1/examples/planning-income.*` (calculated items) and `planning-statement.*`. In short:
+
+- `LINE_SORT` → a hidden measure `{ "id": "ord", "field": "LINE_SORT", "aggregate": "min" }` (not in `values`) and
+  `"sortBy": { "measure": "ord", "direction": "asc" }` on SECTION and LINE.
+- Section totals → `{ "field": "SECTION", "subtotal": "end", "subtotalLabels": { "Revenue": "Total revenue", … } }`
+  (a subtotal row per section, labelled per section); Operating income → `"totals": { "grandTotalLabel": "Operating
+  income" }`.
+- Gross margin, EBITDA and other rows between sections → calculated items on SECTION:
+  `"calculatedItems": [{ "key": "Gross margin", "formula": "[Revenue] + [Cost of sales]", "after": "Cost of sales" }]`
+  (cascading items reference other items; a percent row takes its own `format`; items stay out of the grand total).
+- % of Revenue → `"showAs": "percentOf", "showAsBase": { "field": "LINE", "item": "Revenue", "scope": "all" }`.
+- `PL_AMOUNT` is already signed, so no `signField`; datasets with unsigned amounts and a sign column add
+  `"signField": "<sign column>"` to each amount measure.
+- Not possible: formulas over lines of different sections, "%" in the total column only. The recipe's "Limits"
+  table lists workarounds.
+- The exporter pivots the rows it receives in memory (no SQL pushdown): have the backend `GROUP BY` the statement grain
+  (section, line, sort, month) before calling it, which keeps a P&L to a few thousand rows.
+
+The MCP authoring guide (`describe_pivot_spec`) has "Financial statements" and "Calculated items" sections with the same
+recipe, and returns `income_example_spec` and `statement_example_spec`.
+
 ## Adopting it in Secolab (checklist for when the code is shared)
 
 1. **Pick the deployment.** Docker sidecar on the backend host, or `serve` on localhost for desktop / dev. Add a

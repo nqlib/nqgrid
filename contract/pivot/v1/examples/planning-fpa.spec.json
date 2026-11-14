@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "id": "fpa-budget-vs-actual",
+  "title": "Management P&L: budget vs actual",
+  "subtitle": "H1 2026 by quarter",
+  "units": "USD thousands",
+  "layout": "compact",
+  "rows": [
+    {
+      "field": "SECTION",
+      "label": "Section",
+      "subtotal": "end",
+      "subtotalLabel": "{label}",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    },
+    {
+      "field": "LINE",
+      "label": "Line",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    }
+  ],
+  "columns": {
+    "field": "PERIOD:quarter",
+    "label": "Quarter"
+  },
+  "filters": [
+    {
+      "field": "KIND",
+      "include": [
+        "flow"
+      ],
+      "label": "Kind"
+    }
+  ],
+  "measures": [
+    {
+      "id": "actual",
+      "label": "Actual",
+      "field": "AMOUNT",
+      "signField": "SIGN",
+      "filter": [
+        {
+          "field": "SCENARIO",
+          "include": [
+            "Actual"
+          ]
+        },
+        {
+          "field": "PERIOD:year",
+          "include": [
+            "2026"
+          ]
+        }
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "budget",
+      "label": "Budget",
+      "field": "AMOUNT",
+      "signField": "SIGN",
+      "filter": [
+        {
+          "field": "SCENARIO",
+          "include": [
+            "Budget"
+          ]
+        },
+        {
+          "field": "PERIOD:year",
+          "include": [
+            "2026"
+          ]
+        }
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "variance",
+      "label": "Var",
+      "calculate": "actual - budget",
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "variancePct",
+      "label": "Var %",
+      "calculate": "(actual - budget) / abs(budget)",
+      "format": {
+        "style": "percent",
+        "decimals": 1,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "ytd",
+      "label": "YTD actual",
+      "field": "AMOUNT",
+      "signField": "SIGN",
+      "filter": [
+        {
+          "field": "SCENARIO",
+          "include": [
+            "Actual"
+          ]
+        },
+        {
+          "field": "PERIOD:year",
+          "include": [
+            "2026"
+          ]
+        }
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "showAs": "runningTotal",
+      "groupShowAs": "runningTotal",
+      "showAsBase": {
+        "field": "PERIOD:quarter"
+      }
+    },
+    {
+      "id": "priorYear",
+      "label": "PY actual",
+      "field": "AMOUNT",
+      "signField": "SIGN",
+      "filter": [
+        {
+          "field": "SCENARIO",
+          "include": [
+            "Actual"
+          ]
+        },
+        {
+          "field": "PERIOD:year",
+          "include": [
+            "2025"
+          ]
+        }
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "ord",
+      "label": "Line order",
+      "field": "LINE_SORT",
+      "aggregate": "min"
+    }
+  ],
+  "values": [
+    "actual",
+    "budget",
+    "variance",
+    "variancePct",
+    "ytd",
+    "priorYear"
+  ],
+  "totals": {
+    "grandTotalLabel": "Operating income",
+    "rowTotal": true,
+    "rowTotalLabel": "H1"
+  }
+}

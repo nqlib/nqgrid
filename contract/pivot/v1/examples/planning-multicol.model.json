@@ -98,7 +98,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "North",
@@ -124,7 +124,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "North",
@@ -150,7 +150,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "North",
@@ -244,7 +244,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "North"
@@ -292,7 +292,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "South",
@@ -318,7 +318,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "South",
@@ -344,7 +344,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "South",
@@ -438,7 +438,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "South"
@@ -486,7 +486,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "East",
@@ -512,7 +512,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "East",
@@ -538,7 +538,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "East",
@@ -632,7 +632,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "East"
@@ -680,7 +680,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "West",
@@ -706,7 +706,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "West",
@@ -732,7 +732,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "West",
@@ -826,7 +826,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%",
       "columnPath": [
         "West"
@@ -873,7 +873,7 @@
       "percentFormat": {
         "style": "percent"
       },
-      "excelNumFmt": "[>=1000000]\"$\"#,##0.0,,\"M\";[>=1000]\"$\"#,##0,\"k\";\"$\"#,##0",
+      "excelNumFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
       "excelPercentNumFmt": "#,##0%"
     },
     {

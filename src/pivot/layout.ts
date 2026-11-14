@@ -105,6 +105,7 @@ export function pivotColumnHeaderRole(model: PivotModel, row: number, cell: Pivo
  * - `group` — the group summary next to its span (label, child count, toggle);
  * - `leaf` — a leaf label;
  * - `subtotal` — the label of a group's `subtotal: "end"` row ("Camp Total"), next to the group's span;
+ * - `calculated` — the label of a calculated item, in the column of its own level;
  * - `grandTotal` — the grand-total label, covering every dimension column;
  * - `empty` — nothing to show;
  * - `covered` — inside an earlier `span` cell; render no `<td>`.
@@ -114,6 +115,7 @@ export type PivotDimensionSlot =
   | { readonly type: "group"; readonly level: number }
   | { readonly type: "leaf"; readonly level: number }
   | { readonly type: "subtotal"; readonly level: number }
+  | { readonly type: "calculated"; readonly level: number }
   | { readonly type: "grandTotal"; readonly colSpan: number }
   | { readonly type: "empty"; readonly level: number }
   | { readonly type: "covered"; readonly level: number };
@@ -141,6 +143,8 @@ export function pivotDimensionSlots(model: PivotModel): PivotDimensionSlot[][] {
         slots.push({ type: "group", level });
       } else if (row.kind === "subtotal" && level === row.depth + 1) {
         slots.push({ type: "subtotal", level });
+      } else if (row.kind === "calculated" && level === row.depth) {
+        slots.push({ type: "calculated", level });
       } else {
         slots.push({ type: "empty", level });
       }
@@ -419,7 +423,7 @@ export interface PivotBodyGroup {
   readonly start: number;
   /** Last row index (exclusive). */
   readonly end: number;
-  readonly kind: "group" | "leaf" | "grandTotal" | "subtotal";
+  readonly kind: PivotBodyRow["kind"];
 }
 
 /**
@@ -440,4 +444,95 @@ export function pivotBodyGroups(model: PivotModel): PivotBodyGroup[] {
     }
   });
   return groups;
+}
+
+/** A printed slice of a body group: one `<tbody>` of static output, starting a new page when `breakBefore`. */
+export interface PivotBodySegment extends PivotBodyGroup {
+  /** Starts a new page (`break-before: page`). */
+  readonly breakBefore?: true;
+  /** Continues a group split across pages: the renderer repeats the group label ("Opex (cont.)"). */
+  readonly continued?: true;
+}
+
+export interface PivotPageSegmentsOptions {
+  /** Table height available per page, in table px (page content height / zoom, less a safety margin). */
+  readonly pageHeight: number;
+  /** Space used above the table on its first page (report header, chunk caption), in table px. */
+  readonly firstPageOffset?: number;
+  /** Header rows repeated on every page (`<thead>`), in px. */
+  readonly headHeight: number;
+  readonly rowHeight: number;
+  /** Extra height after a row (e.g. a KPI-panel filler row), in px. */
+  readonly extraHeight?: (rowIndex: number) => number;
+  /** Height of the repeated group label rows when a continued segment starts at `rowIndex` (default 0). */
+  readonly continuationHeight?: (rowIndex: number) => number;
+  /** Fewest rows worth starting a split group with at the bottom of a page (default 3). */
+  readonly minRows?: number;
+}
+
+/**
+ * Print pagination of the body groups (pure, from fixed row heights): a group that fits the rest of
+ * the page stays there; one that fits a fresh page starts one; a group taller than a page is split
+ * across pages (filling the current page first, so a long first section never leaves page 1 empty),
+ * with `continued` segments for the repeated label and at least two rows (e.g. the last line and its
+ * subtotal) carried onto the last page. The renderer marks `breakBefore` with `break-before: page`.
+ */
+export function pivotPageBodySegments(model: PivotModel, options: PivotPageSegmentsOptions): PivotBodySegment[] {
+  const { pageHeight, headHeight, rowHeight } = options;
+  const minRows = Math.max(1, options.minRows ?? 3);
+  const heightOf = (i: number) => rowHeight + (options.extraHeight?.(i) ?? 0);
+  const contHeight = (i: number) => options.continuationHeight?.(i) ?? 0;
+  const out: PivotBodySegment[] = [];
+  let used = (options.firstPageOffset ?? 0) + headHeight;
+  let empty = true;
+  let breakNext = false;
+  const newPage = () => {
+    used = headHeight;
+    empty = true;
+    breakNext = true;
+  };
+  const push = (g: PivotBodyGroup, start: number, end: number, height: number, continued: boolean) => {
+    out.push({ id: start === g.start ? g.id : `${g.id}@${start}`, start, end, kind: g.kind, ...(breakNext ? { breakBefore: true as const } : {}), ...(continued ? { continued: true as const } : {}) });
+    used += height;
+    empty = false;
+    breakNext = false;
+  };
+  for (const g of pivotBodyGroups(model)) {
+    let h = 0;
+    for (let i = g.start; i < g.end; i++) h += heightOf(i);
+    if (used + h <= pageHeight) {
+      push(g, g.start, g.end, h, false);
+      continue;
+    }
+    if (!empty && headHeight + h <= pageHeight) {
+      newPage();
+      push(g, g.start, g.end, h, false);
+      continue;
+    }
+    // Taller than the rest of this page and than a fresh page (or nothing is on this page yet): split.
+    if (!empty && pageHeight - used < minRows * rowHeight) newPage();
+    let i = g.start;
+    let continued = false;
+    while (i < g.end) {
+      const extra = continued ? contHeight(i) : 0;
+      const room = pageHeight - used - extra;
+      let j = i;
+      let acc = 0;
+      while (j < g.end && acc + heightOf(j) <= room) acc += heightOf(j++);
+      if (j === i) acc = heightOf(j++);
+      // Never leave a single row (a subtotal) alone on the next page.
+      if (j < g.end && g.end - j < 2 && j - i > 2) {
+        j -= 2 - (g.end - j);
+        acc = 0;
+        for (let k = i; k < j; k++) acc += heightOf(k);
+      }
+      push(g, i, j, acc + extra, continued);
+      i = j;
+      if (i < g.end) {
+        newPage();
+        continued = true;
+      }
+    }
+  }
+  return out;
 }

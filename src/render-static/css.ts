@@ -107,6 +107,7 @@ body {
 .nqg-pivot tbody:last-child > tr:last-child > * { border-bottom: 1px solid var(--nqg-border); }
 .nqg-pivot tbody { break-inside: avoid; }
 .nqg-pivot tr { break-inside: avoid; }
+.nqg-pivot tr[data-nqg-page-break] { break-before: page; }
 .nqg-pivot svg { display: block; overflow: visible; }
 
 .nqg-pivot-head {
@@ -267,6 +268,37 @@ body {
 .nqg-pivot-down { color: var(--nqg-negative); }
 .nqg-pivot-flat { color: var(--nqg-muted-fg); }
 `;
+
+/**
+ * Appended for `renderPivotHtml(model, { profile: "statement" })`: finance-statement emphasis. Subtotal,
+ * group and grand-total rows print in the full text colour and bold (never lighter than the lines
+ * above them), on the page surface instead of a grey band; subtotal values get a single rule above,
+ * the grand total a single rule above and a double rule below (a border plus an inset shadow, so it stays
+ * double when the table is zoomed to fit the page). Rows are matched by their `data-kind`.
+ */
+export const PIVOT_STATIC_STATEMENT_CSS = `.nqg-pivot .nqg-pivot-group, .nqg-pivot .nqg-pivot-total { background: var(--nqg-surface); }
+.nqg-pivot .nqg-pivot-group-value { color: var(--nqg-fg); }
+.nqg-pivot tr[data-kind="group"] > *, .nqg-pivot tr[data-kind="continued"] > *, .nqg-pivot tr[data-kind="subtotal"] > * { font-weight: 600; }
+.nqg-pivot tr[data-kind="leaf"] > .nqg-pivot-cell { border-bottom-color: transparent; }
+.nqg-pivot tr[data-kind="subtotal"] > .nqg-pivot-value { border-top: 1px solid var(--nqg-fg); }
+.nqg-pivot tr[data-kind="grandTotal"] > * { font-weight: 700; border-top: 1px solid var(--nqg-fg); }
+.nqg-pivot tbody > tr[data-kind="grandTotal"] > *, .nqg-pivot tbody:last-child > tr[data-kind="grandTotal"]:last-child > * {
+  border-bottom: 1px solid var(--nqg-fg);
+  box-shadow: inset 0 -2px 0 var(--nqg-surface), inset 0 -3px 0 var(--nqg-fg);
+}
+`;
+
+/**
+ * Appended to `PIVOT_STATIC_STATEMENT_CSS` when the model has calculated item rows (Gross margin, EBITDA):
+ * bold with a rule above their values, like subtotals. Kept separate so statements without calculated
+ * items keep a byte-identical stylesheet.
+ */
+export const PIVOT_STATIC_STATEMENT_CALCULATED_CSS = `.nqg-pivot tr[data-kind="calculated"] > * { font-weight: 600; }
+.nqg-pivot tr[data-kind="calculated"] > .nqg-pivot-value { border-top: 1px solid var(--nqg-fg); }
+`;
+
+/** Default row height of the statement profile (denser than the report's 36 px; 14 px text still fits). */
+export const PIVOT_STATIC_STATEMENT_ROW_HEIGHT = 28;
 
 /**
  * Appended when a report has several column fields: long column keys in narrow value columns end in

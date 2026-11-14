@@ -9,9 +9,9 @@ import {
   type PivotDateFieldDef,
 } from "./dates";
 import { createPivotRowEncoding, pivotSpecEncoding, type PivotFieldCodes, type PivotRowEncoding } from "./encode";
-import { compilePivotFilters, runPivotFilterPass, type PivotFacetCounts } from "./filter";
+import { compilePivotFilters, pivotFilterMask, pivotMeasureFilters, runPivotFilterPass, type PivotFacetCounts } from "./filter";
 import { toPivotNumber } from "./format";
-import type { PivotDataRow, PivotDimension, PivotFacetSpec, PivotMeasure, PivotSpec } from "./types";
+import type { PivotDataRow, PivotDiagnostic, PivotDimension, PivotFacetSpec, PivotFilter, PivotMeasure, PivotSpec } from "./types";
 
 /**
  * Key of the Top-N "Other" row (a control character, so it never collides with real keys).
@@ -23,24 +23,30 @@ export const PIVOT_OTHER_KEY = "\u0000other";
  * Aggregation kinds, each with a fixed number of accumulator slots per bucket:
  * sum / avg `[sum, n]`, min / max `[value, n]`, first / last `[value, n, recordIndex]`, count with a
  * field `[n]`, weighted average `[Σ v·w, Σ w]`, ratio `[Σ num, n num, Σ den, n den]`, distinct count
- * `[distinct keys]` (computed per node and bucket after the tree is built, never merged), and
- * calculated measures none (evaluated from their references when read).
+ * `[distinct keys]` (computed per node and bucket after the tree is built, never merged), closing /
+ * opening balance `[value, n]` (computed per node and bucket after the tree is built, never merged),
+ * average over time `[sum, n, periods]` (sum merged like `sum`, periods counted after the tree is
+ * built), and calculated measures none (evaluated from their references when read).
  */
-const enum Kind {
-  Sum,
-  Avg,
-  Min,
-  Max,
-  First,
-  Last,
-  CountRows,
-  CountField,
-  WeightedAvg,
-  Ratio,
-  Custom,
-  DistinctCount,
-  Calc,
-}
+const Kind = {
+  Sum: 0,
+  Avg: 1,
+  Min: 2,
+  Max: 3,
+  First: 4,
+  Last: 5,
+  CountRows: 6,
+  CountField: 7,
+  WeightedAvg: 8,
+  Ratio: 9,
+  Custom: 10,
+  DistinctCount: 11,
+  Calc: 12,
+  Closing: 13,
+  Opening: 14,
+  AvgOverTime: 15,
+} as const;
+type Kind = (typeof Kind)[keyof typeof Kind];
 
 const SLOTS: Readonly<Record<Kind, number>> = {
   [Kind.Sum]: 2,
@@ -56,21 +62,40 @@ const SLOTS: Readonly<Record<Kind, number>> = {
   [Kind.Custom]: 0,
   [Kind.DistinctCount]: 1,
   [Kind.Calc]: 0,
+  [Kind.Closing]: 2,
+  [Kind.Opening]: 2,
+  [Kind.AvgOverTime]: 3,
 };
+
+/**
+ * Time axis of a semi-additive measure: each record's chronological period rank (`-1`: blank time
+ * key) and, for closing / opening balances, its series (one code per combination of the layout's
+ * non-time row and column keys).
+ */
+interface TimeAxis {
+  readonly rank: Int32Array;
+  readonly periods: number;
+  readonly series: Int32Array | null;
+}
 
 interface CompiledMeasure {
   readonly measure: PivotMeasure;
   readonly kind: Kind;
   /** Slot offset within a bucket (slot 0 is the record count). */
   readonly off: number;
-  readonly a: Float64Array | null;
-  readonly b: Float64Array | null;
-  readonly p: Uint8Array | null;
+  /** Per-record columns (released once the cube is built, see `releaseColumns`). */
+  a: Float64Array | null;
+  b: Float64Array | null;
+  p: Uint8Array | null;
   readonly offset: number;
   /** Distinct count: key codes of the field, number of keys and the blank key's code (`-1`: none). */
-  readonly distinct?: { readonly codes: Int32Array; readonly keyCount: number; readonly blank: number };
+  distinct?: { readonly codes: Int32Array; readonly keyCount: number; readonly blank: number };
   /** Calculated measure: compiled expression, its references (same set) and a scratch buffer. */
   readonly calc?: { readonly program: PivotCalcProgram; readonly refs: readonly CompiledMeasure[]; readonly scratch: Float64Array };
+  /** Semi-additive measures (`closingBalance` / `openingBalance` / `averageOverTime`). */
+  time?: TimeAxis;
+  /** Custom aggregators with a measure filter: records that pass it (others aggregate through masked columns). */
+  readonly keep?: Uint8Array;
 }
 
 /** One group / leaf (or the root) of the aggregated tree. */
@@ -105,6 +130,8 @@ interface MutableNode extends PivotCubeNode {
   /** Record indices per bucket (only with custom aggregators). */
   readonly rowIdx: number[][] | null;
   attrPending: number;
+  /** A `keyTotal` merged from several nodes (distinct counts / custom aggregates read `null`). */
+  readonly merged?: true;
 }
 
 /** One column group / leaf of the aggregated column tree (or its root). */
@@ -147,6 +174,14 @@ export interface PivotCube {
   valueOf(node: PivotCubeNode, measureId: string, columnKey: string | null): number | null;
   /** `valueOf` by accumulator bucket (`PivotCubeColumn.bucket`; `-1` → `null`). */
   valueAt(node: PivotCubeNode, measureId: string, bucket: number): number | null;
+  /**
+   * Every record whose row-level `depth` key is `key`, whatever its parents (the base of
+   * `showAsBase.scope: "all"`), as a node to read with `valueAt` (every column bucket). The node of
+   * that key itself when it occurs under one parent; otherwise the nodes' accumulators merged once
+   * and memoized (distinct counts and custom aggregates cannot merge, so they read `null` there).
+   * `null` when no node at `depth` has the key.
+   */
+  keyTotal(depth: number, key: string): PivotCubeNode | null;
   /** Records before / after report, label and Top-N filters. */
   readonly recordCount: { readonly total: number; readonly matched: number };
   /** Cross-filtered counts for `spec.facets`, in facet order. */
@@ -156,6 +191,10 @@ export interface PivotCube {
    * `createPivotModelBuilder` budgets its cube cache with it.
    */
   readonly byteSize: number;
+  /** Data-quality problems of the fields this cube read (see `PivotModel.diagnostics`), in spec order. */
+  readonly diagnostics: readonly PivotDiagnostic[];
+  /** Whether some record (before filters) has `key` for `field` (derived date fields resolved). */
+  hasKey(field: string, key: string): boolean;
 }
 
 export interface PivotCubeFacet {
@@ -219,6 +258,13 @@ function dateCompare(def: PivotDateFieldDef | null): ((a: string, b: string) => 
   return def ? pivotDateKeyComparator(def) : undefined;
 }
 
+/** `timeField` of a `closingBalance` / `openingBalance` / `averageOverTime` measure, else `null`. */
+export function pivotTimeAggregateField(m: PivotMeasure): string | null {
+  const agg = m.aggregate;
+  if (typeof agg !== "object" || agg === null) return null;
+  return agg.type === "closingBalance" || agg.type === "openingBalance" || agg.type === "averageOverTime" ? agg.timeField : null;
+}
+
 /**
  * The spec slices a cube depends on, as a string: equal keys (and the same rows / aggregators)
  * give the same cube, so view-only changes (expanded / column groups, heat, labels, formats, KPIs,
@@ -232,6 +278,12 @@ export function pivotSpecDataKey(spec: PivotSpec): string {
     ...(spec.filters ?? []).map((f) => f.field),
     ...(spec.facets ?? []).map(pivotFacetField),
   ]);
+  // Measure filters and time fields of semi-additive aggregates read keys too (date fields resolved).
+  for (const m of spec.measures) {
+    for (const f of pivotMeasureFilters(m.filter)) keyFields.add(f.field);
+    const t = pivotTimeAggregateField(m);
+    if (t !== null) keyFields.add(t);
+  }
   const dates = [...keyFields].flatMap((field) => {
     const def = resolvePivotDateField(spec, field);
     return def ? [[field, def.source, def.group, def.fiscalYearStartMonth, def.timeZoneOffsetMinutes]] : [];
@@ -239,7 +291,12 @@ export function pivotSpecDataKey(spec: PivotSpec): string {
   return JSON.stringify([
     spec.rows.map((d) => [d.field, d.order, d.sort, d.sortBy, d.topN && { ...d.topN, otherLabel: undefined }, d.attributes]),
     columns.length ? columns.map((c) => [c.field, c.order, c.sort, c.keepEmpty]) : null,
-    spec.measures.map((m) => (m.calculate !== undefined ? [m.id, m.calculate] : [m.id, m.field, m.aggregate])),
+    spec.measures.map((m) => {
+      if (m.calculate !== undefined) return [m.id, m.calculate];
+      const key: unknown[] = m.signField !== undefined ? [m.id, m.field, m.aggregate, m.signField] : [m.id, m.field, m.aggregate];
+      if (m.filter !== undefined) key.push(pivotMeasureFilters(m.filter).map((f) => [f.field, f.include, f.exclude, f.match]));
+      return key;
+    }),
     (spec.filters ?? []).map((f) => [f.field, f.include, f.exclude, f.match]),
     (spec.facets ?? []).map(pivotFacetField),
     ...(dates.length ? [dates] : []),
@@ -252,10 +309,12 @@ export function pivotSpecDataKey(spec: PivotSpec): string {
  * a reference cycle (`validatePivotSpec` reports both before a build).
  */
 function compileMeasureSet(
-  all: readonly PivotMeasure[],
+  spec: PivotSpec,
   enc: PivotRowEncoding,
   ids?: readonly string[],
 ): { readonly list: CompiledMeasure[]; readonly byId: Map<string, CompiledMeasure>; readonly slots: number } {
+  const all = spec.measures;
+  const axes = new Map<string, TimeAxis>();
   const byIdSpec = new Map(all.map((m) => [m.id, m] as const));
   const byId = new Map<string, CompiledMeasure>();
   const list: CompiledMeasure[] = [];
@@ -278,7 +337,7 @@ function compileMeasureSet(
       const program = compilePivotCalc(parsed.ast, (name) => names.indexOf(name));
       cm = { measure: m, kind: Kind.Calc, off: 0, a: null, b: null, p: null, offset: 0, calc: { program, refs, scratch: new Float64Array(refs.length) } };
     } else {
-      cm = compileMeasure(m, off, enc);
+      cm = compileMeasure(m, off, enc, spec, axes);
       off += SLOTS[cm.kind];
     }
     byId.set(id, cm);
@@ -289,9 +348,150 @@ function compileMeasureSet(
   return { list, byId, slots: off };
 }
 
-function compileMeasure(m: PivotMeasure, off: number, enc: PivotRowEncoding): CompiledMeasure {
+/** Signed copies of value columns, per (values, signs) column pair: built once per encoding. */
+const signedColumns = new WeakMap<Float64Array, WeakMap<Float64Array, Float64Array>>();
+
+/**
+ * `values[i] * signs[i]`, with a missing / non-numeric sign (`NaN`) counting as 1. Memoized on the
+ * encoding's cached columns, so rebuilds of the same rows reuse it; measures without `signField`
+ * never get here (their accumulation reads the plain column).
+ */
+function signedColumn(values: Float64Array, signs: Float64Array): Float64Array {
+  let bySigns = signedColumns.get(values);
+  if (!bySigns) signedColumns.set(values, (bySigns = new WeakMap()));
+  let out = bySigns.get(signs);
+  if (!out) {
+    out = new Float64Array(values.length);
+    for (let i = 0; i < values.length; i++) {
+      const s = signs[i]!;
+      out[i] = s === s ? values[i]! * s : values[i]!;
+    }
+    bySigns.set(signs, out);
+  }
+  return out;
+}
+
+/** `values` with records outside `keep` set to `NaN` (no value): how a measure filter reaches value columns. */
+function maskedColumn(values: Float64Array, keep: Uint8Array): Float64Array {
+  const out = new Float64Array(values.length);
+  for (let i = 0; i < values.length; i++) out[i] = keep[i] === 1 ? values[i]! : NaN;
+  return out;
+}
+
+/**
+ * Apply a measure filter to a compiled measure: value / weight columns get `NaN` outside the filter,
+ * `count` reads a presence column ANDed with it (and `count` of records becomes a count of the
+ * records that pass), distinct counts treat filtered-out records as blank, custom aggregators skip
+ * them when read. The record pass is unchanged, so measures without a filter cost nothing.
+ */
+function applyMeasureFilter(cm: CompiledMeasure, keep: Uint8Array): CompiledMeasure {
+  switch (cm.kind) {
+    case Kind.CountRows:
+      return { ...cm, kind: Kind.CountField, p: keep };
+    case Kind.CountField: {
+      const p = new Uint8Array(keep.length);
+      for (let i = 0; i < p.length; i++) p[i] = cm.p![i]! & keep[i]!;
+      return { ...cm, p };
+    }
+    case Kind.DistinctCount: {
+      const d = cm.distinct!;
+      const blank = d.blank >= 0 ? d.blank : d.keyCount;
+      const codes = new Int32Array(d.codes.length);
+      for (let i = 0; i < codes.length; i++) codes[i] = keep[i] === 1 ? d.codes[i]! : blank;
+      return { ...cm, distinct: { codes, keyCount: d.blank >= 0 ? d.keyCount : d.keyCount + 1, blank } };
+    }
+    case Kind.Ratio:
+      return { ...cm, a: cm.a && maskedColumn(cm.a, keep), b: cm.b && maskedColumn(cm.b, keep) };
+    case Kind.Custom:
+      return { ...cm, keep };
+    default:
+      // sum / avg / min / max / first / last / weighted average (the value is enough) / semi-additive.
+      return { ...cm, a: cm.a && maskedColumn(cm.a, keep) };
+  }
+}
+
+/**
+ * Is `field` a time level of `timeField`: the field itself, its source date field, or another date
+ * grouping of the same source (`PERIOD`, `PERIOD:year`, `PERIOD:yearQuarter` for `PERIOD:yearMonth`)?
+ */
+function isTimeLevel(spec: PivotSpec, timeField: string, field: string): boolean {
+  if (field === timeField) return true;
+  const source = resolvePivotDateField(spec, timeField)?.source ?? timeField;
+  return field === source || resolvePivotDateField(spec, field)?.source === source;
+}
+
+/**
+ * Chronological rank per record of `timeField` (derived date fields in calendar order, other fields by
+ * `comparePivotKeys`: numbers numerically, ISO dates and `2026-01` strings as text) and, for balances,
+ * each record's series: its combination of the layout's non-time row and column keys.
+ */
+function timeAxis(spec: PivotSpec, enc: PivotRowEncoding, timeField: string, withSeries: boolean): TimeAxis {
+  const n = enc.length;
+  const codes = enc.codes(timeField);
+  const keys = codes.keys;
+  const def = resolvePivotDateField(spec, timeField);
+  const compare = def ? pivotDateKeyComparator(def) : comparePivotKeys;
+  const order = keys.map((_, c) => c).filter((c) => keys[c] !== "");
+  order.sort((a, b) => compare(keys[a]!, keys[b]!));
+  const rankOfCode = new Int32Array(keys.length).fill(-1);
+  // Keys that compare equal (e.g. "1" and "1.0") share a rank.
+  let r = -1;
+  order.forEach((c, k) => {
+    if (k === 0 || compare(keys[order[k - 1]!]!, keys[c]!) !== 0) r++;
+    rankOfCode[c] = r;
+  });
+  const rank = new Int32Array(n);
+  for (let i = 0; i < n; i++) rank[i] = rankOfCode[codes.codes[i]!]!;
+  if (!withSeries) return { rank, periods: r + 1, series: null };
+
+  const fields = [...spec.rows.map((d) => d.field), ...pivotColumnFields(spec).map((d) => d.field)].filter((f) => !isTimeLevel(spec, timeField, f));
+  if (fields.length === 0) return { rank, periods: r + 1, series: new Int32Array(n) };
+  const cols = fields.map((f) => enc.codes(f));
+  const series = new Int32Array(n);
+  if (cols.length === 1) {
+    series.set(cols[0]!.codes);
+    return { rank, periods: r + 1, series };
+  }
+  let product = 1;
+  for (const c of cols) product *= Math.max(1, c.keys.length);
+  const dense = product <= MAX_DENSE_COMBOS ? new Int32Array(product).fill(-1) : null;
+  const sparse = dense ? null : new Map<string, number>();
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    let s: number;
+    if (dense) {
+      let comp = 0;
+      for (const c of cols) comp = comp * Math.max(1, c.keys.length) + c.codes[i]!;
+      s = dense[comp]!;
+      if (s < 0) s = dense[comp] = count++;
+    } else {
+      let key = "";
+      for (const c of cols) key += `${c.codes[i]!},`;
+      const hit = sparse!.get(key);
+      if (hit === undefined) sparse!.set(key, (s = count++));
+      else s = hit;
+    }
+    series[i] = s;
+  }
+  return { rank, periods: r + 1, series };
+}
+
+function compileMeasure(m: PivotMeasure, off: number, enc: PivotRowEncoding, spec: PivotSpec, axes: Map<string, TimeAxis>): CompiledMeasure {
+  const cm = compileMeasureBase(m, off, enc, spec, axes);
+  const filters = pivotMeasureFilters(m.filter);
+  if (!filters.length) return cm;
+  const keep = pivotFilterMask(filters, enc);
+  return keep ? applyMeasureFilter(cm, keep) : cm;
+}
+
+function compileMeasureBase(m: PivotMeasure, off: number, enc: PivotRowEncoding, spec: PivotSpec, axes: Map<string, TimeAxis>): CompiledMeasure {
   const agg = m.aggregate ?? "sum";
-  const num = (f: string | undefined) => (f ? enc.numbers(f) : null);
+  const signs = m.signField ? enc.numbers(m.signField) : null;
+  const num = (f: string | undefined) => {
+    if (!f) return null;
+    const values = enc.numbers(f);
+    return signs ? signedColumn(values, signs) : values;
+  };
   if (typeof agg === "string") {
     switch (agg) {
       case "distinctCount": {
@@ -340,13 +540,31 @@ function compileMeasure(m: PivotMeasure, off: number, enc: PivotRowEncoding): Co
         measure: m,
         kind: Kind.Ratio,
         off,
-        a: enc.numbers(agg.numeratorField),
+        // The sign applies to the numerator (the value); the denominator stays as recorded.
+        a: num(agg.numeratorField),
         b: enc.numbers(agg.denominatorField),
         p: null,
         offset: agg.offset ?? 0,
       };
     case "custom":
       return { measure: m, kind: Kind.Custom, off, a: null, b: null, p: null, offset: 0 };
+    case "closingBalance":
+    case "openingBalance":
+    case "averageOverTime": {
+      const balance = agg.type !== "averageOverTime";
+      const id = `${balance ? "s" : "t"}\u0000${agg.timeField}`;
+      let time = axes.get(id);
+      if (!time) axes.set(id, (time = timeAxis(spec, enc, agg.timeField, balance)));
+      const kind = agg.type === "closingBalance" ? Kind.Closing : agg.type === "openingBalance" ? Kind.Opening : Kind.AvgOverTime;
+      let a = num(m.field) ?? new Float64Array(enc.length).fill(NaN);
+      // Average over time: records without a time key are in no period, so they stay out of the sum too.
+      if (!balance && time.rank.includes(-1)) {
+        const keep = new Uint8Array(a.length);
+        for (let i = 0; i < keep.length; i++) keep[i] = time.rank[i]! >= 0 ? 1 : 0;
+        a = maskedColumn(a, keep);
+      }
+      return { measure: m, kind, off, a, b: null, p: null, offset: 0, time };
+    }
   }
 }
 
@@ -440,8 +658,8 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
   };
   const root = make([], "", -1, null, -1);
   const nm = measures.length;
-  // Distinct counts need each record's leaf (filled by the record pass below).
-  const distinctLeaf = measures.some((m) => m.kind === Kind.DistinctCount) ? (t.nodeAtMaxDepth ?? new Int32Array(n)) : null;
+  // Distinct counts and semi-additive measures need each record's leaf (filled by the record pass below).
+  const distinctLeaf = measures.some((m) => m.kind === Kind.DistinctCount || m.time !== undefined) ? (t.nodeAtMaxDepth ?? new Int32Array(n)) : null;
 
   // Composite key radix per level (+1 leaves room for the Top-N "Other" code).
   const radix = levelCodes.slice(0, maxDepth + 1).map((_, d) => levelKeys[d]!.length + 1);
@@ -531,7 +749,8 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
         const x = o + m.off;
         switch (m.kind) {
           case Kind.Sum:
-          case Kind.Avg: {
+          case Kind.Avg:
+          case Kind.AvgOverTime: {
             const v = m.a![i]!;
             if (v === v) {
               acc[x] += v;
@@ -630,7 +849,10 @@ function buildTree(t: TreeInput): { root: MutableNode; nodes: MutableNode[] } {
     }
   }
   for (const node of nodes) node.rowCount = node.acc[totalBase]!;
-  if (distinctLeaf) countDistinct(t, nodes, distinctLeaf);
+  if (distinctLeaf) {
+    countDistinct(t, nodes, distinctLeaf);
+    accumulateOverTime(t, nodes, distinctLeaf);
+  }
   return { root, nodes };
 }
 
@@ -684,6 +906,141 @@ function countDistinct(t: TreeInput, nodes: readonly MutableNode[], leafOf: Int3
   }
 }
 
+/**
+ * Records with a value and a time key, in counting-sort order of `key` (ascending, or descending
+ * with `desc`), each group of equal keys in record order. Records of no leaf (filtered out) are left out.
+ */
+function sortRecordsBy(key: Int32Array, keyCount: number, desc: boolean, leafOf: Int32Array, values: Float64Array, rank: Int32Array, from?: Int32Array): Int32Array {
+  const start = new Int32Array(keyCount + 1);
+  // Slot of key k: k ascending, keyCount - 1 - k descending.
+  const mul = desc ? -1 : 1;
+  const add = desc ? keyCount - 1 : 0;
+  let src = from;
+  if (!src) {
+    // Records that count: in a leaf (not filtered out), with a time key and a value.
+    let count = 0;
+    const all = new Int32Array(key.length);
+    for (let i = 0; i < key.length; i++) if (leafOf[i]! >= 0 && rank[i]! >= 0 && values[i] === values[i]) all[count++] = i;
+    src = all.subarray(0, count);
+  }
+  const len = src.length;
+  for (let q = 0; q < len; q++) start[key[src[q]!]! * mul + add + 1]!++;
+  for (let k = 0; k < keyCount; k++) start[k + 1] += start[k]!;
+  const out = new Int32Array(len);
+  const fill = start.slice(0, keyCount);
+  for (let q = 0; q < len; q++) {
+    const i = src[q]!;
+    out[fill[key[i]! * mul + add]!++] = i;
+  }
+  return out;
+}
+
+/**
+ * Semi-additive measures for every node × bucket (like `countDistinct`, one pass per measure over
+ * sorted records; each record visits its leaf and ancestors, and its total, column and column-group
+ * buckets):
+ *
+ * - closing / opening balance: records sorted by series, then period (latest first for closing), so
+ *   the first record of a series that reaches a (node, bucket) slot fixes that series' period there;
+ *   later records of the same series add only when they share it. Different series add up.
+ * - average over time: records sorted by period; each (node, bucket) counts the distinct periods it
+ *   sees (its sum is accumulated and rolled up like `sum`).
+ *
+ * Records without a value (also those a measure filter drops) or without a time key are skipped, so
+ * a series' balance is its last non-blank period. Memory: two `Int32Array`s of nodes × buckets plus
+ * two of records.
+ */
+function accumulateOverTime(t: TreeInput, nodes: readonly MutableNode[], leafOf: Int32Array): void {
+  const { colCodes, buckets, slots: S } = t;
+  const B1 = buckets + 1;
+  let parentBucket: Int32Array | null = null;
+  let stamp: Int32Array | null = null;
+  let period: Int32Array | null = null;
+  for (const m of t.measures) {
+    const time = m.time;
+    if (!time) continue;
+    if (!parentBucket) {
+      parentBucket = new Int32Array(Math.max(1, buckets)).fill(-1);
+      for (const g of t.colGroups) for (const c of g.children) parentBucket[c] = g.bucket;
+      stamp = new Int32Array(nodes.length * B1);
+    }
+    stamp!.fill(0);
+    const values = m.a!;
+    const off = m.off;
+    const rank = time.rank;
+    if (m.kind === Kind.AvgOverTime) {
+      const order = sortRecordsBy(rank, time.periods, false, leafOf, values, rank);
+      for (let q = 0; q < order.length; q++) {
+        const i = order[q]!;
+        const tag = rank[i]! + 1;
+        const cb = colCodes === null ? -1 : colCodes[i]!;
+        for (let node: MutableNode | null = nodes[leafOf[i]!]!; node !== null; node = node.parent) {
+          const base = node.id * B1;
+          const acc = node.acc;
+          if (stamp![base + buckets] !== tag) {
+            stamp![base + buckets] = tag;
+            acc[buckets * S + off + 2]!++;
+          }
+          for (let b = cb; b >= 0; b = parentBucket![b]!) {
+            if (stamp![base + b] !== tag) {
+              stamp![base + b] = tag;
+              acc[b * S + off + 2]!++;
+            }
+          }
+        }
+      }
+      continue;
+    }
+    if (!period) period = new Int32Array(nodes.length * B1);
+    const series = time.series!;
+    let seriesCount = 0;
+    for (let i = 0; i < series.length; i++) if (series[i]! >= seriesCount) seriesCount = series[i]! + 1;
+    // Period order (latest first for closing), then a stable sort by series.
+    const byPeriod = sortRecordsBy(rank, time.periods, m.kind === Kind.Closing, leafOf, values, rank);
+    const order = sortRecordsBy(series, seriesCount, false, leafOf, values, rank, byPeriod);
+    const st = stamp!;
+    const per = period!;
+    const pb = parentBucket!;
+    for (let q = 0; q < order.length; q++) {
+      const i = order[q]!;
+      const tag = series[i]! + 1;
+      const p = rank[i]!;
+      const v = values[i]!;
+      const cb = colCodes === null ? -1 : colCodes[i]!;
+      for (let node: MutableNode | null = nodes[leafOf[i]!]!; node !== null; node = node.parent) {
+        const base = node.id * B1;
+        const acc = node.acc;
+        // The total bucket (b = buckets), then the record's column and its column groups.
+        for (let b = buckets; b >= 0; b = b === buckets ? cb : pb[b]!) {
+          const idx = base + b;
+          if (st[idx] !== tag) {
+            st[idx] = tag;
+            per[idx] = p;
+          } else if (per[idx] !== p) continue;
+          const x = b * S + off;
+          acc[x] += v;
+          acc[x + 1]!++;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Drop the per-record columns of compiled measures once the cube's tree is built: reading values
+ * needs only accumulators, so masked (measure filter) and time-axis (semi-additive) copies are not
+ * retained with a cached cube.
+ */
+function releaseColumns(list: readonly CompiledMeasure[]): void {
+  for (const m of list) {
+    m.a = null;
+    m.b = null;
+    m.p = null;
+    delete m.time;
+    delete m.distinct;
+  }
+}
+
 /** Merge one node's accumulators into its parent's (per aggregation kind). */
 function mergeInto(into: Float64Array, from: Float64Array, buckets: number, S: number, measures: readonly CompiledMeasure[]): void {
   for (let b = 0; b <= buckets; b++) mergeBucket(into, b * S, from, b * S, measures);
@@ -700,6 +1057,7 @@ function mergeBucket(into: Float64Array, io: number, from: Float64Array, fo: num
       case Kind.Sum:
       case Kind.Avg:
       case Kind.WeightedAvg:
+      case Kind.AvgOverTime:
         into[x] += from[y]!;
         into[x + 1] += from[y + 1]!;
         break;
@@ -771,8 +1129,9 @@ function readValue(
     case Kind.CountRows:
       return acc[o]!;
     case Kind.CountField:
-    case Kind.DistinctCount:
       return acc[x]!;
+    case Kind.DistinctCount:
+      return node.merged ? null : acc[x]!;
     case Kind.Calc: {
       const c = m.calc!;
       const s = c.scratch;
@@ -788,8 +1147,16 @@ function readValue(
     case Kind.Ratio:
       if (acc[x + 1] === 0 || acc[x + 3] === 0 || acc[x + 2] === 0) return null;
       return acc[x]! / acc[x + 2]! + m.offset;
+    case Kind.Closing:
+    case Kind.Opening:
+      // Merged key totals (several parents) cannot tell series apart.
+      return node.merged || acc[x + 1] === 0 ? null : acc[x]!;
+    case Kind.AvgOverTime:
+      return node.merged || acc[x + 1] === 0 || acc[x + 2] === 0 ? null : acc[x]! / acc[x + 2]!;
     case Kind.Custom: {
-      const idx = node.rowIdx![bucket]!;
+      if (node.merged) return null;
+      const keep = m.keep;
+      const idx = keep ? node.rowIdx![bucket]!.filter((i) => keep[i] === 1) : node.rowIdx![bucket]!;
       return aggregatePivotRows(
         idx.map((i) => rows[i]!),
         m.measure.aggregate,
@@ -1109,7 +1476,7 @@ function selectPivotRecords(
     const top = dims[d]!.topN;
     if (!top) continue;
     // The rank measure alone (plus what a calculated rank measure references), offsets from 1.
-    const rankSet = compileMeasureSet(spec.measures, enc, [top.measure]);
+    const rankSet = compileMeasureSet(spec, enc, [top.measure]);
     const S = rankSet.slots;
     const nodeAt = new Int32Array(n);
     const { root, nodes } = buildTree({
@@ -1184,7 +1551,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   const attributeFields = dims.map((d) => d.attributes);
 
   // ---- Measures ---------------------------------------------------------------
-  const measureSet = compileMeasureSet(spec.measures, enc);
+  const measureSet = compileMeasureSet(spec, enc);
   const compiledMeasures = measureSet.byId;
   const custom = measureSet.list.some((m) => m.kind === Kind.Custom);
   const valueFor =
@@ -1212,6 +1579,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     custom,
   });
   const value = valueFor(S, compiledMeasures);
+  releaseColumns(measureSet.list);
 
   const ordered: MutableNode[] = [];
   const walk = (node: MutableNode) => {
@@ -1230,6 +1598,40 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   // ---- Facets -------------------------------------------------------------------
   const facets = facetFields.map((field) => facetOf(field, pass.facets.get(field)!, spec));
 
+  // ---- Key totals (showAsBase.scope "all"), merged on first use -------------------
+  const keyTotals = new Map<string, MutableNode | null>();
+  const keyTotal = (depth: number, key: string): MutableNode | null => {
+    const id = `${depth}\u0000${key}`;
+    const hit = keyTotals.get(id);
+    if (hit !== undefined) return hit;
+    const matches = depth >= 0 && depth <= leafDepth ? nodes.filter((x) => x.depth === depth && x.key === key) : [];
+    let out: MutableNode | null = null;
+    if (matches.length === 1) out = matches[0]!;
+    else if (matches.length > 1) {
+      const acc = new Float64Array((buckets + 1) * S);
+      for (const x of matches) mergeInto(acc, x.acc, buckets, S, measureSet.list);
+      out = {
+        id: -1,
+        path: [key],
+        key,
+        depth,
+        parent: null,
+        children: [],
+        rowCount: acc[buckets * S]!,
+        attributes: null,
+        attrPending: 0,
+        code: -1,
+        childByCode: NO_CHILDREN,
+        acc,
+        rowIdx: null,
+        chain: null,
+        merged: true,
+      };
+    }
+    keyTotals.set(id, out);
+    return out;
+  };
+
   return {
     root,
     nodes: ordered,
@@ -1238,10 +1640,161 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     valueOf: (node, measureId, columnKey) => value(node as MutableNode, measureId, columnKey),
     valueAt: (node, measureId, bucket) =>
       bucket < 0 ? null : readValue(node as MutableNode, compiledMeasures.get(measureId)!, bucket, S, rows, registry),
+    keyTotal,
     recordCount: { total: n, matched: root.rowCount },
     facets,
+    diagnostics: pivotCubeDiagnostics(spec, enc),
+    hasKey: (field, key) => enc.codes(field).index.has(key),
     byteSize: nodes.length * ((buckets + 1) * S * 8 + NODE_BYTES) + (custom ? root.rowCount * (leafDepth + 2) * 2 * 8 : 0),
   };
+}
+
+const MAX_DIAGNOSTIC_ITEMS = 10;
+
+const sampleList = (samples: readonly { row: number; value: string }[]) => samples.map((s) => `${s.value} (row ${s.row})`).join(", ");
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Diagnostics from the statistics the encoding gathered while the cube read its fields (no extra
+ * pass over the records): one entry per field and problem, in spec order.
+ */
+function pivotCubeDiagnostics(spec: PivotSpec, enc: PivotRowEncoding): PivotDiagnostic[] {
+  const n = enc.length;
+  if (n === 0) return [];
+  const out: PivotDiagnostic[] = [];
+  const done = new Set<string>();
+  const once = (code: string, field: string) => {
+    const id = `${code}\u0000${field}`;
+    if (done.has(id)) return false;
+    done.add(id);
+    return true;
+  };
+  const missing = (field: string, path: string): boolean => {
+    const st = enc.stats(field);
+    if (!st || st.missing !== n) return false;
+    if (once("missingField", field)) {
+      out.push({ code: "missingField", field, path, count: n, message: `No record has the field "${field}" (${path}); check the spelling. Its cells are empty or (blank).` });
+    }
+    return true;
+  };
+  const keyField = (field: string, path: string) => {
+    const def = resolvePivotDateField(spec, field);
+    if (def) {
+      enc.days(def.source, def.timeZoneOffsetMinutes);
+      if (missing(def.source, path)) return;
+      const dates = enc.stats(def.source)?.dates;
+      if (dates && dates.invalid > 0 && once("invalidDates", def.source)) {
+        out.push({
+          code: "invalidDates",
+          field: def.source,
+          path,
+          count: dates.invalid,
+          samples: dates.samples,
+          message:
+            `${plural(dates.invalid, "value")} of "${def.source}" (${path}) ${dates.invalid === 1 ? "is not a date" : "are not dates"} and grouped as (blank), ` +
+            `e.g. ${sampleList(dates.samples)}. Send ISO 8601 dates ("2026-12-31") or epoch milliseconds.`,
+        });
+      }
+      return;
+    }
+    enc.codes(field);
+    if (missing(field, path)) return;
+    const keys = enc.stats(field)?.keys;
+    if (keys && keys.mixed > 0 && once("mixedKeyTypes", field)) {
+      out.push({
+        code: "mixedKeyTypes",
+        field,
+        path,
+        count: keys.mixed,
+        types: keys.types,
+        samples: keys.samples,
+        message:
+          `"${field}" (${path}) mixes ${keys.types.join(" and ")} values (${plural(keys.mixed, "record")} differ from the first value's type, e.g. ${sampleList(keys.samples)}). ` +
+          `Keys compare as strings: 2024 and "2024" are one key, 1 and "1.0" are two.`,
+      });
+    }
+  };
+  const numberField = (field: string | undefined, path: string) => {
+    if (!field) return;
+    enc.numbers(field);
+    if (missing(field, path)) return;
+    const nums = enc.stats(field)?.numbers;
+    if (nums && nums.unparsed > 0 && once("unparsedNumbers", field)) {
+      out.push({
+        code: "unparsedNumbers",
+        field,
+        path,
+        count: nums.unparsed,
+        samples: nums.samples,
+        message:
+          `${plural(nums.unparsed, "value")} of "${field}" (${path}) ${nums.unparsed === 1 ? "is not a number" : "are not numbers"} and left out of every total, ` +
+          `e.g. ${sampleList(nums.samples)}. Send plain numbers or numeric strings ("-500", "1234.50"); thousands separators, currency symbols, ` +
+          `accounting parentheses and radix literals are not parsed.`,
+      });
+    }
+  };
+  const presentField = (field: string, path: string) => {
+    enc.present(field);
+    missing(field, path);
+  };
+  /** A report or measure filter at `where`: its field, and include / exclude items no record has. */
+  const filterItems = (f: PivotFilter, where: string) => {
+    keyField(f.field, `${where}.field`);
+    const def = resolvePivotDateField(spec, f.field);
+    if (enc.stats(def ? def.source : f.field)?.missing === n) return;
+    const index = enc.codes(f.field).index;
+    for (const key of ["include", "exclude"] as const) {
+      const absent = (f[key] ?? []).filter((item) => !index.has(item));
+      if (!absent.length) continue;
+      const items = absent.slice(0, MAX_DIAGNOSTIC_ITEMS);
+      out.push({
+        code: "filterItemsNotFound",
+        field: f.field,
+        path: `${where}.${key}`,
+        count: absent.length,
+        items,
+        message:
+          `${where}.${key}: ${items.map((x) => JSON.stringify(x)).join(", ")}${absent.length > items.length ? ", …" : ""} ` +
+          `${absent.length === 1 ? "is not a value" : "are not values"} of "${f.field}" (keys compare as case-sensitive strings).`,
+      });
+    }
+  };
+
+  spec.rows.forEach((d, i) => keyField(d.field, `rows[${i}].field`));
+  const columns = spec.columns === undefined ? [] : Array.isArray(spec.columns) ? spec.columns : [spec.columns];
+  const columnPath = (i: number) => (Array.isArray(spec.columns) ? `columns[${i}].field` : "columns.field");
+  columns.forEach((d: PivotDimension, i: number) => keyField(d.field, columnPath(i)));
+  spec.measures.forEach((m, i) => {
+    if (m.calculate !== undefined) return;
+    const where = `measures[${i}]`;
+    const agg = m.aggregate ?? "sum";
+    if (agg === "count") {
+      if (m.field) presentField(m.field, `${where}.field`);
+    } else if (agg === "distinctCount") {
+      if (m.field) keyField(m.field, `${where}.field`);
+    } else if (typeof agg === "string") {
+      numberField(m.field, `${where}.field`);
+    } else if (agg.type === "weightedAvg") {
+      numberField(m.field, `${where}.field`);
+      numberField(agg.weightField, `${where}.aggregate.weightField`);
+    } else if (agg.type === "ratio") {
+      numberField(agg.numeratorField, `${where}.aggregate.numeratorField`);
+      numberField(agg.denominatorField, `${where}.aggregate.denominatorField`);
+    }
+    if (m.signField) {
+      enc.numbers(m.signField);
+      missing(m.signField, `${where}.signField`);
+    }
+    const timeField = pivotTimeAggregateField(m);
+    if (timeField !== null) keyField(timeField, `${where}.aggregate.timeField`);
+    if (m.filter !== undefined) {
+      const list = Array.isArray(m.filter);
+      pivotMeasureFilters(m.filter).forEach((f, j) => filterItems(f, list ? `${where}.filter[${j}]` : `${where}.filter`));
+    }
+  });
+  (spec.filters ?? []).forEach((f, i) => filterItems(f, `filters[${i}]`));
+  (spec.facets ?? []).forEach((f, i) => keyField(pivotFacetField(f), `facets[${i}]`));
+  return out;
 }
 
 /** Rough per-node overhead besides the accumulators (node object, path, child map, views). */
@@ -1293,7 +1846,11 @@ export interface PivotDrillThroughTarget {
    * (subtotal / collapsed column) covers every column under it.
    */
   readonly columnPath?: readonly string[] | null;
-  /** Measure of the cell: picks the source fields reported in `fields` (records are not filtered by it). */
+  /**
+   * Measure of the cell: picks the source fields reported in `fields`. With a measure-level filter
+   * (`PivotMeasure.filter`), only the records that pass it are listed (a calculated measure: records
+   * that pass the filter of any measure it references, every record when one of them has none).
+   */
   readonly measureId?: string;
 }
 
@@ -1325,6 +1882,30 @@ export interface PivotDrillThroughResult {
   readonly fields: readonly string[];
 }
 
+/**
+ * Measure filters behind `id`: its own, or for a calculated measure those of the measures it references
+ * (`null` when some base measure has none, i.e. every record counts).
+ */
+function measureFilterSets(spec: PivotSpec, id: string, seen = new Set<string>()): (readonly PivotFilter[])[] | null {
+  if (seen.has(id)) return [];
+  seen.add(id);
+  const m = spec.measures.find((x) => x.id === id);
+  if (!m) return [];
+  if (m.calculate !== undefined) {
+    const parsed = parsePivotCalc(m.calculate);
+    if (!parsed.ok) return null;
+    const out: (readonly PivotFilter[])[] = [];
+    for (const ref of parsed.references) {
+      const sets = measureFilterSets(spec, ref, seen);
+      if (sets === null) return null;
+      out.push(...sets);
+    }
+    return out;
+  }
+  const filters = pivotMeasureFilters(m.filter);
+  return filters.length ? [filters] : null;
+}
+
 /** Record fields a measure reads (calculated measures: the fields of the measures they reference). */
 function measureSourceFields(spec: PivotSpec, id: string, out: string[], seen = new Set<string>()): void {
   if (seen.has(id)) return;
@@ -1340,9 +1921,12 @@ function measureSourceFields(spec: PivotSpec, id: string, out: string[], seen = 
     return;
   }
   add(m.field);
+  add(m.signField);
   const agg = m.aggregate;
   if (agg && typeof agg === "object") {
     if (agg.type === "weightedAvg") add(agg.weightField);
+    const timeField = pivotTimeAggregateField(m);
+    if (timeField !== null) add(resolvePivotDateField(spec, timeField)?.source ?? timeField);
     if (agg.type === "ratio") {
       add(agg.numeratorField);
       add(agg.denominatorField);
@@ -1351,11 +1935,41 @@ function measureSourceFields(spec: PivotSpec, id: string, out: string[], seen = 
 }
 
 /**
+ * Key codes a calculated item `key` of dimension `d` reads (its data keys, through other items too), or
+ * `null` when `key` is not a calculated item of `d` (calculated items shadow data keys of the same name).
+ */
+function pivotItemReadCodes(d: PivotDimension, key: string, keys: readonly string[]): Set<number> | null {
+  const list = d.calculatedItems;
+  if (!list?.some((it) => it.key === key)) return null;
+  const byKey = new Map(list.map((it) => [it.key, it] as const));
+  const codeOf = new Map(keys.map((k, c) => [k, c] as const));
+  const out = new Set<number>();
+  const seen = new Set<string>();
+  const visit = (k: string) => {
+    if (seen.has(k)) return;
+    seen.add(k);
+    const parsed = parsePivotCalc(byKey.get(k)!.formula, { allowReservedNames: true });
+    if (!parsed.ok) return;
+    for (const ref of parsed.references) {
+      if (byKey.has(ref)) visit(ref);
+      else {
+        const c = codeOf.get(ref);
+        if (c !== undefined) out.add(c);
+      }
+    }
+  };
+  visit(key);
+  return out;
+}
+
+/**
  * Source records behind a pivot cell (Excel's "Show details"): records that pass the report /
  * label filters and Top N (an "Other" row lists the keys it folds; keys cut by Top N without
  * "Other" never match), whose row keys start with `target.path` and column keys with
  * `target.columnPath`. Date-grouped fields match by their derived keys (`orderDate:year` = `"2026"`).
- * Group, subtotal and total cells pass shorter paths and get the broader record set.
+ * Group, subtotal and total cells pass shorter paths and get the broader record set. A calculated item
+ * row (`path` ending with the item's key) lists the records of every key its formula reads under the same
+ * parent (an item reading no key: none); `total` then differs from the row's `sourceRowCount` (0).
  *
  * Does not aggregate, so it costs one filter pass (plus one partial aggregation per Top-N level);
  * pass the builder's `encoding` (`createPivotModelBuilder().drillThrough`) to skip re-encoding.
@@ -1389,19 +2003,40 @@ export function pivotDrillThrough(
 
   const sel = selectPivotRecords(spec, rows, { aggregators: options.aggregators, encoding: options.encoding }, []);
   const { enc, n, mask, levelCodes, levelKeys } = sel;
+  // A calculated item at the end of the path: the records of every key its formula reads, directly or
+  // through other items of the level (Gross margin → Revenue and Cost of sales).
+  const itemLevel = path.length - 1;
+  const itemCodes = itemLevel >= 0 ? pivotItemReadCodes(spec.rows[itemLevel]!, path[itemLevel]!, levelKeys[itemLevel]!) : null;
   // Target key code per level (-1: the key has no records).
-  const rowTargets = path.map((key, d) => levelKeys[d]!.indexOf(key));
+  const rowTargets = path.map((key, d) => (d === itemLevel && itemCodes ? -2 : levelKeys[d]!.indexOf(key)));
   const colCodes = columnPath.map((key, j) => {
     const c = enc.codes(colDims[j]!.field);
     return { codes: c.codes, code: c.index.get(key) ?? -1 };
   });
-  if (rowTargets.some((c) => c < 0) || colCodes.some((c) => c.code < 0)) return none;
+  if (rowTargets.some((c) => c === -1) || colCodes.some((c) => c.code < 0)) return none;
+  // A filtered measure lists the records it aggregated (any of its sets, for a calculated measure).
+  const sets = target.measureId !== undefined ? measureFilterSets(spec, target.measureId) : null;
+  let keep: Uint8Array | null = null;
+  if (sets !== null && sets.length > 0) {
+    keep = new Uint8Array(n);
+    for (const set of sets) {
+      const m = pivotFilterMask(set, enc);
+      if (m === null) {
+        keep = null;
+        break;
+      }
+      for (let i = 0; i < n; i++) keep[i] |= m[i]!;
+    }
+  }
 
   const indices: number[] = [];
   let total = 0;
   outer: for (let i = 0; i < n; i++) {
     if (mask !== null && mask[i] === 0) continue;
-    for (let d = 0; d < rowTargets.length; d++) if (levelCodes[d]![i] !== rowTargets[d]) continue outer;
+    if (keep !== null && keep[i] === 0) continue;
+    for (let d = 0; d < rowTargets.length; d++) {
+      if (rowTargets[d] === -2 ? !itemCodes!.has(levelCodes[d]![i]!) : levelCodes[d]![i] !== rowTargets[d]) continue outer;
+    }
     for (let j = 0; j < colCodes.length; j++) if (colCodes[j]!.codes[i] !== colCodes[j]!.code) continue outer;
     if (total >= offset && indices.length < limit) indices.push(i);
     total++;

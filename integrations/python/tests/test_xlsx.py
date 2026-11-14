@@ -24,11 +24,13 @@ def workbook(planning_sheet: dict[str, Any], planning_spec: dict[str, Any]) -> A
 def test_values_and_number_formats(workbook: Any, planning_sheet: dict[str, Any]) -> None:
     ws = workbook["FY26 Sales Plan"]
     cells = planning_sheet["cells"]
-    assert ws.max_row == len(cells)
+    top = planning_sheet["tableRow"]
+    assert ws.max_row == top + len(cells)
     assert ws.max_column == planning_sheet["columnCount"]
+    assert ws.cell(row=1, column=1).value == planning_sheet["title"]
     for r, row in enumerate(cells, start=1):
         for c, src in enumerate(row, start=1):
-            cell = ws.cell(row=r, column=c)
+            cell = ws.cell(row=top + r, column=c)
             if src["v"] is None:
                 assert cell.value is None
             elif isinstance(src["v"], float):
@@ -49,28 +51,31 @@ def test_number_formats_present(workbook: Any, planning_sheet: dict[str, Any]) -
     }
     assert actual == expected
     assert "#,##0%" in actual
-    assert any(f.startswith("[>=1000000]") for f in actual)  # compact currency
+    assert any(f.startswith("[>=1000]") and ";[<=-1000]" in f for f in actual)  # compact currency, negatives scaled
 
 
 def test_merges(workbook: Any, planning_sheet: dict[str, Any]) -> None:
     ws = workbook.worksheets[0]
+    t = planning_sheet["tableRow"]
     expected = {
-        (m["row"] + 1, m["col"] + 1, m["row"] + m["rowSpan"], m["col"] + m["colSpan"]) for m in planning_sheet["merges"]
+        (t + m["row"] + 1, m["col"] + 1, t + m["row"] + m["rowSpan"], m["col"] + m["colSpan"])
+        for m in planning_sheet["merges"]
     }
     actual = {(r.min_row, r.min_col, r.max_row, r.max_col) for r in ws.merged_cells.ranges}
     assert actual == expected
-    assert len(actual) == 3
+    # Tabular labels repeat on every row of their group: no merges in the body (AutoFilter / sort work).
+    assert all(m["row"] < planning_sheet["frozenRows"] for m in planning_sheet["merges"])
 
 
 def test_frozen_panes(workbook: Any, planning_sheet: dict[str, Any]) -> None:
-    assert (planning_sheet["frozenRows"], planning_sheet["frozenCols"]) == (1, 2)
-    assert workbook.worksheets[0].freeze_panes == "C2"
+    assert (planning_sheet["frozenRows"], planning_sheet["frozenCols"], planning_sheet["tableRow"]) == (1, 2, 2)
+    assert workbook.worksheets[0].freeze_panes == "C4"  # below the title, a blank row and the header row
 
 
 def test_heat_levels_become_fills(workbook: Any, planning_sheet: dict[str, Any]) -> None:
     ws = workbook.worksheets[0]
     heated = 0
-    for r, row in enumerate(planning_sheet["cells"], start=1):
+    for r, row in enumerate(planning_sheet["cells"], start=1 + planning_sheet["tableRow"]):
         for c, src in enumerate(row, start=1):
             fill = ws.cell(row=r, column=c).fill
             if "heat" in src:
@@ -132,26 +137,68 @@ def test_multi_row_headers_keep_their_row_spanning_merges() -> None:
     spans = [m for m in sheet["merges"] if m["rowSpan"] == 2 and m["colSpan"] == 2]
     assert spans, "expected a region subtotal covering two header rows and two measures"
     merged = {str(r) for r in ws.merged_cells.ranges}
+    t = sheet["tableRow"]
     for m in spans:
-        first = ws.cell(row=m["row"] + 1, column=m["col"] + 1)
-        last = ws.cell(row=m["row"] + m["rowSpan"], column=m["col"] + m["colSpan"])
+        first = ws.cell(row=t + m["row"] + 1, column=m["col"] + 1)
+        last = ws.cell(row=t + m["row"] + m["rowSpan"], column=m["col"] + m["colSpan"])
         assert f"{first.coordinate}:{last.coordinate}" in merged
         assert first.value == sheet["cells"][m["row"]][m["col"]]["v"]
-    assert ws.freeze_panes == "C4"
+    assert ws.freeze_panes == f"C{t + 4}"
 
 
 def test_calc_sheet_numbers_formats_and_subtotal_rows() -> None:
     """planning-calc: calculated / show-as values stay numeric with their formats; subtotal rows are not merged."""
     sheet = load_example("planning-calc.sheet.json")
     ws = openpyxl.load_workbook(io.BytesIO(write_xlsx_from_sheet(sheet))).worksheets[0]
+    t = sheet["tableRow"]
     for r, row in enumerate(sheet["cells"]):
         for c, src in enumerate(row):
-            cell = ws.cell(row=r + 1, column=c + 1)
+            cell = ws.cell(row=t + r + 1, column=c + 1)
             if isinstance(cell, MergedCell):
                 continue
             if isinstance(src["v"], (int, float)):
                 assert cell.value == pytest.approx(src["v"])
                 assert cell.number_format == src["numFmt"]
     total = next(r for r, row in enumerate(sheet["cells"]) if row[0]["v"] == "Camp Total")
-    assert ws.cell(row=total + 1, column=1).value == "Camp Total"
-    assert not isinstance(ws.cell(row=total + 1, column=1), MergedCell)
+    assert ws.cell(row=t + total + 1, column=1).value == "Camp Total"
+    assert not isinstance(ws.cell(row=t + total + 1, column=1), MergedCell)
+
+
+def test_outline_hidden_rows_and_print_setup(workbook: Any, planning_sheet: dict[str, Any]) -> None:
+    """Collapsed groups are written hidden in a row outline; landscape, fit to width, repeated header rows."""
+    ws = workbook.worksheets[0]
+    body = planning_sheet["tableRow"] + planning_sheet["frozenRows"]
+    assert any(meta.get("hidden") for meta in planning_sheet["bodyRows"])
+    for i, meta in enumerate(planning_sheet["bodyRows"]):
+        dims = ws.row_dimensions[body + i + 1]
+        assert dims.outlineLevel == meta["outlineLevel"]
+        assert bool(dims.hidden) == bool(meta.get("hidden"))
+        assert bool(dims.collapsed) == bool(meta.get("collapsed"))
+    assert ws.sheet_properties.outlinePr.summaryBelow is False
+    assert ws.page_setup.orientation == "landscape"
+    assert ws.page_setup.fitToWidth == 1 and ws.page_setup.fitToHeight == 0
+    assert ws.sheet_properties.pageSetUpPr.fitToPage is True
+    assert ws.print_title_rows == "$3:$3"
+    assert ws.oddHeader.left.text == planning_sheet["title"]
+    assert ws.oddFooter.right.text == "Page &P of &N"
+
+
+def test_statement_profile_indent_rules_and_formulas() -> None:
+    """Statement rules, alignment indent instead of spaces, summary rows below, SUBTOTAL formulas as formulas."""
+    sheet = load_example("planning-statement.sheet.json")
+    cells = [list(row) for row in sheet["cells"]]
+    total = len(cells) - 1
+    cells[total] = [{**c, "border": {"top": "thin", "bottom": "double"}} for c in cells[total]]
+    cells[total][1] = {**cells[total][1], "f": "SUBTOTAL(9,B4:B13)"}
+    ws = openpyxl.load_workbook(
+        io.BytesIO(write_xlsx_from_sheet({**sheet, "cells": cells, "profile": "statement"}, generated_at="2026-01-15"))
+    ).worksheets[0]
+    t = sheet["tableRow"]
+    revenue = next(r for r, row in enumerate(cells) if row[0]["v"] == "Revenue")
+    assert ws.cell(row=t + revenue + 1, column=1).alignment.indent == 1
+    gt = ws.cell(row=t + total + 1, column=1)
+    assert gt.border.bottom.style == "double" and gt.border.top.style == "thin"
+    assert gt.fill.fill_type is None  # no grey band in the statement profile
+    assert ws.cell(row=t + total + 1, column=2).value == "=SUBTOTAL(9,B4:B13)"
+    assert ws.sheet_properties.outlinePr.summaryBelow is True
+    assert ws.oddFooter.left.text == "2026-01-15"

@@ -2,7 +2,122 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
-## [Unreleased]
+## [0.4.0] - 2026-11-14
+
+A **minor** release: calculated items, measure filters, semi-additive aggregates, analyst
+workbooks and financial statements for the pivot. `PivotSpec` stays `version: 1`.
+
+### Breaking
+
+Check these before you upgrade from 0.3. Details are under each "Changed (behaviour)" below.
+
+- **Stricter validation.** `validatePivotSpec` rejects unknown keys and invalid values that 0.3.0
+  accepted and half-ignored, and some referential cases (`keepEmpty` on a row dimension, an unused
+  `showAsBase`, a calculated measure over a shown-as measure). `nqgrid-export` rejects unknown
+  `options` keys. Validate your stored specs before you deploy.
+- **Sheet and XLSX layout.** Compact labels carry `indent` instead of leading spaces (option
+  `indent: "  "` restores the old cells), tabular labels repeat and the body has no merges
+  (`rowLabels: "merge"` restores them), and the table starts below the title rows, so cell
+  addresses move.
+- **New row kind.** `PivotBodyRow["kind"]` gains `"calculated"` and `PivotDimensionSlot` a
+  `calculated` variant: an exhaustive `switch` needs a case.
+- **Interfaces gained members.** `PivotRowEncoding` has `stats` and the nqgrid-export
+  `PivotExporter` has `exportDetailed`: a custom implementation must add them.
+- **Number parsing.** `"0x10"`, `"0b11"` and `"0o7"` are no longer numbers; they are reported as
+  `unparsedNumbers`.
+
+No public export was removed or renamed.
+
+### Analyst review, batch C: calculated items, cascading totals, per-group subtotal labels
+
+`PivotSpec` stays `version: 1`; the schema changes are additive (`rows[i].calculatedItems`, `subtotalLabels`,
+`itemFormats`, the `calculatedItem` definition). Specs without them produce byte-identical models, sheets and HTML
+(every existing golden unchanged).
+
+#### Added
+
+- **Pivot core** — `rows[i].calculatedItems` (`PivotCalculatedItem`: `key`, `formula`, `label`, `after` / `before` / `position`, `format`, `includeInTotals`): Excel calculated items, rows computed by a formula over keys of the same field (siblings under the same parent; at the outermost level the field's groups, e.g. P&L sections) per column bucket and measure from aggregated values — the total column is the formula over the totals. Items may reference other items (cascading totals: EBITDA = `[Gross margin] + [Operating expenses]`); the calc grammar and limits are reused, any key may be referenced (`__proto__` included: keys resolve through `Map`s). Anchored placement that survives `sortBy` / `order` / Top N; shown only under parents with at least one key they read; left out of totals unless `includeInTotals: true` (Excel's behaviour, which double counts statement rows). Calculated measures on an item row evaluate over the item's values of their references; `showAs` applies where an item has a base (row-field bases leave the cells empty); no heat, sorting, Top N, KPIs or facets. View-only: not part of `pivotSpecDataKey`, zero cost for specs without items.
+- **Pivot core** — `rows[i].subtotalLabels` / `columns[i].subtotalLabels` (per-group subtotal labels, `{label}` template) and `rows[i].itemFormats` (number format per key; also covers per-line formats in statements). Body rows of `kind: "calculated"` with `formula`, and `format` / `excelNumFmt` on rows with a format override; `pivotCalculatedItemRowId`. Diagnostics `itemKeyNotFound` (keys named by items, anchors, labels or formats that the data does not have) and `itemKeyConflict` (an item key that is also a data key).
+- **Pivot core** — drill-through of an item cell lists the records of every key it reads; sheets write item rows bold with the statement rule and the item's `numFmt`, and keep values instead of `SUBTOTAL` over ranges that contain an item; tabular slots get a `calculated` slot. Helpers `setPivotCalculatedItem` (rename rewrites references and anchors), `removePivotCalculatedItem`, `checkPivotCalculatedItem`, `pivotItemReferencers`, `pivotItemReference`, `parsePivotItemFormula`, `setPivotSubtotalLabel`; `ParsePivotCalcOptions.allowReservedNames`.
+- **`@nqlib/nqgrid/pivot`** — `PivotCalculatedItemForm` (formula validated as you type, insert-item picker, position, format, "Add to totals") opened from a Rows chip, which lists the field's items; reducer actions `setCalculatedItem`, `removeCalculatedItem`, `setSubtotalLabel` and the matching `usePivotGrid` functions; `PivotTable` renders calculated rows like subtotal rows (formula tooltip in interactive mode).
+- **render-static** — `PIVOT_STATIC_STATEMENT_CALCULATED_CSS` (statement profile: item rows bold with a rule above), appended only when the model has calculated rows.
+- **Contract** — schema `calculatedItem`, dimension keys `calculatedItems` / `subtotalLabels` / `itemFormats`; shared validation vectors (placement, duplicates, cycles, oversized / deeply nested formulas, `__proto__` / `constructor` keys) and item-formula calc vectors (`calc-expressions.json` `items`); golden `examples/planning-income.*` (income statement with Gross margin, Gross margin %, EBITDA, per-section labels); fixture `generateIncomePivotRows` / `incomePivotSpec`.
+- **Python** — validation mirror with identical messages, `parse_calc(..., allow_reserved=True)`, `check_calculated_item`, `income_example_spec()` (also in `describe_pivot_spec`), regenerated Pydantic models (`CalculatedItem`), authoring guide section "Calculated items" and a rewritten "Financial statements" section, e2e tests through `nqgrid-export serve` (golden model / sheet / HTML, statement PDF, XLSX with exceljs and openpyxl).
+- **Docs / playground** — the financial-statement recipe now uses calculated items (section subtotals only stays as the simpler variant; Limits table updated); `docs/pivot-headless.md` "Calculated items" and per-key formats; performance notes; `?pivot=income`.
+
+#### Changed (behaviour)
+
+- `stripColumnOnly` (moving a row field into Columns, swapping rows and columns) also drops `calculatedItems` and `itemFormats`, which are row-only.
+- `PivotBodyRow["kind"]` gains `"calculated"`, and `PivotDimensionSlot` a `calculated` variant: exhaustive `switch`es over them in consumer code need a case. `PivotBodyGroup.kind` is now `PivotBodyRow["kind"]`. No public export was removed or renamed.
+
+### Analyst review, batch B: measure filters, semi-additive aggregates, analyst workbooks
+
+`PivotSpec` stays `version: 1`; the schema changes are additive (`measures[].filter`, the `TimeAggregate` variant, export
+option `xlsx`). Existing specs produce identical models and HTML; the **sheet shape** (`pivotModelToSheet`, `format=sheet`)
+and the **XLSX layout** changed (see "Changed (behaviour)").
+
+#### Added
+
+- **Pivot core** — `measures[i].filter`: one filter or a list (same shape as `filters[]`, derived date fields included) restricting the records **that measure** aggregates (DAX `CALCULATE`): rows, columns and totals still come from every record passing the report filters. Long-format Actual / Budget / prior year side by side, variance calculations over them, drill-through with `measureId` lists only the records the measure counted, `filterItemsNotFound` diagnostics for measure filters. Folded into the measure's columns at compile time: zero cost for specs without measure filters. `setPivotMeasureFilter`, `pivotMeasureFilters`, `pivotFilterMask`.
+- **Pivot core** — semi-additive aggregates `{ type: "closingBalance" | "openingBalance", timeField }` (per series — the layout's non-time row / column keys — the sum at its latest / earliest time key in the cell, then summed: Q1 = March balance, groups add accounts) and `{ type: "averageOverTime", timeField }` (cell sum / distinct periods: headcount (31 + 32 + 33) / 3 = 32). Correct for groups (expanded and collapsed), subtotal rows, column subtotals, collapsed column groups and totals; work with filters, measure filters, `signField`, show-as, calculated measures, heat, `sortBy` and Top N. `PivotTimeAggregateType`, `pivotTimeAggregateField`, `PivotSummarizeAggregate`, `pivotSummarizeAggregateOf`; `setPivotMeasureAggregate` accepts them (labels "Closing balance of …").
+- **Pivot core (sheet)** — `PivotSheet.preamble` / `tableRow` (title, subtitle, units, filters line above the table), `subtitle`, `bodyRows` (Excel outline level, `hidden` rows of collapsed groups, `collapsed` button rows), `summaryBelow`, `outlineLevels`, `profile`, cell `indent`, `border` (statement rules) and `f` (formulas); options `rowLabels`, `detail`, `profile`, `subtotalFormulas` + `spec`, `title` / `subtitle` / `units`; `buildPivotSheet(spec, rows, options)` (model + sheet with collapsed rows from one aggregation), `pivotSheetColumnLetter`, `pivotSheetToMatrix(sheet, { includeHidden })`.
+- **nqgrid-export / Python XLSX** — analyst workbooks from both writers: preamble rows, frozen panes below the header, row outline with collapsed groups hidden (not dropped), alignment indent, repeated tabular labels, statement rules and no grey bands with `profile: "statement"`, print setup (landscape, fit to width, print titles, title / units header, generated-at and "Page N of M" footer), opt-in `SUBTOTAL(9, …)` formulas (`options.xlsx.subtotalFormulas`; Node keeps cached values, openpyxl cannot). Export options `xlsx.rowLabels` / `xlsx.subtotalFormulas` (schema, TS and Python validation, models); `writePivotXlsx(model, { sheet, profile })`; `write_xlsx_from_sheet(..., generated_at=)`.
+- **`@nqlib/nqgrid/pivot`** — field list: Closing balance / Opening balance / Average over time in "Summarize values by" with an "Over" time-field picker, and "Filter this measure…" (field + values); reducer action `setMeasureFilter`, `usePivotGrid().setMeasureFilter`, `setMeasureAggregate` with semi-additive aggregates.
+- **Contract** — goldens `examples/planning-fpa.{spec,rows,model,sheet}.json` + `.html` (long-format budget vs actual with measure filters, variance, YTD, prior year, USD thousands) and `examples/planning-fpa-bs.*` (closing balance, average over time); fixture `generateFpaPivotRows` / `fpaPivotSpec` / `fpaBalancePivotSpec`; new shared validation vectors. Python: `fpa_example_spec()`, `fpa_balance_example_spec()` (also in `describe_pivot_spec`), validation mirror (`filter` on calculated measures, measure filter / time fields in `check_fields`), JSON-type branch errors for `anyOf` (a measure filter's own path and message), e2e tests through `nqgrid-export serve` (PDF, XLSX, openpyxl parity).
+- **Docs** — recipes "Budget vs actual (long format)", "Balance sheet", "Headcount", "Analyst workbook (XLSX)" with tested tables; `docs/pivot-headless.md` "Planning" and "Workbooks" sections; authoring-guide sections for measure filters and semi-additive aggregates.
+- **Playground** — `?pivot=fpa` and `?pivot=balance` presets.
+
+#### Changed (behaviour)
+
+- **Sheet shape** (`pivotModelToSheet`, `format=sheet`, both XLSX writers): compact labels carry `indent` instead of leading spaces (`v: "Tents"`, `indent: 2`; `pivotSheetToMatrix` re-adds the spaces; option `indent: "  "` restores the old cells); tabular labels repeat on every row of their group and the body has no merges by default (`rowLabels: "merge"` restores them); the sheet always has `tableRow`, `bodyRows`, `summaryBelow`, `outlineLevels`. Golden `*.sheet.json` files changed accordingly; `format=sheet` / `format=xlsx` (via `buildPivotSheet`) now include the rows of collapsed groups, marked `hidden` (`pivotModelToSheet(model)` alone still writes only visible rows). Models and HTML goldens are unchanged.
+- **XLSX layout**: the table starts below the preamble rows (`sheet.tableRow`, e.g. row 3 with a title), so cell addresses moved; the page header always carries the title (units on the right when set) and the footer the page numbers.
+- `setPivotMeasureAggregate` takes `PivotSummarizeAggregate` (a superset of `PivotBuiltInAggregate`; the reducer action and `usePivotGrid().setMeasureAggregate` too). No public export was removed or renamed.
+
+### Analyst review, batch A: strict validation, diagnostics, scaling, statement print
+
+`PivotSpec` stays `version: 1` and the schema changes are additive (`units`, `format.scale`, export option
+`profile` / `units`), but validation is now strict: **specs that were accepted and silently half-ignored are now
+rejected** (see "Changed (behaviour)"). No golden spec, row or fixture file needed changing.
+
+#### Added
+
+- **Pivot core** — `format.scale: 1000 | 1000000 | 1000000000` (display in thousands / millions / billions; aggregation and XLSX values unchanged, Excel scaling commas `#,##0.0,`), spec-level `units` (unit note; `model.units`, `PivotSheet.units`), `PIVOT_FORMAT_SCALES`.
+- **Pivot core** — `model.diagnostics` (`PivotDiagnostic`: `unparsedNumbers`, `missingField`, `invalidDates`, `mixedKeyTypes`, `filterItemsNotFound`, `baseItemNotFound`; one per field and problem, ≤ 5 samples), gathered while records are encoded (`PivotRowEncoding.stats`, `PivotFieldStats`, `PivotCube.diagnostics` / `hasKey`). Accounting / locale number formats are reported, not parsed.
+- **Pivot core** — `pivotUnknownKeysMessage`, `pivotCalcShowAsMessage`, `pivotUnusedShowAsBaseMessage` (the messages shared with Python), `pivotCalcReferencers`.
+- **Contract** — `contract/pivot/v1/invalid-specs.json`: shared validation vectors run by the TypeScript and Python suites (identical messages for unknown keys and referential checks, identical paths for schema enums / types).
+- **`@nqlib/nqgrid/render-static`** — `profile: "statement"` (`PIVOT_STATIC_STATEMENT_CSS`, `PIVOT_STATIC_STATEMENT_ROW_HEIGHT`): bold totals in the full text colour, a rule above subtotals, a double rule under the grand total, no grey bands, 28 px rows; `units` option (default `model.units`) printed under the title; print pagination of long groups with the label repeated on continuation pages.
+- **`@nqlib/nqgrid/pivot`** — `pivotPageBodySegments` / `PivotBodySegment`; `PivotTable` props `pagination`, `continuedLabel`, `countBadges`, `headerIndicators`.
+- **nqgrid-export** — `exporter.exportDetailed()` → `{ data, diagnostics }`, `x-nqgrid-diagnostics` response header (`PIVOT_DIAGNOSTICS_HEADER`, `pivotDiagnosticsHeaderValue`), CLI diagnostics line on stderr (exit 0), export options `profile` and `units`, units in the XLSX page header and units / diagnostics on the hidden `Spec` sheet.
+- **Python** — `PivotExporter.export_report()` / `ExportOutput` (sync, async, subprocess), `ExportPivotReportResult.diagnostics`, the validation mirror of the new checks, regenerated models (`units`, `scale`, `profile`), units in the openpyxl writer's page header, and an authoring-guide "Traps" section (balances, `avg`, calc at totals, `compact` vs `scale`, scenario columns, variance % on negative bases, currencies, FP&A data shape).
+
+#### Changed (behaviour)
+
+- **`validatePivotSpec` rejects unknown keys and invalid values everywhere the JSON Schema does** (`additionalProperties: false` on the spec, dimensions, measures, formats, `sortBy`, `topN`, `showAsBase`, aggregates, totals, heat, header charts, KPIs, filters, label matches, facets, catalogue fields; enums / types / ranges such as `layout: "outline"`, `format.decimals: 21`, `kpiLevels: [-1]`). `buildPivotModel`, `createPivotModelBuilder`, `usePivotGrid` and `renderPivotHtmlFromSpec` throw, and `nqgrid-export` answers 400 / exit 2, for specs it used to accept and ignore in part (e.g. `measures[].filter`, `rows[].formats`, `format.thousands`).
+- **Newly rejected referential cases**: `keepEmpty` on a row dimension; `showAsBase` on a measure whose `showAs` / `groupShowAs` never reads it (e.g. `percentOfParentRow`); a calculated measure that references a measure whose `showAs` is not `value` (it read the value before the show-as: put the show-as on the calculated measure; a `groupShowAs` alone stays allowed). `setPivotMeasureShowAs` / `checkPivotCalculatedMeasure` (and the field-list menus through them) refuse the same combination instead of producing an invalid spec; `format.scale` with `compact` or percent style. The Python validator mirrors all of them.
+- `movePivotField` / `swapPivotRowsColumns` drop `keepEmpty` from a dimension that moves into Rows (like `sortBy` / `topN` on the way into Columns).
+- `nqgrid-export` rejects unknown `options` keys (`options: unknown key(s) (…)`), as the export-request schema already did.
+- Number parsing: strings with radix prefixes (`"0x10"`, `"0b11"`, `"0o7"`) are no longer numbers (they summed as 16, 3, 7); they are reported as `unparsedNumbers`.
+- `toExcelNumFmt` for `compact` formats: `[>=1000]…,"k";[<=-1000](…,"k");…` — negatives are scaled and keep their sign / parentheses; millions read `4,760k` in Excel (two conditions per Excel format). Goldens `*.model.json` / `*.sheet.json` changed in `excelNumFmt` / `numFmt` only.
+- Static HTML / PDF: no child-count badges and no sort / filter icons (interactive affordances; `aria-sort` stays), explicit page breaks from fixed row heights (a long first group no longer leaves page 1 empty; "Section (cont.)" on continuation pages). Goldens `*.html`: one CSS line (`tr[data-nqg-page-break]`) and the badge / icon markup removed; page counts of every golden PDF unchanged.
+- `PivotRowEncoding` (new `stats`) and the nqgrid-export `PivotExporter` interface (new `exportDetailed`) gained members: custom implementations of these interfaces must add them. No public export was removed or renamed.
+
+### Financial statements (P&L / income statement)
+
+Additive: `PivotSpec` stays `version: 1`, existing specs produce identical models (goldens unchanged).
+
+#### Added
+
+- **Pivot core** — `showAs: "percentOf"` (Excel "% Of": value / the base item's value; `showAsBase.item` required) with Excel sibling semantics, and `showAsBase.scope: "parent" | "all"`: `"all"` takes the base from every record whose row-field key is `item` in the same column, so every row — groups, subtotals, the grand total — compares with one base (a P&L's "% of Revenue"); also for `differenceFrom` / `percentDifferenceFrom`. View-only (the cube is reused); the base is merged once per cube (`PivotCube.keyTotal`), one read per cell.
+- **Pivot core** — `measures[i].signField`: each record's value is multiplied by a sign column (numbers or numeric strings; missing = 1) before aggregation (`sum` / `avg` / `min` / `max` / `first` / `last` / `weightedAvg` sign the value, `ratio` the numerator; rejected for counts, custom aggregates and calculated measures). Signed columns are memoized per encoding; part of `pivotSpecDataKey`; drill-through lists the sign field. `setPivotMeasureSignField`.
+- **Pivot core** — per-level `subtotalLabel` on row and column dimensions (same `{label}` template, overrides `totals.subtotalLabel` for that level).
+- **`@nqlib/nqgrid/pivot`** — `PivotShowAsMenu` offers "% of" with base item and "Compare with" (same group / across all groups); `usePivotGrid().setMeasureSignField` and the `setMeasureSignField` reducer action.
+- **Contract** — schema additions (`percentOf`, `showAsBase.scope`, `signField`, dimension `subtotalLabel`) and the golden `examples/planning-statement.{spec,rows,model,sheet}.json` + `.html` (fixture `statementPivotSpec` / `generateStatementPivotRows`). Python: regenerated models, `validation.py` mirror (incl. `signField` in `check_fields`), `statement_example_spec()`, a "Financial statements" section in the MCP authoring guide, e2e tests through `nqgrid-export serve`.
+- **Docs** — [docs/pivot-recipes.md](docs/pivot-recipes.md): a complete, tested P&L recipe with an honest limits table (no calculated items, per-level labels, in-memory pivoting, …).
+- **Playground** — `?pivot=statement` preset (income statement).
+
+#### Changed
+
+- `setPivotMeasureAggregate` drops `signField` when switching to `count` / `distinctCount`; move helpers reset a measure whose `showAsBase.scope: "all"` field leaves Rows.
 
 ## [0.3.0] - 2026-11-04
 

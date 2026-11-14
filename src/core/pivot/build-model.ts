@@ -14,6 +14,7 @@ import {
   type PivotCubeFacet,
   type PivotCubeNode,
 } from "./cube";
+import { compilePivotItemPlan, orderPivotItems, parsePivotItemFormula, pivotKeyMap, type PivotItemDef, type PivotItemLevel } from "./calculated-items";
 import { pivotColumnFields, pivotDimensionOf } from "./columns";
 import { pivotDateGroupLabel, pivotDateLabel, resolvePivotDateField, type PivotDateFieldDef } from "./dates";
 import { createPivotRowEncoding, type PivotRowEncoding } from "./encode";
@@ -35,6 +36,7 @@ import {
   type PivotCell,
   type PivotHeaderSeriesPoint,
   type PivotDataRow,
+  type PivotDiagnostic,
   type PivotDimension,
   type PivotFacet,
   type PivotFacetSpec,
@@ -45,7 +47,9 @@ import {
   type PivotMeasure,
   type PivotModel,
   type PivotModelDimension,
+  type PivotNumberFormat,
   type PivotShowAs,
+  type PivotShowAsBase,
   type PivotSpec,
   type PivotValueColumn,
 } from "./types";
@@ -68,6 +72,11 @@ export function pivotPathId(path: readonly string[]): string {
 /** Row id of a group's `subtotal: "end"` row. */
 export function pivotSubtotalRowId(path: readonly string[]): string {
   return `t:${path.map(encodeURIComponent).join("/")}`;
+}
+
+/** Row id of a calculated item (`PivotDimension.calculatedItems`); `path` ends with the item's key. */
+export function pivotCalculatedItemRowId(path: readonly string[]): string {
+  return `i:${path.map(encodeURIComponent).join("/")}`;
 }
 
 /** Stable value-column id. `columnKey === null` → row-total (or measure-only) column. */
@@ -117,6 +126,12 @@ const subtotalText = (template: string, label: string) => template.split("{label
 function divide(a: number | null, b: number | null): number | null {
   if (a === null || b === null || b === 0) return null;
   return a / b;
+}
+
+/** `percentOf` / `differenceFrom` / `percentDifferenceFrom` of `raw` against `base` (`null`: no base). */
+function relativeTo(kind: string, raw: number, base: number | null): number | null {
+  if (base === null) return null;
+  return kind === "percentOf" ? divide(raw, base) : kind === "differenceFrom" ? raw - base : divide(raw - base, base);
 }
 
 const BLANK_CELL: PivotCell = { value: null, raw: null, text: "" };
@@ -184,12 +199,13 @@ function countBelow(sorted: Float64Array, x: number, orEqual: boolean): number {
 function showAsAlong(kind: string, raw: number | null, index: number, series: AlongSeries, baseIndex: number): number | null {
   if (raw === null) return null;
   switch (kind) {
+    case "percentOf":
     case "differenceFrom":
     case "percentDifferenceFrom": {
-      if (baseIndex < 0 || baseIndex === index) return null;
-      const base = series.valueOf(baseIndex);
-      if (base === null) return null;
-      return kind === "differenceFrom" ? raw - base : divide(raw - base, base);
+      if (baseIndex < 0) return null;
+      // The base item itself: 100 % for % Of, empty for differences (like Excel).
+      if (baseIndex === index) return kind === "percentOf" ? divide(raw, raw) : null;
+      return relativeTo(kind, raw, series.valueOf(baseIndex));
     }
     case "runningTotal":
     case "percentRunningTotal": {
@@ -340,6 +356,12 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const grandLabel = totals.grandTotalLabel ?? "Grand Total";
   const rowTotalLabel = totals.rowTotalLabel ?? "Total";
   const subtotalTemplate = totals.subtotalLabel ?? "{label} Total";
+  /** Per-group labels (`subtotalLabels`) per row / column level, `null` when a level has none. */
+  const rowSubtotalLabels = dims.map((d) => pivotKeyMap(d.subtotalLabels));
+  const colSubtotalLabels = colDims.map((d) => pivotKeyMap(d.subtotalLabels));
+  /** Subtotal label template of a group: its `subtotalLabels` entry, else the dimension's `subtotalLabel`, else `totals.subtotalLabel`. */
+  const subtotalTemplateOf = (d: PivotDimension, labels: ReadonlyMap<string, string> | null | undefined, key: string) =>
+    (labels ? labels.get(key) : undefined) ?? d.subtotalLabel ?? subtotalTemplate;
   const root = cube.root;
   const colRoot = cube.columnRoot;
   const totalBucket = colRoot.bucket;
@@ -348,7 +370,13 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const measureOf = (id: string): PivotMeasure => measureById.get(id)!;
   const measureLabel = (m: PivotMeasure) => m.label ?? m.id;
   const valueMeasures = (spec.values ?? spec.measures.map((m) => m.id)).map(measureOf);
-  const valueAt = (node: PivotCubeNode, m: PivotMeasure, bucket: number) => cube.valueAt(node, m.id, bucket);
+  // Calculated items (`null` without any: nothing below changes) and per-key formats.
+  const items = compilePivotItemPlan(spec);
+  const itemFormats = dims.some((d) => d.itemFormats) ? dims.map((d) => pivotKeyMap(d.itemFormats)) : null;
+  /** Totals that include calculated items (`includeInTotals`) read adjusted values; otherwise the cube's. */
+  const valueAt = items?.includeInTotals
+    ? (node: PivotCubeNode, m: PivotMeasure, bucket: number) => totalWithItems(node, m, bucket)
+    : (node: PivotCubeNode, m: PivotMeasure, bucket: number) => cube.valueAt(node, m.id, bucket);
   const rowDates = dims.map((d) => resolvePivotDateField(spec, d.field));
   const colDates = colDims.map((d) => resolvePivotDateField(spec, d.field));
   const nodeLabel = (n: PivotCubeNode) => (n.depth < 0 ? grandLabel : labelOf(n.key, dims[n.depth]!, rowDates[n.depth]));
@@ -378,7 +406,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     else descs.push({ slot, measure: m ?? valueMeasures[0]!, items });
   };
   const groupTotal = (c: PivotCubeColumn, prefix: readonly HeaderItem[], m: PivotMeasure | null, collapsed: boolean) => {
-    const label = collapsed ? colLabel(c) : subtotalText(subtotalTemplate, colLabel(c));
+    const label = collapsed ? colLabel(c) : subtotalText(subtotalTemplateOf(colDims[c.depth]!, colSubtotalLabels[c.depth], c.key), colLabel(c));
     const open = sigma >= 0 && m === null;
     const item: HeaderItem = {
       id: `${collapsed ? "c" : "s"}:${c.columnKey}`,
@@ -518,14 +546,34 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
    */
   const rowSeries: ({ readonly parent: PivotCubeNode; readonly byRel: Map<string, AlongSeries> } | undefined)[] = [];
   /**
+   * `showAsBase.scope: "all"`: per measure, the records whose base-field key is the base item, across
+   * every parent (`cube.keyTotal`, merged once per cube) — then one lookup per cell.
+   */
+  const globalBases = new Map<string, PivotCubeNode | null>();
+  const globalBaseOf = (m: PivotMeasure, base: PivotShowAsBase): PivotCubeNode | null => {
+    let node = globalBases.get(m.id);
+    if (node === undefined) {
+      const level = rowLevelOf.get(base.field);
+      node = level === undefined || base.item === undefined ? null : cube.keyTotal(level, base.item);
+      globalBases.set(m.id, node);
+    }
+    return node;
+  };
+  /**
    * Show-as value of `node` in column `i` along its measure's base field: along a column field via
    * `columnAlong`, along a row field via the node's ancestor at that level and its siblings (the
    * corresponding descendant of each sibling, same column). Cells above the base level, and columns
-   * outside a column base's levels, get `showAsOutside`.
+   * outside a column base's levels, get `showAsOutside`. With `scope: "all"`, every cell compares
+   * with the measure's global base in its column instead.
    */
   const alongValue = (kind: string, node: PivotCubeNode, m: PivotMeasure, i: number, raw: number | null): number | null => {
     const base = m.showAsBase;
     if (!base) return null;
+    if (base.scope === "all" && (kind === "percentOf" || kind === "differenceFrom" || kind === "percentDifferenceFrom")) {
+      if (raw === null) return null;
+      const total = globalBaseOf(m, base);
+      return relativeTo(kind, raw, total === null ? null : valueAt(total, m, columnBuckets[i]!));
+    }
     const colAlong = columnAlong[i];
     if (colAlong) {
       const { buckets, index, baseIndex, group } = colAlong;
@@ -557,7 +605,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       }
       return valueAt(x!, m, bucket);
     };
-    if (kind === "differenceFrom" || kind === "percentDifferenceFrom") {
+    if (kind === "percentOf" || kind === "differenceFrom" || kind === "percentDifferenceFrom") {
       let baseIndex: number;
       if (base.item !== undefined) {
         const item = childOf(parent, base.item);
@@ -575,6 +623,150 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     let series = state.byRel.get(relKey);
     if (!series) state.byRel.set(relKey, (series = { count: siblings.length, valueOf }));
     return showAsAlong(kind, raw, index, series, -1);
+  };
+
+  // ---- Calculated items ------------------------------------------------------------
+  // Evaluated from the cube per (item instance, measure, bucket) on first read and memoized: no record
+  // is read, and a spec without items never gets here.
+  /** One calculated item under one parent row (the root for the outermost level). */
+  interface ItemInstance {
+    readonly def: PivotItemDef;
+    readonly parent: PivotCubeNode;
+    readonly depth: number;
+    readonly path: readonly string[];
+    readonly cache: Map<number, number>;
+    computing: boolean;
+  }
+  let bucketStride = totalBucket + 2;
+  if (items) {
+    const visitColumn = (c: PivotCubeColumn) => {
+      if (c.bucket + 2 > bucketStride) bucketStride = c.bucket + 2;
+      for (const x of c.children) visitColumn(x);
+    };
+    visitColumn(colRoot);
+  }
+  const measureIndex = items ? new Map(spec.measures.map((m, i) => [m.id, i] as const)) : null;
+  const instances = new Map<PivotCubeNode, Map<PivotItemDef, ItemInstance>>();
+  const instanceOf = (parent: PivotCubeNode, def: PivotItemDef): ItemInstance => {
+    let byDef = instances.get(parent);
+    if (!byDef) instances.set(parent, (byDef = new Map()));
+    let inst = byDef.get(def);
+    if (!inst) byDef.set(def, (inst = { def, parent, depth: parent.depth + 1, path: [...parent.path, def.key], cache: new Map(), computing: false }));
+    return inst;
+  };
+  /** An item shows under `parent` when it reads no key, or at least one key it reads is a child of `parent`. */
+  const shownUnder = (parent: PivotCubeNode, def: PivotItemDef): boolean => {
+    if (def.reads.size === 0) return true;
+    for (const key of def.reads) if (childOf(parent, key)) return true;
+    return false;
+  };
+  const num = (v: number | null) => (v === null ? NaN : v);
+  /** Value of reference `name` under `parent`: another item of the level, else the child with that key. */
+  const refValue = (parent: PivotCubeNode, level: PivotItemLevel, name: string, m: PivotMeasure, bucket: number): number => {
+    const def = level.byKey.get(name);
+    if (def) return num(itemValue(instanceOf(parent, def), m, bucket));
+    const child = childOf(parent, name);
+    return child ? num(valueAt(child, m, bucket)) : NaN;
+  };
+  /**
+   * An item's value for measure `m` in accumulator `bucket`: a plain measure evaluates the formula over the
+   * referenced keys' values of `m`; a calculated measure evaluates its expression over the item's values of
+   * the measures it references.
+   */
+  function itemValue(inst: ItemInstance, m: PivotMeasure, bucket: number): number | null {
+    if (bucket < 0) return null;
+    const slot = measureIndex!.get(m.id)! * bucketStride + bucket;
+    const hit = inst.cache.get(slot);
+    if (hit !== undefined) return hit === hit ? hit : null;
+    if (inst.computing) return null; // a reference cycle (rejected by validatePivotSpec)
+    inst.computing = true;
+    let v: number;
+    const calc = items!.calcs.get(m.id);
+    if (calc) {
+      v = calc.program(calc.refs.map((r) => num(itemValue(inst, r, bucket))));
+    } else {
+      const level = items!.levels[inst.depth]!;
+      v = inst.def.program(inst.def.refs.map((name) => refValue(inst.parent, level, name, m, bucket)));
+    }
+    inst.computing = false;
+    inst.cache.set(slot, v);
+    return v === v ? v : null;
+  }
+  // `includeInTotals`: the items directly under each parent, and every node with such items below it.
+  const includedUnder = new Map<PivotCubeNode, ItemInstance[]>();
+  const affected = new Set<PivotCubeNode>();
+  const totalsCache = new Map<PivotCubeNode, Map<number, number>>();
+  if (items?.includeInTotals) {
+    const parents = [root, ...cube.nodes];
+    for (const parent of parents) {
+      const level = items.levels[parent.depth + 1];
+      if (!level) continue;
+      for (const def of level.defs) {
+        if (def.item.includeInTotals !== true || !shownUnder(parent, def)) continue;
+        const list = includedUnder.get(parent);
+        if (list) list.push(instanceOf(parent, def));
+        else includedUnder.set(parent, [instanceOf(parent, def)]);
+        for (let p: PivotCubeNode | null = parent; p !== null && !affected.has(p); p = p.parent) affected.add(p);
+      }
+    }
+  }
+  /** Items (and items of descendants) added into `node`'s totals (`NaN`: none with a value). */
+  function itemsDelta(node: PivotCubeNode, m: PivotMeasure, bucket: number): number {
+    let d = NaN;
+    for (const inst of includedUnder.get(node) ?? []) {
+      const v = itemValue(inst, m, bucket);
+      if (v !== null) d = d === d ? d + v : v;
+    }
+    for (const child of node.children) {
+      if (!affected.has(child)) continue;
+      const cd = itemsDelta(child, m, bucket);
+      if (cd === cd) d = d === d ? d + cd : cd;
+    }
+    return d;
+  }
+  /** `valueAt` with `includeInTotals` items: plain measures add the items below; calculated measures re-evaluate. */
+  function totalWithItems(node: PivotCubeNode, m: PivotMeasure, bucket: number): number | null {
+    if (bucket < 0 || !affected.has(node)) return cube.valueAt(node, m.id, bucket);
+    let memo = totalsCache.get(node);
+    if (!memo) totalsCache.set(node, (memo = new Map()));
+    const slot = measureIndex!.get(m.id)! * bucketStride + bucket;
+    const hit = memo.get(slot);
+    if (hit !== undefined) return hit === hit ? hit : null;
+    let v: number;
+    const calc = items!.calcs.get(m.id);
+    if (calc) {
+      v = calc.program(calc.refs.map((r) => num(totalWithItems(node, r, bucket))));
+    } else {
+      const base = cube.valueAt(node, m.id, bucket);
+      const d = itemsDelta(node, m, bucket);
+      v = base === null ? d : d === d ? base + d : base;
+    }
+    memo.set(slot, v);
+    return v === v ? v : null;
+  }
+  /**
+   * Show-as of an item's cell along a base field: `percentOf` / differences with `scope: "all"` compare with
+   * the global base, a column-field base runs along the item's own values in the sibling columns, cells
+   * above a row-field base level show `showAsOutside`, and at or below it the cell is empty (an item has no
+   * position among the data keys).
+   */
+  const itemAlong = (kind: string, inst: ItemInstance, m: PivotMeasure, i: number, raw: number | null): number | null => {
+    const base = m.showAsBase;
+    if (!base) return null;
+    if (base.scope === "all" && (kind === "percentOf" || kind === "differenceFrom" || kind === "percentDifferenceFrom")) {
+      if (raw === null) return null;
+      const total = globalBaseOf(m, base);
+      return relativeTo(kind, raw, total === null ? null : valueAt(total, m, columnBuckets[i]!));
+    }
+    const colAlong = columnAlong[i];
+    if (colAlong) {
+      if (raw === null) return null;
+      const { buckets, index, baseIndex } = colAlong;
+      return showAsAlong(kind, raw, index, { count: buckets.length, valueOf: (j) => itemValue(inst, m, buckets[j]!) }, baseIndex);
+    }
+    const level = rowLevelOf.get(base.field);
+    if (level === undefined || inst.depth < level) return showAsOutside(kind, raw);
+    return null;
   };
 
   // Header rows: one cell per run of adjacent columns sharing the same items down to that row.
@@ -650,18 +842,29 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const isExpanded = (n: PivotCubeNode) =>
     !isLeaf(n) && (expandedRows === "all" || (expandedIds !== null && expandedIds.has(pivotPathId(n.path))));
   const visible: PivotCubeNode[] = [];
-  /** Body entries in display order: a node's row, or (`subtotal`) its `subtotal: "end"` row. */
-  const entries: { readonly node: PivotCubeNode; readonly subtotal: boolean }[] = [];
+  /** Body entries in display order: a node's row, (`subtotal`) its `subtotal: "end"` row, or a calculated item. */
+  const entries: { readonly node: PivotCubeNode; readonly subtotal: boolean; readonly item?: ItemInstance }[] = [];
   /** Subtotal position of an expanded group (`start` = the group row carries the totals). */
   const placementOf = (n: PivotCubeNode): "start" | "end" | "none" => (isExpanded(n) ? (dims[n.depth]!.subtotal ?? "start") : "start");
+  const collectChildren = (parent: PivotCubeNode) => {
+    const level = items?.levels[parent.depth + 1];
+    if (!level) {
+      for (const c of parent.children) collect(c);
+      return;
+    }
+    for (const slot of orderPivotItems(parent.children, (c) => c.key, level.defs, (def) => shownUnder(parent, def))) {
+      if (slot.node) collect(slot.node);
+      else entries.push({ node: parent, subtotal: false, item: instanceOf(parent, slot.item) });
+    }
+  };
   const collect = (n: PivotCubeNode) => {
     visible.push(n);
     entries.push({ node: n, subtotal: false });
     if (!isExpanded(n)) return;
-    for (const c of n.children) collect(c);
+    collectChildren(n);
     if (placementOf(n) === "end") entries.push({ node: n, subtotal: true });
   };
-  for (const c of root.children) collect(c);
+  collectChildren(root);
 
   // ---- Heat levels (domain over every eligible node, visible or not) ------------
   let heatInfo: PivotModel["heat"] = null;
@@ -723,7 +926,18 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const showAsFor = (n: PivotCubeNode, m: PivotMeasure): PivotShowAs =>
     isLeaf(n) ? (m.showAs ?? "value") : (m.groupShowAs ?? m.showAs ?? "value");
 
-  const cellsOf = (node: PivotCubeNode): PivotCell[] => {
+  /** `format` of a row (`itemFormats` of its level, by key), `undefined` without one. */
+  const formatOfKey = (depth: number, key: string): PivotNumberFormat | undefined => (itemFormats && depth >= 0 ? (itemFormats[depth]?.get(key) ?? undefined) : undefined);
+  const excelFormats = new Map<PivotNumberFormat, string>();
+  /** `format` / `excelNumFmt` row properties for a row format override. */
+  const rowFormatProps = (format: PivotNumberFormat | undefined) => {
+    if (!format) return {};
+    let excelNumFmt = excelFormats.get(format);
+    if (excelNumFmt === undefined) excelFormats.set(format, (excelNumFmt = toExcelNumFmt(format)));
+    return { format, excelNumFmt };
+  };
+
+  const cellsOf = (node: PivotCubeNode, rowFormat?: PivotNumberFormat): PivotCell[] => {
     const heat = heatLevels.get(node);
     return columns.map((col, i) => {
       const m = columnMeasures[i]!;
@@ -732,12 +946,12 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       const showAs = showAsFor(node, m);
       const level = heat?.get(i);
       if (showAs === "value") {
-        const text = formatPivotNumber(raw, col.format);
+        const text = formatPivotNumber(raw, rowFormat ?? col.format);
         return level === undefined ? { value: raw, raw, text } : { value: raw, raw, text, heat: level };
       } else if (PIVOT_SHOW_AS_WITH_BASE.has(showAs)) {
         const value = alongValue(showAs, node, m, i, raw);
         const kind = pivotShowAsFormatKind(showAs);
-        const text = formatPivotNumber(value, kind === "percent" ? col.percentFormat : kind === "rank" ? PIVOT_RANK_FORMAT : col.format);
+        const text = formatPivotNumber(value, kind === "percent" ? col.percentFormat : kind === "rank" ? PIVOT_RANK_FORMAT : (rowFormat ?? col.format));
         return level === undefined ? { value, raw, text, showAs } : { value, raw, text, showAs, heat: level };
       } else {
         const parent = node.parent ?? node;
@@ -757,6 +971,35 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       }
     });
   };
+
+  /** Cells of a calculated item: its values per column, then the measure's `showAs` where it is defined for an item. */
+  const itemCellsOf = (inst: ItemInstance, rowFormat: PivotNumberFormat | undefined): PivotCell[] =>
+    columns.map((col, i) => {
+      const m = columnMeasures[i]!;
+      const bucket = columnBuckets[i]!;
+      const raw = itemValue(inst, m, bucket);
+      const showAs = inst.depth === leafDepth ? (m.showAs ?? "value") : (m.groupShowAs ?? m.showAs ?? "value");
+      if (showAs === "value") return { value: raw, raw, text: formatPivotNumber(raw, rowFormat ?? col.format) };
+      let value: number | null;
+      if (PIVOT_SHOW_AS_WITH_BASE.has(showAs)) {
+        value = itemAlong(showAs, inst, m, i, raw);
+      } else {
+        const denominator =
+          showAs === "percentOfColumnTotal"
+            ? valueAt(root, m, bucket)
+            : showAs === "percentOfParentRow"
+              ? valueAt(inst.parent, m, bucket)
+              : showAs === "percentOfParentColumn"
+                ? itemValue(inst, m, parentBuckets[i]!)
+                : showAs === "percentOfRowTotal"
+                  ? itemValue(inst, m, totalBucket)
+                  : valueAt(root, m, totalBucket);
+        value = divide(raw, denominator);
+      }
+      const kind = pivotShowAsFormatKind(showAs);
+      const text = formatPivotNumber(value, kind === "percent" ? col.percentFormat : kind === "rank" ? PIVOT_RANK_FORMAT : (rowFormat ?? col.format));
+      return { value, raw, text, showAs };
+    });
 
   // ---- KPIs ----------------------------------------------------------------
   const kpiSpecs = spec.kpis ?? [];
@@ -786,6 +1029,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   // ---- Rows ----------------------------------------------------------------
   const toRow = (n: PivotCubeNode): PivotBodyRow => {
     const leaf = isLeaf(n);
+    const format = formatOfKey(n.depth, n.key);
     const placement = leaf ? "start" : placementOf(n);
     const dim = dims[n.depth]!;
     let attributes: Record<string, unknown> | undefined;
@@ -806,11 +1050,30 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       expanded: isExpanded(n),
       childCount: n.children.length,
       sourceRowCount: n.rowCount,
-      cells: placement === "start" ? cellsOf(n) : columns.map(() => BLANK_CELL),
+      cells: placement === "start" ? cellsOf(n, format) : columns.map(() => BLANK_CELL),
       ...(attributes ? { attributes } : {}),
       ...(!leaf && kpiSpecs.length && kpiLevels.has(n.depth) ? { kpis: kpisFor(n) } : {}),
       ...(n.otherCount !== undefined ? { otherCount: n.otherCount } : {}),
       ...(placement !== "start" ? { subtotal: placement } : {}),
+      ...rowFormatProps(format),
+    };
+  };
+  const toItemRow = (inst: ItemInstance): PivotBodyRow => {
+    const def = inst.def;
+    const format = def.item.format ?? formatOfKey(inst.depth, def.key);
+    return {
+      id: pivotCalculatedItemRowId(inst.path),
+      kind: "calculated",
+      depth: inst.depth,
+      path: inst.path,
+      label: def.item.label ?? def.key,
+      expandable: false,
+      expanded: false,
+      childCount: 0,
+      sourceRowCount: 0,
+      cells: itemCellsOf(inst, format),
+      formula: def.item.formula,
+      ...rowFormatProps(format),
     };
   };
   const toSubtotalRow = (n: PivotCubeNode): PivotBodyRow => ({
@@ -818,13 +1081,14 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     kind: "subtotal",
     depth: n.depth,
     path: n.path,
-    label: subtotalText(subtotalTemplate, nodeLabel(n)),
+    label: subtotalText(subtotalTemplateOf(dims[n.depth]!, rowSubtotalLabels[n.depth], n.key), nodeLabel(n)),
     expandable: false,
     expanded: false,
     childCount: n.children.length,
     sourceRowCount: n.rowCount,
-    cells: cellsOf(n),
+    cells: cellsOf(n, formatOfKey(n.depth, n.key)),
     ...(n.otherCount !== undefined ? { otherCount: n.otherCount } : {}),
+    ...rowFormatProps(formatOfKey(n.depth, n.key)),
   });
 
   const grandTotal: PivotBodyRow = {
@@ -841,7 +1105,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(kpiSpecs.length ? { kpis: kpisFor(root) } : {}),
   };
 
-  const body = entries.map((e) => (e.subtotal ? toSubtotalRow(e.node) : toRow(e.node)));
+  const body = entries.map((e) => (e.item ? toItemRow(e.item) : e.subtotal ? toSubtotalRow(e.node) : toRow(e.node)));
   const showGrand = totals.grandTotal ?? true;
   const rows = !showGrand ? body : totals.grandTotalPosition === "top" ? [grandTotal, ...body] : [...body, grandTotal];
 
@@ -899,6 +1163,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(spec.id !== undefined ? { id: spec.id } : {}),
     ...(spec.title !== undefined ? { title: spec.title } : {}),
     ...(spec.subtitle !== undefined ? { subtitle: spec.subtitle } : {}),
+    ...(spec.units !== undefined ? { units: spec.units } : {}),
     layout: spec.layout ?? "tabular",
     rowDimensions,
     columnDimension: columnDimensions[0] ?? null,
@@ -915,8 +1180,84 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(activeFilters.length ? { filters: activeFilters } : {}),
     ...(anyFilter ? { recordCount: cube.recordCount } : {}),
     ...(facets ? { facets } : {}),
+    ...diagnosticsOf(cube, spec),
   };
 }
+
+/** `cube.diagnostics` plus `showAsBase.item`s that are not keys of their field (view state, so not cached in the cube). */
+function diagnosticsOf(cube: PivotCube, spec: PivotSpec): { diagnostics?: readonly PivotDiagnostic[] } {
+  let out: PivotDiagnostic[] | null = null;
+  if (cube.recordCount.total > 0) {
+    spec.measures.forEach((m, i) => {
+      const base = m.showAsBase;
+      if (base?.item === undefined || cube.hasKey(base.field, base.item)) return;
+      (out ??= []).push({
+        code: "baseItemNotFound",
+        field: base.field,
+        path: `measures[${i}].showAsBase.item`,
+        items: [base.item],
+        message: `measures[${i}].showAsBase.item ${JSON.stringify(base.item)} is not a value of "${base.field}" (keys compare as case-sensitive strings); the measure's cells are empty.`,
+      });
+    });
+  }
+  if (cube.recordCount.total > 0) {
+    const items = itemDiagnostics(cube, spec);
+    if (items.length) (out ??= []).push(...items);
+  }
+  if (!out) return cube.diagnostics.length ? { diagnostics: cube.diagnostics } : {};
+  return { diagnostics: [...cube.diagnostics, ...(out as PivotDiagnostic[])] };
+}
+
+/** Keys named by calculated items, `subtotalLabels` and `itemFormats` that the data does not have (`itemKeyNotFound` / `itemKeyConflict`). */
+function itemDiagnostics(cube: PivotCube, spec: PivotSpec): PivotDiagnostic[] {
+  const out: PivotDiagnostic[] = [];
+  const list = (keys: readonly string[]) => keys.slice(0, MAX_ITEM_DIAGNOSTIC_KEYS);
+  const names = (keys: readonly string[]) => list(keys).map((k) => JSON.stringify(k)).join(", ");
+  const check = (field: string, dimPath: string, d: PivotDimension, isRow: boolean) => {
+    if (!d.calculatedItems?.length && !d.subtotalLabels && !d.itemFormats) return;
+    const itemKeys = new Set((isRow ? d.calculatedItems : undefined)?.map((it) => it.key) ?? []);
+    const missing = (keys: Iterable<string>) => [...new Set(keys)].filter((k) => !itemKeys.has(k) && !cube.hasKey(field, k));
+    const notFound = (path: string, keys: readonly string[], effect: string) => {
+      if (!keys.length) return;
+      out.push({
+        code: "itemKeyNotFound",
+        field,
+        path,
+        items: list(keys),
+        message: `${path} names ${names(keys)}, which ${keys.length === 1 ? "is" : "are"} not ${keys.length === 1 ? "a value" : "values"} of "${field}"${isRow ? " nor calculated items" : ""} (keys compare as case-sensitive strings); ${effect}.`,
+      });
+    };
+    if (isRow) {
+      (d.calculatedItems ?? []).forEach((it, j) => {
+        const where = `${dimPath}.calculatedItems[${j}]`;
+        if (cube.hasKey(field, it.key)) {
+          out.push({
+            code: "itemKeyConflict",
+            field,
+            path: `${where}.key`,
+            items: [it.key],
+            message: `${where}.key ${JSON.stringify(it.key)} is also a value of "${field}"; formulas and after / before naming it mean the calculated item.`,
+          });
+        }
+        const parsed = parsePivotItemFormula(it.formula);
+        if (parsed.ok) notFound(`${where}.formula`, missing(parsed.references), "they read as no value");
+        for (const key of ["after", "before"] as const) {
+          const anchor = it[key];
+          if (anchor !== undefined) notFound(`${where}.${key}`, missing([anchor]), "the item goes to the end");
+        }
+      });
+    }
+    if (d.subtotalLabels) notFound(`${dimPath}.subtotalLabels`, missing(Object.keys(d.subtotalLabels)), "the labels apply to nothing");
+    if (d.itemFormats) notFound(`${dimPath}.itemFormats`, missing(Object.keys(d.itemFormats)), "the formats apply to nothing");
+  };
+  spec.rows.forEach((d, i) => check(d.field, `rows[${i}]`, d, true));
+  const columns = spec.columns;
+  if (Array.isArray(columns)) (columns as readonly PivotDimension[]).forEach((d, i) => check(d.field, `columns[${i}]`, d, false));
+  else if (columns) check((columns as PivotDimension).field, "columns", columns as PivotDimension, false);
+  return out;
+}
+
+const MAX_ITEM_DIAGNOSTIC_KEYS = 10;
 
 function toPivotFacet(spec: PivotSpec, f: PivotCubeFacet, facetSpec: PivotFacetSpec): PivotFacet {
   const label = typeof facetSpec !== "string" && facetSpec.label ? facetSpec.label : pivotFieldLabel(spec, pivotFacetField(facetSpec));
