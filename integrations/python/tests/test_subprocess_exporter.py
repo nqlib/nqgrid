@@ -60,6 +60,14 @@ def test_success_returns_stdout(tmp_path: Path) -> None:
     assert exporter.export({"version": 1}, [], format="sheet") == {"cells": []}
 
 
+def test_success_reports_diagnostics_from_stderr(tmp_path: Path) -> None:
+    line = json.dumps({"level": "warn", "diagnostics": [{"code": "unparsedNumbers", "field": "v", "count": 2}]})
+    exporter = SubprocessExporter(_stub(tmp_path, 0, stderr=f"noise\n{line}\n", stdout='{"cells": []}'))
+    out = exporter.export_report({"version": 1}, [], format="sheet")
+    assert out.data == {"cells": []}
+    assert out.diagnostics == [{"code": "unparsedNumbers", "field": "v", "count": 2}]
+
+
 def test_timeout_and_missing_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(NqgridUnavailable) as info:
         SubprocessExporter(_stub(tmp_path, 0, sleep=5), timeout=0.5).export({"version": 1}, [])
@@ -114,6 +122,14 @@ def test_real_cli_invalid_input(cli_command: list[str], planning_spec: dict[str,
         )
     assert any('unknown measure "nope"' in d for d in info.value.details)
     assert any("options.css is not accepted" in d for d in info.value.details)
+
+
+@pytest.mark.e2e
+def test_real_cli_diagnostics(cli_command: list[str]) -> None:
+    spec = {"version": 1, "rows": [{"field": "a"}], "measures": [{"id": "m", "field": "vv"}]}
+    out = SubprocessExporter(cli_command).export_report(spec, [{"a": "X", "v": 1}], format="sheet")
+    assert isinstance(out.data, dict)
+    assert [(d["code"], d["path"]) for d in out.diagnostics] == [("missingField", "measures[0].field")]
 
 
 @pytest.mark.e2e

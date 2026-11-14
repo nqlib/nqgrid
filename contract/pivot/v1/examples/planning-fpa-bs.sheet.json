@@ -1,0 +1,1041 @@
+{
+  "title": "Balance sheet and headcount",
+  "subtitle": "Actual 2026, month-end balances and average FTE",
+  "units": "USD thousands · FTE",
+  "filters": [
+    "Kind ≠ flow"
+  ],
+  "preamble": [
+    {
+      "text": "Balance sheet and headcount",
+      "role": "title"
+    },
+    {
+      "text": "Actual 2026, month-end balances and average FTE",
+      "role": "subtitle"
+    },
+    {
+      "text": "USD thousands · FTE",
+      "role": "units"
+    },
+    {
+      "text": "Filters: Kind ≠ flow",
+      "role": "filters"
+    }
+  ],
+  "tableRow": 5,
+  "cells": [
+    [
+      {
+        "v": null,
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": "Q1 2026",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "Q2 2026",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "Q2 2026 Total",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "H1 2026",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      }
+    ],
+    [
+      {
+        "v": null,
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "Apr",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "May",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "Jun",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      }
+    ],
+    [
+      {
+        "v": "Section / Line",
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": "Balance",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "FTE",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Balance",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "FTE",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Balance",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "FTE",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Balance",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "FTE",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Balance",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "FTE",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Balance",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "FTE",
+        "role": "header",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Assets",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": 310000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 320000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 330000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 340000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 340000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 340000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Cash",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": 230000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 240000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 250000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 260000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 260000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 260000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Receivables",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": 80000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 80000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 80000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 80000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 80000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 80000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Liabilities",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": -66000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -68000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -70000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -72000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -72000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -72000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Payables",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -66000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -68000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -70000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -72000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -72000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -72000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Headcount",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 44,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 46,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 47,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 48,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 47,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 45.5,
+        "numFmt": "#,##0.0",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Engineering",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 32,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 34,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 35,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 36,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 35,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 33.5,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Sales",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 12,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 12,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 12,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 12,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 12,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 12,
+        "numFmt": "#,##0.0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Net assets · total FTE",
+        "role": "grandTotal",
+        "depth": -1,
+        "bold": true
+      },
+      {
+        "v": 244000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 44,
+        "numFmt": "#,##0.0",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 252000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 46,
+        "numFmt": "#,##0.0",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 260000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 47,
+        "numFmt": "#,##0.0",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 268000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 48,
+        "numFmt": "#,##0.0",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 268000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 47,
+        "numFmt": "#,##0.0",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 268000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 45.5,
+        "numFmt": "#,##0.0",
+        "role": "grandTotal",
+        "bold": true
+      }
+    ]
+  ],
+  "merges": [
+    {
+      "row": 0,
+      "col": 1,
+      "rowSpan": 2,
+      "colSpan": 2
+    },
+    {
+      "row": 0,
+      "col": 3,
+      "rowSpan": 1,
+      "colSpan": 6
+    },
+    {
+      "row": 0,
+      "col": 9,
+      "rowSpan": 2,
+      "colSpan": 2
+    },
+    {
+      "row": 0,
+      "col": 11,
+      "rowSpan": 2,
+      "colSpan": 2
+    },
+    {
+      "row": 1,
+      "col": 3,
+      "rowSpan": 1,
+      "colSpan": 2
+    },
+    {
+      "row": 1,
+      "col": 5,
+      "rowSpan": 1,
+      "colSpan": 2
+    },
+    {
+      "row": 1,
+      "col": 7,
+      "rowSpan": 1,
+      "colSpan": 2
+    },
+    {
+      "row": 0,
+      "col": 0,
+      "rowSpan": 3,
+      "colSpan": 1
+    }
+  ],
+  "frozenRows": 3,
+  "frozenCols": 1,
+  "rowHeaderColumnCount": 1,
+  "columnCount": 13,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": false,
+  "outlineLevels": 1
+}

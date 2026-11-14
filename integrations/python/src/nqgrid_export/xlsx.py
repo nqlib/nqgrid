@@ -85,17 +85,27 @@ def write_xlsx_from_sheet(
     levels: int | None = None,
     theme: Theme = "light",
     sheet_name: str | None = None,
+    generated_at: str | None = None,
 ) -> bytes:
-    """``PivotSheet`` JSON → ``.xlsx`` bytes.
+    """``PivotSheet`` JSON → ``.xlsx`` bytes, laid out like the Node writer (``format="xlsx"``).
 
-    Keeps numeric values with their Excel ``numFmt``, merges, frozen panes, bold subtotals and heat
-    levels (as solid fills). ``levels`` defaults to ``spec.heat.levels`` or 9. With ``spec``, a hidden
-    ``Spec`` sheet records the active filters (``sheet.filters``) and the spec JSON for traceability
-    (like the Node exporter).
+    Writes the preamble (title, subtitle, units, filters line) above the table, numeric values with
+    their Excel ``numFmt``, merges, frozen panes below the header rows, bold subtotals, statement rules
+    (``cells[].border``, no grey bands with ``profile: "statement"``), heat levels (solid fills),
+    indented compact labels (alignment indent), the row outline (``bodyRows``: levels, hidden rows of
+    collapsed groups, the summary position) and the print setup (landscape, one page wide, header rows
+    repeated, title / units in the page header, ``generated_at`` and "Page N of M" in the footer).
+    ``levels`` defaults to ``spec.heat.levels`` or 9. With ``spec``, a hidden ``Spec`` sheet records
+    the active filters (``sheet.filters``) and the spec JSON for traceability (like the Node exporter).
+
+    ``SUBTOTAL`` formulas (``cells[].f``, export option ``xlsx.subtotalFormulas``) are written as
+    formulas; openpyxl cannot store their cached results, so Excel / LibreOffice show the values after
+    recalculating on open, and readers that do not calculate (``data_only=True``) see ``None``.
     """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.properties import Outline, PageSetupProperties
 
     palette = PALETTE[theme]
     argb = lambda hex_: "FF" + hex_.lstrip("#").upper()  # noqa: E731
@@ -109,6 +119,9 @@ def write_xlsx_from_sheet(
     frozen_cols = int(sheet.get("frozenCols", 0))
     dim_cols = int(sheet.get("rowHeaderColumnCount", frozen_cols))
     column_count = int(sheet.get("columnCount", max((len(r) for r in cells), default=0)))
+    top = int(sheet.get("tableRow", 0))
+    statement = sheet.get("profile") == "statement"
+    body_rows: Sequence[Mapping[str, Any]] = sheet.get("bodyRows") or []
 
     wb = Workbook()
     ws = wb.active
@@ -118,49 +131,99 @@ def write_xlsx_from_sheet(
     if sheet.get("title"):
         wb.properties.title = str(sheet["title"])
 
+    for i, line in enumerate(sheet.get("preamble") or [], start=1):
+        cell = ws.cell(row=i, column=1, value=str(line["text"]))
+        cell.data_type = "s"
+        if line.get("role") == "title":
+            cell.font = Font(name="Calibri", size=14, bold=True, color=argb(palette["foreground"]))
+            ws.row_dimensions[i].height = 22
+        else:
+            italic = line.get("role") == "units"
+            cell.font = Font(name="Calibri", size=10, italic=italic, color=argb(palette["mutedForeground"]))
+            ws.row_dimensions[i].height = 16
+
+    rule = Side(style="thin", color=argb(palette["foreground"]))
+    double = Side(style="double", color=argb(palette["foreground"]))
     for r, row in enumerate(cells, start=1):
+        xr = top + r
         for c, src in enumerate(row, start=1):
-            cell = ws.cell(row=r, column=c)
+            cell = ws.cell(row=xr, column=c)
             value = src.get("v")
-            if value is not None:
+            if src.get("f"):
+                cell.value = "=" + str(src["f"])
+            elif value is not None:
                 cell.value = value
                 if isinstance(value, str) and value.startswith("="):
                     cell.data_type = "s"  # data, never a formula (openpyxl treats "=…" as one)
-            if src.get("numFmt") and isinstance(value, int | float):
+            if src.get("numFmt") and (isinstance(value, int | float) or src.get("f")):
                 cell.number_format = src["numFmt"]
             role = src.get("role")
             is_dim = c <= dim_cols
             font_color = palette["foreground"]
+            border = src.get("border") or {}
             if role in ("header", "corner"):
                 font_color = palette["mutedForeground"]
                 cell.border = Border(bottom=thin(palette["border"]))
                 cell.alignment = Alignment(vertical="center", horizontal="right" if role == "header" else "left")
             else:
-                top = thin(palette["border"]) if role == "grandTotal" else Side()
-                cell.border = Border(bottom=thin(palette["hairline"]), top=top)
+                top_side = rule if border.get("top") else thin(palette["border"]) if role == "grandTotal" else Side()
+                bottom_side = double if border.get("bottom") == "double" else thin(palette["hairline"])
+                cell.border = Border(bottom=bottom_side, top=top_side)
                 cell.alignment = Alignment(
-                    vertical="top" if is_dim and role == "group" else "center", horizontal="left" if is_dim else "right"
+                    vertical="top" if is_dim and role == "group" else "center",
+                    horizontal="left" if is_dim else "right",
+                    indent=int(src.get("indent") or 0),
                 )
             cell.font = Font(name="Calibri", size=11, bold=bool(src.get("bold")), color=argb(font_color))
             if src.get("heat") is not None:
                 cell.fill = solid(heat_fill_hex(int(src["heat"]), n_levels, theme))
-            elif role in ("group", "grandTotal"):
+            elif role in ("group", "grandTotal") and not statement:
                 cell.fill = solid(palette["muted"])
-        ws.row_dimensions[r].height = 20 if r <= frozen_rows else 18
+        dims = ws.row_dimensions[xr]
+        dims.height = 20 if r <= frozen_rows else 18
+        if r > frozen_rows and r - frozen_rows - 1 < len(body_rows):
+            meta = body_rows[r - frozen_rows - 1]
+            if meta.get("outlineLevel"):
+                dims.outlineLevel = int(meta["outlineLevel"])
+            if meta.get("hidden"):
+                dims.hidden = True
+            if meta.get("collapsed"):
+                dims.collapsed = True
 
     for m in sheet.get("merges", []):
         ws.merge_cells(
-            start_row=m["row"] + 1,
+            start_row=top + m["row"] + 1,
             start_column=m["col"] + 1,
-            end_row=m["row"] + m["rowSpan"],
+            end_row=top + m["row"] + m["rowSpan"],
             end_column=m["col"] + m["colSpan"],
         )
     if frozen_rows or frozen_cols:
-        ws.freeze_panes = ws.cell(row=frozen_rows + 1, column=frozen_cols + 1)
+        ws.freeze_panes = ws.cell(row=top + frozen_rows + 1, column=frozen_cols + 1)
+    if int(sheet.get("outlineLevels") or 0) > 0:
+        ws.sheet_properties.outlinePr = Outline(summaryBelow=bool(sheet.get("summaryBelow")), summaryRight=True)
+        ws.sheet_format.outlineLevelRow = int(sheet["outlineLevels"])
+
+    # Print setup: landscape, one page wide, header rows on every page, title / units / page numbers.
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    if frozen_rows:
+        ws.print_title_rows = f"{top + 1}:{top + frozen_rows}"
+    if sheet.get("title"):
+        ws.oddHeader.left.text = str(sheet["title"])
+    if sheet.get("units"):
+        ws.oddHeader.right.text = str(sheet["units"])
+    if generated_at:
+        ws.oddFooter.left.text = generated_at
+    ws.oddFooter.right.text = "Page &P of &N"
 
     for c in range(column_count):
         if c < dim_cols:
-            longest = max((len(str(row[c].get("v") or "")) for row in cells if c < len(row)), default=0)
+            longest = max(
+                (len(str(row[c].get("v") or "")) + 2 * int(row[c].get("indent") or 0) for row in cells if c < len(row)),
+                default=0,
+            )
             width = min(40, max(12, longest + 4))
         else:
             header = cells[frozen_rows - 1][c].get("v") if frozen_rows and c < len(cells[frozen_rows - 1]) else ""
@@ -173,6 +236,8 @@ def write_xlsx_from_sheet(
         ss.append(["nqgrid · PivotSpec v1 (rebuild this workbook from the spec and the same rows)"])
         for text in sheet.get("filters") or []:
             ss.append(["filter", str(text)])
+        if sheet.get("units"):
+            ss.append(["units", str(sheet["units"])])
         ss.append([])
         for line in json.dumps(spec, indent=2, ensure_ascii=False).split("\n"):
             ss.append([line])

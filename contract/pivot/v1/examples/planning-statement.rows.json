@@ -1,0 +1,866 @@
+[
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 20,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 600,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 400,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 360,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 240,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 25,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 660,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 440,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 396,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 264,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 30,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 720,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 480,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 432,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 288,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 35,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 780,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 520,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 468,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 312,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 40,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 840,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 560,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 504,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 336,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 45,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 900,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 600,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 540,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 360,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 960,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 640,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 576,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 384,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 55,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 1020,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 680,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 612,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 408,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 60,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 1080,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 720,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 648,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 432,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 65,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 1140,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 760,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 684,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 456,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 70,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 1200,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 800,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 720,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 480,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 40,
+    "DEPT": "North",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 50,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "North",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 100,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 30,
+    "DEPT": "South",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 80,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Marketing",
+    "LINE_SORT": 50,
+    "DEPT": "South",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 75,
+    "SIGN": -1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "North",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 1260,
+    "SIGN": 1
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "Revenue",
+    "LINE_SORT": 10,
+    "DEPT": "South",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 840,
+    "SIGN": "1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "North",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 756,
+    "SIGN": "-1"
+  },
+  {
+    "SECTION": "Gross margin",
+    "LINE": "COGS",
+    "LINE_SORT": 20,
+    "DEPT": "South",
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 504,
+    "SIGN": "-1"
+  }
+]

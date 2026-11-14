@@ -1,0 +1,2943 @@
+{
+  "$comment": "Shared validation vectors for PivotSpec v1, run by src/core/pivot/validate.test.ts (validatePivotSpec + the JSON Schema via Ajv) and integrations/python/tests/test_contract.py (validate_pivot_spec + jsonschema + Pydantic). invalid[]: both validators reject the spec; every entry of errors must appear verbatim in both error lists; for every entry of paths both lists have an error at that path (the message starts with the path followed by ':', ' ', '.' or '['). schemaValid: true marks referential checks the JSON Schema alone cannot express. valid[]: both validators (and the schema) accept the spec.",
+  "valid": [
+    {
+      "name": "format.scale with currency, parentheses and a units note",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "style": "currency",
+              "currency": "USD",
+              "scale": 1000,
+              "decimals": 1,
+              "negative": "parentheses"
+            }
+          }
+        ],
+        "units": "USD thousands"
+      }
+    },
+    {
+      "name": "scale in millions on a KPI",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "kpis": [
+          {
+            "id": "k",
+            "measure": "m",
+            "format": {
+              "scale": 1000000,
+              "decimals": 2,
+              "suffix": "m"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "YTD variance the supported way: showAs on the calculated measure",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "act",
+            "field": "actual"
+          },
+          {
+            "id": "bud",
+            "field": "budget"
+          },
+          {
+            "id": "ytdv",
+            "calculate": "act - bud",
+            "showAs": "runningTotal",
+            "showAsBase": {
+              "field": "b"
+            }
+          }
+        ],
+        "columns": {
+          "field": "b"
+        }
+      }
+    },
+    {
+      "name": "calculated measure over a measure with groupShowAs only (group rows read the aggregate)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "actual",
+            "field": "v",
+            "groupShowAs": "percentOfColumnTotal"
+          },
+          {
+            "id": "plan",
+            "field": "p"
+          },
+          {
+            "id": "vs",
+            "calculate": "actual / plan - 1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "calculated measure over a measure with showAs value",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "showAs": "value"
+          },
+          {
+            "id": "c",
+            "calculate": "m * 2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "showAsBase read by groupShowAs only",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          },
+          {
+            "field": "c"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "showAs": "percentOfParentRow",
+            "groupShowAs": "runningTotal",
+            "showAsBase": {
+              "field": "a"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "keepEmpty on a column dimension",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "columns": {
+          "field": "b",
+          "keepEmpty": true,
+          "order": [
+            "Jan",
+            "Feb"
+          ]
+        }
+      }
+    },
+    {
+      "name": "heat and headerCharts null",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "heat": null,
+        "headerCharts": null
+      }
+    },
+    {
+      "name": "measure filters on a long-format scenario table (actual, budget, variance)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "LINE"
+          }
+        ],
+        "columns": {
+          "field": "PERIOD:month"
+        },
+        "measures": [
+          {
+            "id": "actual",
+            "field": "AMOUNT",
+            "filter": {
+              "field": "SCENARIO",
+              "include": [
+                "Actual"
+              ]
+            }
+          },
+          {
+            "id": "budget",
+            "field": "AMOUNT",
+            "filter": {
+              "field": "SCENARIO",
+              "include": [
+                "Budget"
+              ]
+            }
+          },
+          {
+            "id": "var",
+            "calculate": "actual - budget"
+          }
+        ]
+      }
+    },
+    {
+      "name": "measure filter list on a derived date field (prior year), with a sign field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "py",
+            "field": "AMOUNT",
+            "signField": "SIGN",
+            "filter": [
+              {
+                "field": "SCENARIO",
+                "include": [
+                  "Actual"
+                ]
+              },
+              {
+                "field": "PERIOD:year",
+                "include": [
+                  "2025"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "n",
+            "aggregate": "count",
+            "filter": {
+              "field": "SCENARIO",
+              "exclude": [
+                "Budget"
+              ],
+              "match": {
+                "op": "beginsWith",
+                "value": "Act"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "closing / opening balance and average over time",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "GROUP"
+          },
+          {
+            "field": "ACCOUNT"
+          }
+        ],
+        "columns": [
+          {
+            "field": "PERIOD:yearQuarter"
+          },
+          {
+            "field": "PERIOD:month"
+          }
+        ],
+        "measures": [
+          {
+            "id": "close",
+            "field": "BALANCE",
+            "signField": "SIGN",
+            "aggregate": {
+              "type": "closingBalance",
+              "timeField": "PERIOD"
+            }
+          },
+          {
+            "id": "open",
+            "field": "BALANCE",
+            "aggregate": {
+              "type": "openingBalance",
+              "timeField": "PERIOD:yearMonth"
+            }
+          },
+          {
+            "id": "fte",
+            "field": "FTE",
+            "aggregate": {
+              "type": "averageOverTime",
+              "timeField": "PERIOD"
+            },
+            "filter": {
+              "field": "SCENARIO",
+              "include": [
+                "Actual"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "income statement: calculated items, per-group subtotal labels and item formats",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "subtotal": "end",
+            "subtotalLabels": {
+              "Revenue": "Total revenue",
+              "Operating expenses": "Total operating expenses"
+            },
+            "calculatedItems": [
+              {
+                "key": "Gross margin",
+                "formula": "[Revenue] + [Cost of sales]",
+                "after": "Cost of sales"
+              },
+              {
+                "key": "Gross margin %",
+                "formula": "[Gross margin] / [Revenue]",
+                "after": "Gross margin",
+                "format": {
+                  "style": "percent",
+                  "decimals": 1
+                }
+              },
+              {
+                "key": "EBITDA",
+                "formula": "[Gross margin] + [Operating expenses]",
+                "before": "Depreciation",
+                "includeInTotals": false
+              },
+              {
+                "key": "Memo",
+                "label": "Memo: constant",
+                "formula": "100",
+                "position": "start"
+              }
+            ],
+            "itemFormats": {
+              "Headcount": {
+                "decimals": 1,
+                "suffix": " FTE"
+              }
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "columns": {
+          "field": "PERIOD:quarter",
+          "subtotalLabels": {
+            "Q1": "First quarter"
+          }
+        },
+        "measures": [
+          {
+            "id": "m",
+            "field": "AMOUNT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "calculated items named like object internals (keys are opaque strings)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "__proto__",
+                "formula": "[constructor] + [prototype] + [__proto__x]"
+              },
+              {
+                "key": "constructor",
+                "formula": "1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "unknown top-level key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "css": "body{}"
+      },
+      "errors": [
+        "(root): unknown key(s) ('css' was unexpected)"
+      ]
+    },
+    {
+      "name": "two unknown top-level keys (sorted)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "repeatItemLabels": true,
+        "notes": [
+          "x"
+        ]
+      },
+      "errors": [
+        "(root): unknown key(s) ('notes', 'repeatItemLabels' were unexpected)"
+      ]
+    },
+    {
+      "name": "unknown key in a measure filter",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": {
+              "field": "scenario",
+              "include": [
+                "Actual"
+              ],
+              "where": "x"
+            }
+          }
+        ]
+      },
+      "errors": [
+        "measures[0].filter: unknown key(s) ('where' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown number-format key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "thousands": true
+            }
+          }
+        ]
+      },
+      "errors": [
+        "measures[0].format: unknown key(s) ('thousands' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown percentFormat key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "percentFormat": {
+              "style": "percent",
+              "basis": 100
+            }
+          }
+        ]
+      },
+      "errors": [
+        "measures[0].percentFormat: unknown key(s) ('basis' was unexpected)"
+      ]
+    },
+    {
+      "name": "per-row formats on a dimension",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a",
+            "formats": {
+              "Margin %": {
+                "style": "percent"
+              }
+            }
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0]: unknown key(s) ('formats' was unexpected)"
+      ]
+    },
+    {
+      "name": "value filter on a filter",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "filters": [
+          {
+            "field": "v",
+            "value": {
+              "op": "gt",
+              "value": 5
+            }
+          }
+        ]
+      },
+      "errors": [
+        "filters[0]: unknown key(s) ('value' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown sortBy key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a",
+            "sortBy": {
+              "measure": "m",
+              "by": "abs"
+            }
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].sortBy: unknown key(s) ('by' was unexpected)"
+      ]
+    },
+    {
+      "name": "Top N by percent",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a",
+            "topN": {
+              "measure": "m",
+              "count": 80,
+              "by": "percent"
+            }
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].topN: unknown key(s) ('by' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown showAsBase key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "showAs": "percentOf",
+            "showAsBase": {
+              "field": "a",
+              "item": "x",
+              "denominator": "abs"
+            }
+          }
+        ]
+      },
+      "errors": [
+        "measures[0].showAsBase: unknown key(s) ('denominator' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown totals key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "totals": {
+          "grandTotal": true,
+          "subtotals": "bottom"
+        }
+      },
+      "errors": [
+        "totals: unknown key(s) ('subtotals' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown KPI key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "kpis": [
+          {
+            "id": "k",
+            "measure": "m",
+            "target": 5
+          }
+        ]
+      },
+      "errors": [
+        "kpis[0]: unknown key(s) ('target' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown KPI format key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "kpis": [
+          {
+            "id": "k",
+            "measure": "m",
+            "format": {
+              "scale": 1000,
+              "unit": "k"
+            }
+          }
+        ]
+      },
+      "errors": [
+        "kpis[0].format: unknown key(s) ('unit' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown label-match key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "filters": [
+          {
+            "field": "a",
+            "match": {
+              "op": "contains",
+              "value": "x",
+              "regex": true
+            }
+          }
+        ]
+      },
+      "errors": [
+        "filters[0].match: unknown key(s) ('regex' was unexpected)"
+      ]
+    },
+    {
+      "name": "numeric bins on a catalogue field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "fields": [
+          {
+            "field": "age",
+            "bins": [
+              0,
+              10,
+              20
+            ]
+          }
+        ]
+      },
+      "errors": [
+        "fields[0]: unknown key(s) ('bins' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown catalogue format key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "fields": [
+          {
+            "field": "v",
+            "format": {
+              "style": "decimal",
+              "unit": "h"
+            }
+          }
+        ]
+      },
+      "errors": [
+        "fields[0].format: unknown key(s) ('unit' was unexpected)"
+      ]
+    },
+    {
+      "name": "unknown heat key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "heat": {
+          "measure": "m",
+          "diverging": true
+        }
+      },
+      "paths": [
+        "heat"
+      ]
+    },
+    {
+      "name": "unknown header-chart key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "headerCharts": {
+          "measure": "m",
+          "stacked": true
+        }
+      },
+      "paths": [
+        "headerCharts"
+      ]
+    },
+    {
+      "name": "unknown ratio key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "aggregate": {
+              "type": "ratio",
+              "numeratorField": "a",
+              "denominatorField": "b",
+              "scale": 100
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "unknown facet key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "facets": [
+          {
+            "field": "a",
+            "sort": "asc"
+          }
+        ]
+      },
+      "paths": [
+        "facets[0]"
+      ]
+    },
+    {
+      "name": "layout outline",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "layout": "outline"
+      },
+      "paths": [
+        "layout"
+      ]
+    },
+    {
+      "name": "non-string title",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "title": 1
+      },
+      "paths": [
+        "title"
+      ]
+    },
+    {
+      "name": "non-string units",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "units": [
+          "k"
+        ]
+      },
+      "paths": [
+        "units"
+      ]
+    },
+    {
+      "name": "non-string id",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "id": 7
+      },
+      "paths": [
+        "id"
+      ]
+    },
+    {
+      "name": "bad grandTotalPosition",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "totals": {
+          "grandTotalPosition": "middle"
+        }
+      },
+      "paths": [
+        "totals.grandTotalPosition"
+      ]
+    },
+    {
+      "name": "non-boolean rowTotal",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "totals": {
+          "rowTotal": "yes"
+        }
+      },
+      "paths": [
+        "totals.rowTotal"
+      ]
+    },
+    {
+      "name": "non-string grandTotalLabel",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "totals": {
+          "grandTotalLabel": 1
+        }
+      },
+      "paths": [
+        "totals.grandTotalLabel"
+      ]
+    },
+    {
+      "name": "bad heat applyTo",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "heat": {
+          "applyTo": "none"
+        }
+      },
+      "paths": [
+        "heat"
+      ]
+    },
+    {
+      "name": "bad heat domain",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "heat": {
+          "domain": [
+            1
+          ]
+        }
+      },
+      "paths": [
+        "heat"
+      ]
+    },
+    {
+      "name": "bad header-chart type",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "headerCharts": {
+          "type": "pie"
+        }
+      },
+      "paths": [
+        "headerCharts"
+      ]
+    },
+    {
+      "name": "negative kpiLevels",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "kpiLevels": [
+          -1
+        ]
+      },
+      "paths": [
+        "kpiLevels"
+      ]
+    },
+    {
+      "name": "non-string KPI label",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "kpis": [
+          {
+            "id": "k",
+            "measure": "m",
+            "label": 1
+          }
+        ]
+      },
+      "paths": [
+        "kpis[0].label"
+      ]
+    },
+    {
+      "name": "bad number style",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "style": "accounting"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.style"
+      ]
+    },
+    {
+      "name": "decimals above 20",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "decimals": 21
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.decimals"
+      ]
+    },
+    {
+      "name": "fractional decimals",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "decimals": 1.5
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.decimals"
+      ]
+    },
+    {
+      "name": "two-letter currency",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "style": "currency",
+              "currency": "US"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.currency"
+      ]
+    },
+    {
+      "name": "three compact units",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "compact": true,
+              "compactUnits": [
+                "k",
+                "M",
+                "B"
+              ]
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.compactUnits"
+      ]
+    },
+    {
+      "name": "bad negative style",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "negative": "red"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.negative"
+      ]
+    },
+    {
+      "name": "bad signDisplay",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "signDisplay": "sometimes"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.signDisplay"
+      ]
+    },
+    {
+      "name": "non-boolean compact",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "compact": "yes"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.compact"
+      ]
+    },
+    {
+      "name": "scale of 100",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "scale": 100
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.scale"
+      ]
+    },
+    {
+      "name": "scale as a word",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "scale": "thousands"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.scale"
+      ]
+    },
+    {
+      "name": "non-string prefix",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "prefix": 1
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].format.prefix"
+      ]
+    },
+    {
+      "name": "non-string measure label",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "label": 1
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].label"
+      ]
+    },
+    {
+      "name": "empty measure field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": ""
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].field"
+      ]
+    },
+    {
+      "name": "non-number ratio offset",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "aggregate": {
+              "type": "ratio",
+              "numeratorField": "a",
+              "denominatorField": "b",
+              "offset": "-1"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "non-string dimension label",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a",
+            "label": 1
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].label"
+      ]
+    },
+    {
+      "name": "non-boolean keepEmpty",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "columns": {
+          "field": "b",
+          "keepEmpty": "yes"
+        }
+      },
+      "paths": [
+        "columns"
+      ]
+    },
+    {
+      "name": "empty attribute",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a",
+            "attributes": [
+              ""
+            ]
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].attributes"
+      ]
+    },
+    {
+      "name": "non-string otherLabel",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a",
+            "topN": {
+              "measure": "m",
+              "count": 3,
+              "otherLabel": 1
+            }
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].topN.otherLabel"
+      ]
+    },
+    {
+      "name": "non-string filter label",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "filters": [
+          {
+            "field": "a",
+            "label": 1
+          }
+        ]
+      },
+      "paths": [
+        "filters[0].label"
+      ]
+    },
+    {
+      "name": "non-boolean caseSensitive",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "filters": [
+          {
+            "field": "a",
+            "match": {
+              "op": "equals",
+              "value": "x",
+              "caseSensitive": "no"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "filters[0].match.caseSensitive"
+      ]
+    },
+    {
+      "name": "non-string field description",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "fields": [
+          {
+            "field": "a",
+            "description": 1
+          }
+        ]
+      },
+      "paths": [
+        "fields[0].description"
+      ]
+    },
+    {
+      "name": "non-string facet label",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "facets": [
+          {
+            "field": "a",
+            "label": 1
+          }
+        ]
+      },
+      "paths": [
+        "facets[0]"
+      ]
+    },
+    {
+      "name": "keepEmpty on a row dimension (ignored there)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a",
+            "keepEmpty": true,
+            "order": [
+              "A",
+              "Z"
+            ]
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "schemaValid": true,
+      "errors": [
+        "rows[0].keepEmpty is only supported on column dimensions"
+      ]
+    },
+    {
+      "name": "showAsBase with percentOfParentRow (ignored there)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "showAs": "percentOfParentRow",
+            "showAsBase": {
+              "field": "a"
+            }
+          }
+        ]
+      },
+      "schemaValid": true,
+      "errors": [
+        "measures[0].showAsBase is not used by showAs \"percentOfParentRow\" (only percentOf, differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending, rankDescending read it)"
+      ]
+    },
+    {
+      "name": "showAsBase without showAs",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "showAsBase": {
+              "field": "a"
+            }
+          }
+        ]
+      },
+      "schemaValid": true,
+      "errors": [
+        "measures[0].showAsBase is not used by a measure without showAs (only percentOf, differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending, rankDescending read it)"
+      ]
+    },
+    {
+      "name": "calculated measure over a running total (YTD variance trap)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "ytd",
+            "field": "actual",
+            "showAs": "runningTotal",
+            "showAsBase": {
+              "field": "b"
+            }
+          },
+          {
+            "id": "ytdv",
+            "calculate": "ytd - act"
+          },
+          {
+            "id": "act",
+            "field": "actual"
+          }
+        ],
+        "columns": {
+          "field": "b"
+        }
+      },
+      "schemaValid": true,
+      "errors": [
+        "measures[1].calculate: references \"ytd\", which has showAs \"runningTotal\"; calculated measures read aggregated values before showAs. Reference the plain measure and put showAs on the calculated measure instead (e.g. calculate \"actual - budget\" with showAs \"runningTotal\")"
+      ]
+    },
+    {
+      "name": "calculated measure over a % of grand total measure",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "share",
+            "field": "v",
+            "showAs": "percentOfGrandTotal",
+            "groupShowAs": "value"
+          },
+          {
+            "id": "c",
+            "calculate": "[share] * 2"
+          }
+        ]
+      },
+      "schemaValid": true,
+      "errors": [
+        "measures[1].calculate: references \"share\", which has showAs \"percentOfGrandTotal\"; calculated measures read aggregated values before showAs. Reference the plain measure and put showAs on the calculated measure instead (e.g. calculate \"actual - budget\" with showAs \"percentOfGrandTotal\")"
+      ]
+    },
+    {
+      "name": "scale with compact",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "format": {
+              "compact": true,
+              "scale": 1000
+            }
+          }
+        ]
+      },
+      "schemaValid": true,
+      "errors": [
+        "measures[0].format: scale cannot be combined with compact (pick one)"
+      ]
+    },
+    {
+      "name": "scale with percent style",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "showAs": "percentOfGrandTotal",
+            "percentFormat": {
+              "style": "percent",
+              "scale": 1000
+            }
+          }
+        ]
+      },
+      "schemaValid": true,
+      "errors": [
+        "measures[0].percentFormat: scale does not apply to percent style"
+      ]
+    },
+    {
+      "name": "scale with compact in a KPI format",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "kpis": [
+          {
+            "id": "k",
+            "measure": "m",
+            "format": {
+              "compact": true,
+              "scale": 1000000
+            }
+          }
+        ]
+      },
+      "schemaValid": true,
+      "errors": [
+        "kpis[0].format: scale cannot be combined with compact (pick one)"
+      ]
+    },
+    {
+      "name": "values references an unknown measure",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "values": [
+          "nope"
+        ]
+      },
+      "schemaValid": true,
+      "paths": [
+        "values[0]"
+      ]
+    },
+    {
+      "name": "duplicate measure id",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          },
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "schemaValid": true,
+      "paths": [
+        "measures[1].id"
+      ]
+    },
+    {
+      "name": "sortBy on a column dimension",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "columns": {
+          "field": "b",
+          "sortBy": {
+            "measure": "m"
+          }
+        }
+      },
+      "schemaValid": true,
+      "paths": [
+        "columns.sortBy"
+      ]
+    },
+    {
+      "name": "field used twice",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ],
+        "columns": {
+          "field": "a"
+        }
+      },
+      "schemaValid": true,
+      "paths": [
+        "columns.field"
+      ]
+    },
+    {
+      "name": "calculated measure with an unknown reference",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          },
+          {
+            "id": "c",
+            "calculate": "m - plan"
+          }
+        ]
+      },
+      "schemaValid": true,
+      "paths": [
+        "measures[1].calculate"
+      ]
+    },
+    {
+      "name": "unknown key in a measure filter list",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": [
+              {
+                "field": "scenario",
+                "include": [
+                  "Actual"
+                ]
+              },
+              {
+                "field": "year",
+                "values": [
+                  "2026"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "errors": [
+        "measures[0].filter[1]: unknown key(s) ('values' was unexpected)"
+      ]
+    },
+    {
+      "name": "measure filter on a calculated measure",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "a",
+            "field": "v"
+          },
+          {
+            "id": "c",
+            "calculate": "a * 2",
+            "filter": {
+              "field": "scenario",
+              "include": [
+                "Actual"
+              ]
+            }
+          }
+        ]
+      },
+      "errors": [
+        "measures[1]: filter cannot be combined with calculate (filter the measures it references)"
+      ]
+    },
+    {
+      "name": "measure filter without a field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": {
+              "include": [
+                "Actual"
+              ]
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].filter"
+      ]
+    },
+    {
+      "name": "measure filter that is a string",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": "SCENARIO = Actual"
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].filter"
+      ]
+    },
+    {
+      "name": "non-string include in a measure filter",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": {
+              "field": "year",
+              "include": [
+                2026
+              ]
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].filter.include"
+      ]
+    },
+    {
+      "name": "closing balance without timeField",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "aggregate": {
+              "type": "closingBalance"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "unknown key in a closing balance",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "aggregate": {
+              "type": "closingBalance",
+              "timeField": "PERIOD",
+              "by": "ACCOUNT"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "averageOverTime without a field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "aggregate": {
+              "type": "averageOverTime",
+              "timeField": "PERIOD"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0]"
+      ]
+    },
+    {
+      "name": "semi-additive aggregate with a typo",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "aggregate": {
+              "type": "closing",
+              "timeField": "PERIOD"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "calculated items on a column dimension",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "columns": {
+          "field": "b",
+          "calculatedItems": [
+            {
+              "key": "X",
+              "formula": "[b1] - [b2]"
+            }
+          ]
+        },
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "columns.calculatedItems is only supported on row dimensions"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "item formats on a column dimension",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "columns": [
+          {
+            "field": "b",
+            "itemFormats": {
+              "b1": {
+                "decimals": 1
+              }
+            }
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "columns[0].itemFormats is only supported on row dimensions"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "duplicate calculated item key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "1"
+              },
+              {
+                "key": "GM",
+                "formula": "2"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[1].key \"GM\" is duplicated"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item with after and position",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "1",
+                "after": "Revenue",
+                "position": "end"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0]: use only one of after, before and position"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item placed after itself",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "1",
+                "after": "GM"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0]: cannot be placed after or before itself"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula with a syntax error",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "[Revenue] +"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: unexpected end of expression (at 11)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula with an unterminated reference",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "[Revenue + 1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: missing \"]\" (at 0)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula with an unknown function",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "sum([Revenue])"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: unknown function \"sum\" (allowed: abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull) (at 0)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated items referencing each other",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "A",
+                "formula": "[B] + 1"
+              },
+              {
+                "key": "B",
+                "formula": "[A] * 2"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: reference cycle A → B → A"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item referencing itself",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "[X] + 1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: reference cycle X → X"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula nested too deep",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((([a])))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: expression is nested deeper than 64 levels (at 64)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula too long",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0].formula"
+      ]
+    },
+    {
+      "name": "calculated item without a formula",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0]"
+      ]
+    },
+    {
+      "name": "calculated item with an empty key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "",
+                "formula": "1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0].key"
+      ]
+    },
+    {
+      "name": "unknown key in a calculated item",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "1",
+                "parent": "Revenue"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0]: unknown key(s) ('parent' was unexpected)"
+      ]
+    },
+    {
+      "name": "calculated item position that is not start or end",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "1",
+                "position": "after"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0].position"
+      ]
+    },
+    {
+      "name": "calculated items that are not a list",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": {
+              "key": "X",
+              "formula": "1"
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems"
+      ]
+    },
+    {
+      "name": "non-string subtotal label",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "subtotalLabels": {
+              "Revenue": 5
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].subtotalLabels"
+      ]
+    },
+    {
+      "name": "percent calculated item with a scale",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM %",
+                "formula": "[GM] / [Revenue]",
+                "format": {
+                  "style": "percent",
+                  "scale": 1000
+                }
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].format: scale does not apply to percent style"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "unknown key in an item format",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "itemFormats": {
+              "GM %": {
+                "scal": 1000
+              }
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].itemFormats.GM %: unknown key(s) ('scal' was unexpected)"
+      ]
+    }
+  ]
+}

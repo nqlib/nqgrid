@@ -8,9 +8,20 @@ Three layers, cheapest first:
    ``sortBy`` / ``topN`` on column dimensions, a field used twice across ``rows`` and ``columns`` (a
    dimension or a list of dimensions), duplicate measure ids, facets and catalogue fields, date-grouping
    entries (``source`` + ``dateGroup``), calculated measures (expression grammar via
-   :mod:`nqgrid_export.calc`, unknown references, reference cycles), ``showAsBase`` (required by the
-   difference / running-total / rank kinds of ``showAs``, must name a row or column field), and custom
-   aggregators (not available in nqgrid-export).
+   :mod:`nqgrid_export.calc`, unknown references, reference cycles), ``showAsBase`` (required by
+   ``percentOf`` and the difference / running-total / rank kinds of ``showAs``, must name a row or column
+   field; ``percentOf`` needs an ``item``; ``scope: "all"`` needs an item, a row field and an item kind),
+   ``signField`` (not with counts, distinct counts or calculated measures), a measure ``filter`` (not on
+   calculated measures), ``keepEmpty`` only on column
+   dimensions, ``showAsBase`` only where a ``showAs`` kind reads it, no calculated measure over a show-as measure,
+   ``format.scale`` not with ``compact`` / percent style, calculated items (row dimensions only, unique keys,
+   one of ``after`` / ``before`` / ``position``, formula grammar with any key as a reference, no reference cycle
+   among a field's items; keys of the data are only known at build time, so unknown keys are ``itemKeyNotFound``
+   diagnostics, not errors), ``itemFormats`` on rows only, and custom aggregators (not available in nqgrid-export).
+
+nqgrid's ``validatePivotSpec`` runs the same checks (layers 1 and 2), so both accept and reject the same specs;
+``contract/pivot/v1/invalid-specs.json`` is run by both test suites (identical messages for unknown keys and the
+referential checks above, identical paths for schema enums and types).
 3. nqgrid-export itself (authoritative): ``NqgridInvalidInput.details``.
 
 Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
@@ -92,7 +103,32 @@ def calc_example_spec() -> dict[str, Any]:
     return _load("planning-calc.spec.json")
 
 
+def statement_example_spec() -> dict[str, Any]:
+    """The golden ``planning-statement.spec.json`` example (income statement: signField, % of Revenue with
+    ``showAsBase.scope: "all"``, section subtotals labelled with the section, grand total as Operating income)."""
+    return _load("planning-statement.spec.json")
+
+
+def fpa_example_spec() -> dict[str, Any]:
+    """The golden ``planning-fpa.spec.json`` example (long-format scenario table: Actual / Budget / prior year as
+    measure filters, variance and Var % calculations, a YTD running total, USD thousands via ``format.scale``)."""
+    return _load("planning-fpa.spec.json")
+
+
+def fpa_balance_example_spec() -> dict[str, Any]:
+    """The golden ``planning-fpa-bs.spec.json`` example (balance sheet with ``closingBalance`` and headcount with
+    ``averageOverTime`` on the same long-format table, a collapsed quarter)."""
+    return _load("planning-fpa-bs.spec.json")
+
+
+def income_example_spec() -> dict[str, Any]:
+    """The golden ``planning-income.spec.json`` example (income statement with calculated items: Gross margin,
+    Gross margin % and EBITDA on SECTION, per-section subtotal labels, Operating income as the grand total)."""
+    return _load("planning-income.spec.json")
+
+
 SHOW_AS_WITH_BASE = (
+    "percentOf",
     "differenceFrom",
     "percentDifferenceFrom",
     "runningTotal",
@@ -160,10 +196,31 @@ def _message(error: ValidationError) -> str:
     return str(error.message)
 
 
+def _branch_errors(error: ValidationError) -> list[ValidationError]:
+    """An ``anyOf`` / ``oneOf`` whose instance has the JSON type of exactly one branch (a measure ``filter``:
+    one object or a list) reports that branch's own errors, so paths and messages match ``validatePivotSpec``."""
+    if error.validator not in ("oneOf", "anyOf") or not error.context:
+        return [error]
+    by_branch: dict[int, list[ValidationError]] = {}
+    for sub in error.context:
+        by_branch.setdefault(int(sub.relative_schema_path[0]), []).append(sub)
+    typed = [
+        subs for subs in by_branch.values() if not any(s.validator == "type" and not s.relative_path for s in subs)
+    ]
+    if len(typed) != 1:
+        return [error]
+    return [e for sub in typed[0] for e in _branch_errors(sub)]
+
+
 def _schema_errors(validator: Draft202012Validator, instance: Any, prefix: str) -> list[str]:
     # A calculated measure with field / aggregate (dependentSchemas) gets a clearer referential message.
     errors = sorted(
-        (e for e in validator.iter_errors(instance) if "dependentSchemas" not in e.absolute_schema_path),
+        (
+            b
+            for e in validator.iter_errors(instance)
+            if "dependentSchemas" not in e.absolute_schema_path
+            for b in _branch_errors(e)
+        ),
         key=lambda e: [str(p) for p in e.absolute_path],
     )
     return [f"{_path(prefix, e)}: {_message(e)}" for e in errors]
@@ -202,15 +259,19 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
     for i, d in enumerate(spec.get("rows") or []):
         if not isinstance(d, dict):
             continue
+        if isinstance(d.get("keepEmpty"), bool):
+            errors.append(f"{prefix}rows[{i}].keepEmpty is only supported on column dimensions")
         for key in ("sortBy", "topN"):
             if isinstance(d.get(key), dict):
                 ref(d[key].get("measure"), f"rows[{i}].{key}.measure")
+        if isinstance(d.get("calculatedItems"), list):
+            errors += _calculated_item_errors(d["calculatedItems"], f"{prefix}rows[{i}]")
         if isinstance(d.get("field"), str):
             used.setdefault(d["field"], f"rows[{i}]")
     for where, d in column_dimensions(spec):
         if not isinstance(d, dict):
             continue
-        for key in ("sortBy", "topN"):
+        for key in ("sortBy", "topN", "calculatedItems", "itemFormats"):
             if key in d:
                 errors.append(f"{prefix}{where}.{key} is only supported on row dimensions")
         field = d.get("field")
@@ -236,38 +297,190 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
                 errors.append(f"{prefix}fields[{i}]: source and dateGroup go together")
             if f.get("source") is not None and f.get("source") == f["field"]:
                 errors.append(f"{prefix}fields[{i}].source must differ from field")
-    errors += _measure_errors(spec, prefix, ids, set(used))
+    row_fields = {f for f, where in used.items() if where.startswith("rows[")}
+    errors += _measure_errors(spec, prefix, ids, set(used), row_fields)
+    errors += _format_errors(spec, prefix)
     return errors
 
 
-def _measure_errors(spec: dict[str, Any], prefix: str, ids: set[str], layout_fields: set[str]) -> list[str]:
-    """Calculated measures (grammar, references, cycles) and ``showAsBase``; same messages as nqgrid."""
+def _calculated_item_errors(items: list[Any], where: str) -> list[str]:
+    """Calculated items of a row dimension (unique keys, one placement, formula grammar, cycles among items);
+    same messages as ``validatePivotSpec``. Keys of the data are unknown here: references to them are not checked."""
+    errors: list[str] = []
+    keys: set[str] = set()
+    refs: dict[str, list[str]] = {}
+    where_of: dict[str, str] = {}
+    for j, it in enumerate(items):
+        if not isinstance(it, dict) or not isinstance(it.get("key"), str) or not it["key"]:
+            continue
+        w = f"{where}.calculatedItems[{j}]"
+        key = it["key"]
+        if key in keys:
+            errors.append(f'{w}.key "{key}" is duplicated')
+        keys.add(key)
+        if sum(1 for k in ("after", "before", "position") if k in it) > 1:
+            errors.append(item_placement_message(w))
+        if it.get("after") == key or it.get("before") == key:
+            errors.append(f"{w}: cannot be placed after or before itself")
+        if not isinstance(it.get("formula"), str):
+            continue
+        parsed = parse_calc(it["formula"], allow_reserved=True)
+        if parsed.error is not None:
+            errors.append(f"{w}.formula: {parsed.error.message} (at {parsed.error.position})")
+            continue
+        if key not in refs:
+            refs[key] = list(parsed.references)
+            where_of[key] = w
+    for cycle in find_cycles(refs):
+        errors.append(f"{where_of.get(cycle[0], where)}.formula: reference cycle {' → '.join(cycle)}")
+    return errors
+
+
+def item_placement_message(where: str) -> str:
+    """A calculated item with more than one of ``after`` / ``before`` / ``position``.
+
+    Mirrors ``pivotItemPlacementMessage``."""
+    return f"{where}: use only one of after, before and position"
+
+
+FORMAT_SCALES = (1000, 1_000_000, 1_000_000_000)
+"""``format.scale`` values (Excel scales by powers of 1000: ``#,##0,`` / ``#,##0,,`` / ``#,##0,,,``)."""
+
+
+def _number_formats(spec: dict[str, Any]) -> list[tuple[str, Any]]:
+    out: list[tuple[str, Any]] = []
+    for i, m in enumerate(spec.get("measures") or []):
+        if isinstance(m, dict):
+            out += [(f"measures[{i}].{k}", m.get(k)) for k in ("format", "percentFormat")]
+    for i, k in enumerate(spec.get("kpis") or []):
+        if isinstance(k, dict):
+            out += [(f"kpis[{i}].{key}", k.get(key)) for key in ("format", "deltaFormat")]
+    for i, f in enumerate(spec.get("fields") or []):
+        if isinstance(f, dict):
+            out.append((f"fields[{i}].format", f.get("format")))
+    for i, d in enumerate(spec.get("rows") or []):
+        if not isinstance(d, dict):
+            continue
+        if isinstance(d.get("itemFormats"), dict):
+            out += [(f"rows[{i}].itemFormats.{k}", f) for k, f in d["itemFormats"].items()]
+        if isinstance(d.get("calculatedItems"), list):
+            out += [
+                (f"rows[{i}].calculatedItems[{j}].format", it.get("format"))
+                for j, it in enumerate(d["calculatedItems"])
+                if isinstance(it, dict)
+            ]
+    return out
+
+
+def _format_errors(spec: dict[str, Any], prefix: str) -> list[str]:
+    """``format.scale`` combinations the schema cannot express (same messages as nqgrid)."""
+    errors: list[str] = []
+    for where, f in _number_formats(spec):
+        if not isinstance(f, dict) or f.get("scale") not in FORMAT_SCALES or isinstance(f.get("scale"), bool):
+            continue
+        if f.get("compact") is True:
+            errors.append(f"{prefix}{where}: scale cannot be combined with compact (pick one)")
+        elif f.get("style") == "percent":
+            errors.append(f"{prefix}{where}: scale does not apply to percent style")
+    return errors
+
+
+_ITEM_KINDS = ("percentOf", "differenceFrom", "percentDifferenceFrom")
+
+
+def _show_as_base_errors(m: dict[str, Any], where: str, layout_fields: set[str], row_fields: set[str]) -> list[str]:
+    errors: list[str] = []
+    kinds = (m.get("showAs"), m.get("groupShowAs"))
+    base = m.get("showAsBase")
+    if base is None:
+        if any(k in SHOW_AS_WITH_BASE for k in kinds):
+            errors.append(f"{where}.showAsBase is required by its showAs / groupShowAs")
+        return errors
+    if not isinstance(base, dict) or not isinstance(base.get("field"), str):
+        return errors
+    if not any(k in SHOW_AS_WITH_BASE for k in kinds):
+        used = [k for k in kinds if isinstance(k, str)]
+        by = "showAs " + " / ".join(f'"{k}"' for k in used) if used else "a measure without showAs"
+        errors.append(f"{where}.showAsBase is not used by {by} (only {', '.join(SHOW_AS_WITH_BASE)} read it)")
+        return errors
+    field = base["field"]
+    if field not in layout_fields:
+        errors.append(f'{where}.showAsBase.field "{field}" is not a row or column field')
+    if "percentOf" in kinds and "item" not in base:
+        errors.append(f"{where}.showAsBase.item is required by percentOf")
+    if base.get("scope") == "all":
+        if "item" not in base:
+            errors.append(f'{where}.showAsBase.scope "all" needs showAsBase.item')
+        if field in layout_fields and field not in row_fields:
+            errors.append(f'{where}.showAsBase.scope "all" needs a row field (got column field "{field}")')
+        if any(k not in (None, "value", *_ITEM_KINDS) and k in SHOW_AS_WITH_BASE for k in kinds):
+            errors.append(
+                f'{where}.showAsBase.scope "all" applies to percentOf / differenceFrom / percentDifferenceFrom only'
+            )
+    return errors
+
+
+def _measure_errors(
+    spec: dict[str, Any], prefix: str, ids: set[str], layout_fields: set[str], row_fields: set[str]
+) -> list[str]:
+    """Calculated measures (grammar, references, cycles), ``showAsBase`` and ``signField``; same messages as nqgrid."""
     errors: list[str] = []
     refs: dict[str, list[str]] = {}
     where_of: dict[str, str] = {}
+    # Leaf ``showAs`` other than "value" (a ``groupShowAs`` alone is fine: group rows read the aggregate).
+    show_as_of = {
+        m["id"]: m["showAs"]
+        for m in spec.get("measures") or []
+        if isinstance(m, dict) and isinstance(m.get("id"), str) and isinstance(m.get("showAs"), str)
+        if m["showAs"] != "value"
+    }
     for i, m in enumerate(spec.get("measures") or []):
         if not isinstance(m, dict) or not isinstance(m.get("id"), str):
             continue
         where = f"{prefix}measures[{i}]"
-        needs_base = m.get("showAs") in SHOW_AS_WITH_BASE or m.get("groupShowAs") in SHOW_AS_WITH_BASE
-        base = m.get("showAsBase")
-        if base is None and needs_base:
-            errors.append(f"{where}.showAsBase is required by its showAs / groupShowAs")
-        elif isinstance(base, dict) and isinstance(base.get("field"), str) and base["field"] not in layout_fields:
-            errors.append(f'{where}.showAsBase.field "{base["field"]}" is not a row or column field')
+        errors += _show_as_base_errors(m, where, layout_fields, row_fields)
+        agg = m.get("aggregate", "sum")
+        if "signField" in m and "calculate" not in m and agg in ("count", "distinctCount"):
+            errors.append(
+                f'{where}.signField is not supported with aggregate "{agg}" (it signs values; counts have none)'
+            )
         if "calculate" not in m:
             continue
         if "field" in m or "aggregate" in m:
             errors.append(f"{where}: calculate cannot be combined with field or aggregate")
+        if "signField" in m:
+            errors.append(f"{where}: signField cannot be combined with calculate (sign the measures it references)")
+        if "filter" in m:
+            errors.append(calc_filter_message(where))
         parsed = parse_calc(m["calculate"], ids)
         if parsed.error is not None:
             errors.append(f"{where}.calculate: {parsed.error.message} (at {parsed.error.position})")
             continue
         refs[m["id"]] = list(parsed.references)
         where_of.setdefault(m["id"], where)
+        for ref in parsed.references:
+            kind = show_as_of.get(ref)
+            if kind:
+                errors.append(calc_show_as_message(where, ref, kind))
     for cycle in find_cycles(refs):
         errors.append(f"{where_of.get(cycle[0], prefix + 'measures')}.calculate: reference cycle {' → '.join(cycle)}")
     return errors
+
+
+def calc_filter_message(where: str) -> str:
+    """A measure filter on a calculated measure (it aggregates nothing itself). Mirrors ``pivotCalcFilterMessage``."""
+    return f"{where}: filter cannot be combined with calculate (filter the measures it references)"
+
+
+def calc_show_as_message(where: str, ref: str, kind: str) -> str:
+    """A calculated measure referencing a measure with ``showAs``: it would read the value before the
+    show-as (a "YTD variance" over two running totals gives the monthly variance). Mirrors
+    ``pivotCalcShowAsMessage``."""
+    return (
+        f'{where}.calculate: references "{ref}", which has showAs "{kind}"; calculated measures read aggregated '
+        "values before showAs. Reference the plain measure and put showAs on the calculated measure instead "
+        f'(e.g. calculate "actual - budget" with showAs "{kind}")'
+    )
 
 
 def check_calculated_measure(spec: Mapping[str, Any], calculate: Any, measure_id: str | None = None) -> str | None:
@@ -278,6 +491,10 @@ def check_calculated_measure(spec: Mapping[str, Any], calculate: Any, measure_id
     parsed = parse_calc(calculate, ids)
     if parsed.error is not None:
         return str(parsed.error)
+    for ref in parsed.references:
+        kind = next((m.get("showAs") for m in measures if m["id"] == ref and m["id"] != measure_id), None)
+        if isinstance(kind, str) and kind != "value":
+            return calc_show_as_message("", ref, kind).removeprefix(".calculate: ")
     if measure_id is None:
         return None
     refs = {
@@ -289,6 +506,38 @@ def check_calculated_measure(spec: Mapping[str, Any], calculate: Any, measure_id
     }
     refs[measure_id] = list(parsed.references)
     cycle = next((c for c in find_cycles(refs) if measure_id in c), None)
+    return f"reference cycle {' → '.join(cycle)}" if cycle else None
+
+
+def check_calculated_item(
+    spec: Mapping[str, Any], field: str, item: Mapping[str, Any], replace_key: str | None = None
+) -> str | None:
+    """Problem with a calculated item (``{"key", "formula", ...}``) for row field ``field`` (new, or replacing the
+    item ``replace_key``), or ``None`` when valid. Mirrors ``checkPivotCalculatedItem``: a row field, the formula
+    grammar (any key may be referenced, also ``__proto__``), a non-empty key not taken by another item, and no
+    reference cycle among the field's items. Keys of the data are not checked here: unknown keys show up as
+    ``itemKeyNotFound`` in the model's ``diagnostics``."""
+    dim = next((d for d in spec.get("rows") or [] if isinstance(d, dict) and d.get("field") == field), None)
+    if dim is None:
+        return f'"{field}" is not a row field'
+    parsed = parse_calc(item.get("formula"), allow_reserved=True)
+    if parsed.error is not None:
+        return str(parsed.error)
+    key = item.get("key")
+    if not isinstance(key, str) or not key:
+        return "the item needs a name"
+    others = [it for it in dim.get("calculatedItems") or [] if isinstance(it, dict) and it.get("key") != replace_key]
+    if any(it.get("key") == key for it in others):
+        return f'a calculated item "{key}" exists'
+    refs = {
+        it["key"]: list(p.references)
+        for it in others
+        if isinstance(it.get("key"), str)
+        for p in [parse_calc(it.get("formula"), allow_reserved=True)]
+        if p.error is None
+    }
+    refs[key] = list(parsed.references)
+    cycle = next((c for c in find_cycles(refs) if key in c), None)
     return f"reference cycle {' → '.join(cycle)}" if cycle else None
 
 
@@ -340,11 +589,20 @@ def spec_fields(spec: dict[str, Any]) -> list[tuple[str, str]]:
             continue
         if isinstance(m.get("field"), str):
             out.append((f"measures[{i}].field", m["field"]))
+        if isinstance(m.get("signField"), str):
+            out.append((f"measures[{i}].signField", m["signField"]))
         agg = m.get("aggregate")
         if isinstance(agg, dict):
             for key in ("weightField", "numeratorField", "denominatorField"):
                 if isinstance(agg.get(key), str):
                     out.append((f"measures[{i}].aggregate.{key}", agg[key]))
+            if isinstance(agg.get("timeField"), str):
+                out.append((f"measures[{i}].aggregate.timeField", key_field(agg["timeField"])))
+        flt = m.get("filter")
+        for j, f in enumerate(flt if isinstance(flt, list) else [flt] if isinstance(flt, dict) else []):
+            if isinstance(f, dict) and isinstance(f.get("field"), str):
+                where = f"measures[{i}].filter[{j}]" if isinstance(flt, list) else f"measures[{i}].filter"
+                out.append((f"{where}.field", key_field(f["field"])))
     for i, f in enumerate(spec.get("filters") or []):
         if isinstance(f, dict) and isinstance(f.get("field"), str):
             out.append((f"filters[{i}].field", key_field(f["field"])))

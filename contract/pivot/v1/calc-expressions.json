@@ -789,5 +789,161 @@
         "actual"
       ]
     }
-  ]
+  ],
+  "items": {
+    "description": "Calculated item formulas (PivotCalculatedItem.formula): the same grammar and limits, parsed with reserved names allowed (parsePivotCalc with allowReservedNames / parse_calc(allow_reserved=True)), because references are keys from data. values is a list of [key, value] pairs (keys such as __proto__ stay plain keys; implementations look them up in a Map / dict, never through object properties).",
+    "valid": [
+      {
+        "expr": "[Revenue] + [Cost of sales]",
+        "values": [
+          [
+            "Revenue",
+            1000
+          ],
+          [
+            "Cost of sales",
+            -600
+          ]
+        ],
+        "result": 400,
+        "references": [
+          "Revenue",
+          "Cost of sales"
+        ]
+      },
+      {
+        "expr": "[Gross margin] / [Revenue]",
+        "values": [
+          [
+            "Gross margin",
+            400
+          ],
+          [
+            "Revenue",
+            0
+          ]
+        ],
+        "result": null
+      },
+      {
+        "expr": "[__proto__] + [constructor] * prototype",
+        "values": [
+          [
+            "__proto__",
+            1
+          ],
+          [
+            "constructor",
+            2
+          ],
+          [
+            "prototype",
+            3
+          ]
+        ],
+        "result": 7,
+        "references": [
+          "__proto__",
+          "constructor",
+          "prototype"
+        ]
+      },
+      {
+        "expr": "coalesce([Other income], 0) + [EBITDA]",
+        "values": [
+          [
+            "EBITDA",
+            50
+          ]
+        ],
+        "result": 50
+      },
+      {
+        "expr": "[toString] + [hasOwnProperty] + [valueOf]",
+        "values": [
+          [
+            "toString",
+            1
+          ]
+        ],
+        "result": null
+      },
+      {
+        "expr": "[2026] - [2025]",
+        "values": [
+          [
+            "2026",
+            110
+          ],
+          [
+            "2025",
+            100
+          ]
+        ],
+        "result": 10,
+        "references": [
+          "2026",
+          "2025"
+        ]
+      }
+    ],
+    "invalid": [
+      {
+        "expr": {
+          "concat": [
+            "[a]",
+            {
+              "repeat": "+[a]",
+              "times": 300
+            }
+          ]
+        },
+        "code": "tooLong",
+        "position": 1000
+      },
+      {
+        "expr": {
+          "concat": [
+            {
+              "repeat": "(",
+              "times": 65
+            },
+            "[a]",
+            {
+              "repeat": ")",
+              "times": 65
+            }
+          ]
+        },
+        "code": "tooDeep"
+      },
+      {
+        "expr": "[Revenue] + [Cost of sales",
+        "code": "unterminatedReference",
+        "position": 12
+      },
+      {
+        "expr": "[Revenue] + []",
+        "code": "emptyReference",
+        "position": 12
+      },
+      {
+        "expr": "[a[b]]",
+        "code": "invalidCharacter",
+        "position": 2
+      },
+      {
+        "expr": "[Rev\u202eenue]",
+        "code": "invalidCharacter"
+      },
+      {
+        "expr": "constructor.constructor('return process')()",
+        "code": "invalidCharacter"
+      },
+      {
+        "expr": "[Revenue](1)",
+        "code": "unexpectedToken"
+      }
+    ]
+  }
 }

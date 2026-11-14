@@ -1,0 +1,838 @@
+{
+  "title": "Income statement",
+  "subtitle": "FY 2026 · EUR",
+  "preamble": [
+    {
+      "text": "Income statement",
+      "role": "title"
+    },
+    {
+      "text": "FY 2026 · EUR",
+      "role": "subtitle"
+    }
+  ],
+  "tableRow": 3,
+  "cells": [
+    [
+      {
+        "v": "Section / Line",
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": "Q1",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Q2",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Q3",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Q4",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "FY 2026",
+        "role": "header",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Revenue",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Product revenue",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": 2460,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 2640,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 2820,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3000,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 10920,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Services revenue",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": 630,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 720,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 810,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3060,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Total revenue",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": 3090,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 3360,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 3630,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 3900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 13980,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Cost of sales",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "COGS",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -1245,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1380,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1515,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -1650,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -5790,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Total cost of sales",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": -1245,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -1380,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -1515,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -1650,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -5790,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Gross margin",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": 1845,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 1980,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 2115,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 2250,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 8190,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Gross margin %",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": 0.5970873786407767,
+        "numFmt": "#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.5892857142857143,
+        "numFmt": "#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.5826446280991735,
+        "numFmt": "#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.5769230769230769,
+        "numFmt": "#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.5858369098712446,
+        "numFmt": "#,##0.0%",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Operating expenses",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Salaries",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -750,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -750,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -750,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -750,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -3000,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Rent",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -150,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -150,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -150,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -150,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -600,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Total operating expenses",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": -900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -900,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -3600,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "EBITDA",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": 945,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 1080,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 1215,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 1350,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 4590,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Depreciation",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Equipment depreciation",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -480,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Total depreciation",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -120,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -480,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Operating income",
+        "role": "grandTotal",
+        "depth": -1,
+        "bold": true
+      },
+      {
+        "v": 825,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 960,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 1095,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 1230,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 4110,
+        "numFmt": "#,##0;(#,##0)",
+        "role": "grandTotal",
+        "bold": true
+      }
+    ]
+  ],
+  "merges": [],
+  "frozenRows": 1,
+  "frozenCols": 1,
+  "rowHeaderColumnCount": 1,
+  "columnCount": 6,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "calculated",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "calculated",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "calculated",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": true,
+  "outlineLevels": 1
+}

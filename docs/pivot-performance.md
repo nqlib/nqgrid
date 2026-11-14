@@ -3,7 +3,8 @@
 `buildPivotModel` benchmarks before and after the filters / Top N / sort-by-value work (Excel parity, step 1), plus the
 field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)) and the column-hierarchy /
 date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)) and the calculated-measure / distinct-count / drill-through scenarios of step 4 ([below](#step-4-calculated-measures-distinct-count-show-values-as-drill-through-excel-parity-step-4)). The [performance review](#performance-review) at the end covers the React layer and the export service too, with fixes and recommended limits.
-The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts` and `bench/pivot-step4.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
+The [financial-statement features](#financial-statements-sign-field-and--of-with-a-global-base) (sign field, % Of with a global base) follow.
+The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts`, `bench/pivot-step4.bench.ts`, `bench/pivot-statement.bench.ts` and `bench/pivot-planning.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
 
 ## Setup
 
@@ -461,3 +462,229 @@ rows are measured); find-in-page sees only rendered rows; custom `renderSpanCell
 stretch rows when its span is clipped at the window edge.
 
 Re-run with `pnpm bench`. Numbers on other machines differ in absolute terms. Compare scenarios on the same machine.
+
+## Financial statements: sign field and % Of with a global base
+
+`bench/pivot-statement.bench.ts` (rows: `generateBenchSignedRows(n)` = the bench rows plus `sign` (`1` / `-1` by
+department) and `signText` (the same as a string)). This VM was faster than the one above (4 vCPU, Node 22); compare
+rows within the table only. Means in ms, median of 2 runs:
+
+| Scenario | 100k | 500k |
+|---|---:|---:|
+| Reference: base spec, cold | 26.2 | 96.2 |
+| `signField` on 2 of the 3 value measures, numeric sign, cold | 31.0 | 118.7 |
+| `signField` on 2 measures, string sign (`"-1"`), cold | 32.1 | 133.6 |
+| `percentOf` line "Camp 1" with `scope: "all"` (merged over 6 regions), on rows and groups, cold | 27.4 | 107.4 |
+| `percentOf` line "Camp 1" with `scope: "parent"`, cold | 26.8 | 110.8 |
+| View-only: values / % Of scope all / % Of scope parent (builder, cube reused) | 5.9 | 8.1 |
+
+- **Sign field.** A cold build pays one pass over the sign column (number parsing, like any measure field) and one
+  multiply pass per signed (value, sign) column pair, which allocates a `Float64Array` of the record count (4 MB at
+  500k): about +11 ms per signed measure at 500k, +15 ms with string signs. Both are memoized on the encoding, so
+  `createPivotModelBuilder` / `usePivotGrid` pay them once per `rows`; the record pass then reads the signed column
+  exactly like an unsigned one (no per-record branch). Measures without `signField` take the old code path, and
+  `pivotSpecDataKey` is unchanged for them.
+- **% Of, `scope: "all"`.** No change to the cube: `PivotCube.keyTotal(level, item)` merges the accumulators of the
+  nodes with that key once per cube (here 6 nodes × 14 buckets) and memoizes it; each cell is then one accumulator read.
+  There are no sibling scans, so the O(k log k)-per-sibling-group property of the performance review holds (scope
+  `parent` uses the existing direct base lookup). Switching it on in the app is a view-only rebuild.
+
+**Regression check (existing scenarios).** Medians of the per-run means, 4 interleaved runs of HEAD `8613f57` (temporary
+worktree) and of this tree for `pivot.bench.ts` and `pivot-columns.bench.ts`, 2 for `pivot-step4.bench.ts`. Before →
+after, ms:
+
+| Scenario | 10k | 100k | 500k |
+|---|---:|---:|---:|
+| Base spec, cold | 9.8 → 9.4 | 25.4 → 24.7 | 113.6 → 116.2 |
+| 3 filters, cold | 6.8 → 6.6 | 24.3 → 22.8 | 111.3 → 106.2 |
+| Filters + label filter + 4 facets + Top 5 + sortBy, cold | 7.2 → 7.0 | 28.7 → 29.8 | 128.2 → 126.7 |
+| View-only change (expand / collapse / heat scope) | 1.5 → 1.5 | 1.3 → 1.3 | 1.3 → 1.5 |
+| Filter change: slicer click | 1.5 → 1.5 | 5.2 → 5.0 | 21.9 → 22.6 |
+| Move field: Line ↔ Columns | 12.3 → 12.8 | 18.8 → 17.9 | 41.6 → 42.0 |
+| Add measure: Units into Values | 7.4 → 7.1 | 13.2 → 13.0 | 38.0 → 36.8 |
+| 2 column fields: year → month, cold | | 39.4 → 40.9 | 136.6 → 139.5 |
+| 3 column fields: year → quarter → month, cold | | 43.8 → 48.6 | 164.7 → 165.4 |
+| Date grouping from ISO strings, cold | | 49.7 → 49.3 | 227.3 → 226.5 |
+| Date grouping, encoding reused: slicer click | | 3.8 → 4.0 | 14.1 → 15.6 |
+| Toggle a column group | | 11.3 → 11.3 | 10.7 → 11.2 |
+| Step 4 reference: base spec, cold | | 29.8 → 27.8 | 119.4 → 110.6 |
+| Calculated measure as a 4th value, cold | | 36.2 → 31.9 | 123.8 → 104.1 |
+| Calculated measure as sortBy + Top 3 + heat + KPI, cold | | 34.6 → 34.8 | 140.3 → 136.2 |
+| Distinct count of 20k customers, cold | | 43.7 → 40.9 | 182.1 → 176.0 |
+| Distinct count of 6 regions, cold | | 24.8 → 23.8 | 105.8 → 113.9 |
+| View-only: running total / difference from / subtotal rows | | 5.9 → 6.1 | 5.6 → 5.6 |
+| Running total along month, cold | | 29.3 → 29.0 | 109.5 → 109.1 |
+| Drill-through: leaf cell | | 0.5 → 0.5 | 2.8 → 2.7 |
+| Drill-through: grand total of filters + Top 5 | | 6.9 → 6.5 | 27.9 → 27.8 |
+
+Rows above +10 % overlap between runs: 100k "3 column fields" (38.9–47.1 before, 37.9–53.2 after), 500k date-grouping
+slicer click (12.5–17.5 against 14.4–23.3, one outlier) and the sub-2 ms 500k view-only row. The record pass and the
+merge / read switches are unchanged for specs without the new features: the view stage adds one `Map` per build for
+global bases (empty unless used), and `readValue` checks a flag only in its distinct-count and custom cases.
+
+
+## Batch A: strict validation, diagnostics, print profile
+
+What changed on the build path: `validatePivotSpec` checks every key and value the JSON Schema checks (it runs on
+every `buildPivotModel` / builder build), the record encoding counts data problems while it reads a column
+(`PivotRowEncoding.stats`: a few additions per record, samples only on the rare bad value), the cube turns those
+counts into `model.diagnostics` once per build, and number strings are trimmed once and refuse radix literals. The
+view stage adds one loop over the measures (`showAsBase.item` lookups). Print pagination
+(`pivotPageBodySegments`) runs in `renderPivotHtml` only.
+
+**Validation cost** (`validatePivotSpec`, 20,000 calls, mean): base spec 0.003 → 0.006–0.008 ms, filtered spec
+0.004 → 0.006–0.007 ms. A cold 10k-row build takes about 10 ms, so validating by default costs < 0.1 % of a build
+and stays on (`validate: false` remains for specs you built yourself).
+
+**Build cost, min of N** (same process, interleaved 3× per tree, HEAD `1848a8d` worktree vs this tree; the minimum is
+the least noisy statistic on this shared VM):
+
+| Scenario | 100k before | 100k after | 500k before | 500k after |
+|---|---:|---:|---:|---:|
+| Base spec, cold (min of 40 / 10) | 31.8 / 33.4 / 31.8 | 32.7 / 33.8 / 32.9 | 142.9 / 143.7 / 142.2 | 145.8 / 149.1 / 142.1 |
+| Filters + facets + Top 5 + sortBy, cold | 34.0 / 35.0 / 34.9 | 35.7 / 34.9 / 35.6 | 166.0 / 176.5 / 165.4 | 170.3 / 168.8 / 169.8 |
+| Base spec + `signField` on 2 measures, cold | 32.9 / 33.6 / 32.9 | 34.4 / 34.1 / 34.6 | 150.1 / 152.8 / 153.0 | 155.1 / 155.2 / 154.0 |
+| 500k rows with amounts as strings (`"1234.00"`), cold (min of 10, 2×) | | | 229.0 / 236.4 | 234.0 / 237.8 |
+
+That is +1–3 % on cold builds (about +2 % at 100k, +1.5 % at 500k, +2 % with string amounts), within the "few %"
+budget for the diagnostics in the record pass.
+
+**`pnpm bench`** (vitest bench medians of 2 interleaved runs per tree, `bench/pivot.bench.ts`,
+`pivot-statement.bench.ts`, `pivot-step4.bench.ts`; Intel Xeon 2.80 GHz, 4 vCPU shared VM, Node 22):
+
+| Scenario | 10k | 100k | 500k |
+|---|---:|---:|---:|
+| Base spec, cold | 13.6 → 15.3 | 34.5 → 38.4 | 157.3 → 169.3 |
+| 3 filters, cold | 9.1 → 10.0 | 32.1 → 35.0 | 143.7 → 153.2 |
+| Filters + label filter + 4 facets + Top 5 + sortBy, cold | 10.9 → 10.9 | 36.7 → 39.1 | 183.5 → 185.2 |
+| View-only change (expand / collapse / heat scope) | 2.1 → 2.1 | 1.9 → 2.2 | 2.4 → 2.5 |
+| Filter change: slicer click | 1.9 → 2.3 | 6.8 → 7.1 | 27.9 → 28.2 |
+| Move field: Line ↔ Columns | 17.4 → 18.7 | 23.9 → 27.1 | 65.6 → 59.4 |
+| Add measure: Units into Values | 10.4 → 10.6 | 17.4 → 19.4 | 56.9 → 52.0 |
+| Statement reference: base spec, cold | | 42.1 → 43.3 | 151.4 → 161.8 |
+| `signField` on 2 measures, numeric sign, cold | | 40.1 → 47.4 | 169.0 → 183.7 |
+| `signField` on 2 measures, string sign `"-1"`, cold | | 40.8 → 49.3 | 175.8 → 194.3 |
+| `percentOf` scope all, cold | | 36.3 → 39.3 | 156.2 → 159.5 |
+| View-only: values / % of scope all / scope parent | | 7.8 → 8.8 | 7.7 → 9.2 |
+| Step 4 reference: base spec, cold | | 40.2 → 48.7 | 159.6 → 167.4 |
+| Calculated measure as a 4th value, cold | | 42.1 → 44.8 | 176.7 → 162.0 |
+| Distinct count of 20k customers, cold | | 62.9 → 58.7 | 241.5 → 241.5 |
+| Running total along month, cold | | 41.0 → 44.1 | 168.2 → 161.2 |
+| View-only: running total / difference from / subtotal rows | | 9.5 → 10.1 | 8.8 → 10.0 |
+| Drill-through: leaf cell | | 0.64 → 0.79 | 3.6 → 3.5 |
+
+The vitest medians swing ±10–20 % between runs of the *same* tree on this VM (e.g. "Step 4 reference" and
+"Statement reference" run the identical base spec: 40.2 vs 42.1 ms before), and rows move both ways (500k move
+field −9 %, add measure −9 %, calculated measure −8 %). The rows above +10 % (`signField` at 100k, the 100k step-4
+reference, sub-10 ms view-only rows) are not reproduced by the min-of-N runs above, which put the signed build at
++2–5 %. The view stage itself only gained a loop over the measures, and validation 0.003 ms per build.
+
+## Batch B: measure filters, semi-additive aggregates, analyst XLSX
+
+What changed on the build path: `compileMeasure` folds a measure filter into the measure's columns (one filter pass,
+one masked copy) and builds a time axis for semi-additive measures; `buildTree` runs one extra pass over sorted records
+per semi-additive measure after the roll-up (like distinct counts); compiled measures drop their per-record columns once
+the cube is built (`releaseColumns`), so cached cubes retain no masked or time-axis copies. Specs without the new
+features take exactly the old record pass: the accumulation `switch` only gained a case label, `mergeBucket` another.
+
+**Regression check, min of N** (same process, interleaved 3× per tree, HEAD `eea8872` worktree vs this tree; min of
+25 runs at 100k, 8 at 500k; Intel Xeon 2.80 GHz, 4 vCPU shared VM, Node 22). Last column: best after vs best before.
+
+| Scenario | Records | before (3 rounds) | after (3 rounds) | Δ |
+|---|---:|---|---|---:|
+| Base spec, cold | 100,000 | 33.2 / 33.8 / 33.0 | 33.4 / 33.0 / 32.5 | −1.7 % |
+| Filters + facets + Top 5 + sortBy, cold | 100,000 | 35.9 / 36.0 / 36.1 | 35.6 / 36.0 / 35.0 | −2.4 % |
+| `signField` on 2 measures, cold | 100,000 | 35.8 / 35.6 / 35.9 | 35.4 / 35.8 / 36.7 | −0.4 % |
+| Date columns (`orderDate:year` → quarter), cold | 100,000 | 52.2 / 51.6 / 50.6 | 52.7 / 52.2 / 52.5 | +3.1 % |
+| Calculated measure as a 4th value, cold | 100,000 | 35.7 / 37.4 / 36.9 | 37.2 / 40.7 / 36.7 | +2.8 % |
+| View-only change (builder, cube reused) | 100,000 | 0.6 / 0.5 / 0.6 | 0.6 / 0.6 / 0.5 | ±0 |
+| Filter change: slicer click (builder) | 100,000 | 6.7 / 7.0 / 6.9 | 7.1 / 6.9 / 6.9 | +2.1 % |
+| Base spec, cold | 500,000 | 151.5 / 153.5 / 152.0 | 151.0 / 149.1 / 151.1 | −1.6 % |
+| Filters + facets + Top 5 + sortBy, cold | 500,000 | 169.3 / 180.2 / 181.9 | 171.9 / 187.5 / 178.5 | +1.5 % |
+| `signField` on 2 measures, cold | 500,000 | 165.2 / 161.8 / 161.7 | 165.9 / 161.8 / 160.8 | −0.5 % |
+| Date columns, cold | 500,000 | 251.8 / 248.5 / 248.5 | 251.2 / 248.0 / 254.0 | −0.2 % |
+| Calculated measure as a 4th value, cold | 500,000 | 163.8 / 156.3 / 153.9 | 155.1 / 156.4 / 151.6 | −1.5 % |
+| View-only change (builder, cube reused) | 500,000 | 0.7 / 0.6 / 0.7 | 0.7 / 0.7 / 0.6 | ±0 |
+| Filter change: slicer click (builder) | 500,000 | 25.9 / 25.7 / 26.1 | 26.5 / 26.3 / 25.8 | +0.5 % |
+
+Every scenario is within ±3 %, i.e. within this VM's noise; none reaches the 5 % budget.
+
+**Cost of the new features** (this tree, min of N, 3 rounds; the reference rows are the same spec without the feature):
+
+| Scenario | 100k | 500k |
+|---|---|---|
+| Reference: base spec | 33.7 / 34.0 / 34.0 | 152.8 / 153.0 / 153.0 |
+| Measure filter on 2 of the 3 values (`region` in 3 of 6) | 35.7 / 35.7 / 35.4 (+5 %) | 176.6 / 178.3 / 175.6 (+15 %) |
+| Reference: date columns, `units` as `avg` | 53.9 / 52.1 / 52.2 | 259.9 / 255.7 / 260.3 |
+| `units` as `closingBalance` over `orderDate` (730 days; 288 series) | 68.4 / 67.7 / 67.2 (+29 %) | 359.1 / 373.8 / 362.4 (+40 %) |
+| `units` as `averageOverTime` over `orderDate:yearMonth` | 64.8 / 64.8 / 65.5 (+24 %) | 306.0 / 330.0 / 312.5 (+20 %) |
+| `closingBalance` + a measure filter | 66.3 / 66.5 / 66.2 | 384.8 / 361.7 / 368.0 |
+
+A measure filter costs one filter pass plus a masked copy of the measure's value column (about 10 ms per measure at
+500k). A closing balance costs about as much as a distinct count (two counting sorts plus a walk of each record's
+nodes × buckets, ~100 ms at 500k in this layout); an average over time about half of it (one sort, distinct periods
+per slot). Transient memory: `Int32Array`s of the record count (time rank, series, two sort orders) plus two
+`Int32Array`s of nodes × buckets, all released after the build. The first version of the balance pass called a closure
+per (node, bucket) slot; inlining it and filtering the records once before the sorts took the 500k closing build from
+395 to 343–373 ms. Reported numbers are after that change.
+
+**XLSX.** `buildPivotSheet` builds a second model with `expanded: "all"` only when groups are collapsed, from the same
+cube (view stage only: a few ms at 500k, see "View-only change"); the sheet itself is O(cells). Outline, print setup and
+formulas add no measurable time to `writePivotXlsx`.
+
+The harness was a temporary script (min-of-N, interleaved, importing both trees' `build-model.ts` into one process);
+`bench/pivot-planning.bench.ts` keeps the feature scenarios for `pnpm bench`.
+
+## Batch C: calculated items
+
+What changed: nothing on the build path. Calculated items, `subtotalLabels` and `itemFormats` are view state (not part of
+`pivotSpecDataKey`), so the record pass and the cube are untouched, and adding or editing an item in the app reuses the
+cached cube. `pivotModelFromCube` compiles the items once per call (`compilePivotItemPlan`, `null` without items) and
+evaluates each (item instance, measure, column bucket) on first read, memoized per instance: a cascading item (EBITDA
+over Gross margin) reads the memoized value, never a record. Specs without items take the old view path plus a few
+`null` checks per row (`formatOfKey`, `collectChildren`).
+
+**Regression check, min of N** (same process, interleaved 3× per tree, HEAD `03f5755` worktree vs this tree; min of
+25 runs at 100k, 8 at 500k; Intel Xeon 2.10 GHz, 4 vCPU shared VM, Node 22). Last column: best after vs best before.
+
+| Scenario | Records | before (3 rounds) | after (3 rounds) | Δ |
+|---|---:|---|---|---:|
+| Base spec, cold | 100,000 | 33.5 / 34.0 / 34.1 | 34.6 / 33.9 / 32.7 | −2.3 % |
+| Filters + facets + Top 5 + sortBy, cold | 100,000 | 37.5 / 36.5 / 36.9 | 36.4 / 36.2 / 36.9 | −0.7 % |
+| `signField` on 2 measures, cold | 100,000 | 36.8 / 35.7 / 35.9 | 36.2 / 35.9 / 36.0 | +0.5 % |
+| Date columns (`orderDate:year` → quarter), cold | 100,000 | 51.0 / 51.5 / 51.4 | 52.3 / 51.3 / 51.1 | +0.2 % |
+| Calculated measure as a 4th value, cold | 100,000 | 37.3 / 36.2 / 36.5 | 36.9 / 36.7 / 37.1 | +1.6 % |
+| View-only change (builder, cube reused) | 100,000 | 0.7 / 0.7 / 0.4 | 0.7 / 0.7 / 0.5 | ±0.1 ms |
+| Filter change: slicer click (builder) | 100,000 | 6.2 / 6.1 / 6.2 | 6.2 / 6.2 / 6.2 | +0.9 % |
+| Base spec, cold | 500,000 | 162.8 / 161.5 / 153.8 | 156.9 / 162.0 / 151.0 | −1.8 % |
+| Filters + facets + Top 5 + sortBy, cold | 500,000 | 178.6 / 178.2 / 177.5 | 178.6 / 178.4 / 182.4 | +0.5 % |
+| `signField` on 2 measures, cold | 500,000 | 163.7 / 176.2 / 172.0 | 174.0 / 164.9 / 178.2 | +0.7 % |
+| Date columns, cold | 500,000 | 251.4 / 246.6 / 248.2 | 248.3 / 260.4 / 249.8 | +0.7 % |
+| Calculated measure as a 4th value, cold | 500,000 | 155.3 / 155.9 / 155.0 | 154.3 / 154.9 / 155.2 | −0.5 % |
+| View-only change (builder, cube reused) | 500,000 | 0.5 / 0.6 / 0.6 | 0.6 / 0.6 / 0.6 | ±0.1 ms |
+| Filter change: slicer click (builder) | 500,000 | 27.2 / 28.1 / 28.7 | 28.3 / 28.7 / 28.6 | +4.1 % |
+
+The sub-millisecond view-only rows move by a tenth of a millisecond, and the 500k slicer row did not reproduce in a
+second run with 20 runs × 5 rounds (26.0 → 26.2 ms, +0.5 %; view-only 0.7 → 0.7 ms). The view stage alone
+(`pivotModelFromCube` on a prebuilt cube, min of 300 × 5 rounds) is 5.25 → 5.36 ms for the base spec (343 rows,
++1.9 %) and 3.30 → 3.31 ms for the filtered spec (216 rows, +0.3 %). No scenario reaches the 5 % budget.
+
+**Cost of calculated items** (this tree, min of N, 3 rounds; 2 items on region and 2 on department = 14 item rows of
+39 columns; "view" is `pivotModelFromCube` on a prebuilt cube, min of 200):
+
+| Scenario | 100k cold | 100k view | 500k cold | 500k view |
+|---|---|---|---|---|
+| Reference: base spec | 34.9 / 33.5 / 33.2 | 5.41 / 5.31 / 5.42 | 149.5 / 157.4 / 153.8 | 6.13 / 6.25 / 6.04 |
+| + 4 calculated items (14 item rows) | 34.7 / 34.2 / 33.8 | 5.95 / 5.93 / 5.83 | 153.0 / 152.9 / 153.9 | 6.81 / 6.65 / 6.58 |
+| + items, one with `includeInTotals` | 34.6 / 35.0 / 34.6 | 6.57 / 6.34 / 6.25 | 152.3 / 155.0 / 157.9 | 7.24 / 7.27 / 7.39 |
+| Reference: calculated measure as a 4th value | 37.1 / 36.7 / 37.0 | 7.49 / 7.52 / 7.54 | 157.4 / 153.8 / 158.0 | 7.93 / 7.67 / 7.76 |
+| Calculated measure + items | 37.3 / 37.5 / 37.4 | 8.24 / 8.10 / 8.30 | 159.1 / 163.2 / 157.2 | 8.12 / 8.04 / 8.55 |
+
+Items cost about 0.04 ms per item row of 39 cells (0.5 ms for 14 rows), independent of the record count: the cold
+builds differ by noise only. `includeInTotals` adds ~0.4 ms here (the region and grand totals re-read the included items
+for every measure and bucket, memoized per node). Scaling, view stage at 100k: 20 items under each of 6 regions (120
+item rows) 8.8 ms vs 5.4 ms, 20 chained items (each reads the previous one) 8.7 ms (memoized), 100 items × 6 regions
+(600 item rows) 24 ms. Validation adds one parse per item formula (bounded by the 1000-character limit).
+
+The harness was a temporary script (min-of-N, interleaved, both trees' `build-model.ts` bundled into one process);
+`bench/pivot-items.bench.ts` keeps the feature scenarios for `pnpm bench`.

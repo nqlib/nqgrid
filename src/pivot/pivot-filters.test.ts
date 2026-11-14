@@ -185,9 +185,14 @@ describe("header indicators", () => {
     expect(pivotDimensionStatus(filtered, 0)).toMatchObject({ sort: null, filtered: true, description: "Department = Camp, Packs" });
     expect(pivotDimensionStatus(model, 0)).toMatchObject({ sort: null, filtered: false, description: "" });
 
-    const markup = html(createElement(PivotTable, { model: filtered, mode: "static" }));
+    const markup = html(createElement(PivotTable, { model: filtered, mode: "static", headerIndicators: true }));
     expect(markup).toContain('aria-sort="descending"');
     expect(count(markup, /data-nqg-indicator=""/g)).toBe(2);
+    // Static output (print) leaves the icons out by default; aria-sort stays.
+    const print = html(createElement(PivotTable, { model: filtered, mode: "static" }));
+    expect(print).toContain('aria-sort="descending"');
+    expect(print).not.toContain("data-nqg-indicator");
+    expect(html(createElement(PivotTable, { model: filtered, mode: "interactive" }))).toContain('data-nqg-indicator=""');
     // Inactive headers stay plain text.
     expect(html(createElement(PivotTable, { model, mode: "static" }))).not.toContain("data-nqg-indicator");
 

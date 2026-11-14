@@ -57,6 +57,31 @@ describe("nqgrid-export CLI (spawned)", () => {
     );
   });
 
+  it("exit 2 for unknown spec keys and enums (same strictness as the JSON Schema)", () => {
+    const bad = join(work, "unknown.json");
+    const spec = { version: 1, layout: "outline", rows: [{ field: "a" }], measures: [{ id: "m", field: "v", format: { thousands: true } }] };
+    writeFileSync(bad, JSON.stringify({ spec, rows: [{ a: "x", v: 1 }] }));
+    const r = run(["--input", bad, "--format", "model"]);
+    expect(r.code).toBe(2);
+    expect(errorJson(r.stderr).error.details).toEqual([
+      'spec: layout must be "tabular" | "compact"',
+      "spec: measures[0].format: unknown key(s) ('thousands' was unexpected)",
+    ]);
+  });
+
+  it("exit 0 with data diagnostics as one JSON line on stderr", () => {
+    const messy = join(work, "messy.json");
+    const spec = { version: 1, rows: [{ field: "a" }], measures: [{ id: "m", field: "v" }] };
+    writeFileSync(messy, JSON.stringify({ spec, rows: [{ a: "x", v: "(500)" }, { a: "y", v: 2 }] }));
+    const r = run(["--input", messy, "--format", "model"]);
+    expect(r.code).toBe(0);
+    const model = JSON.parse(r.stdout.toString("utf8")) as { diagnostics: { code: string }[] };
+    expect(model.diagnostics.map((d) => d.code)).toEqual(["unparsedNumbers"]);
+    const line = JSON.parse(r.stderr.trim()) as { level: string; diagnostics: { code: string; samples: unknown[] }[] };
+    expect(line.level).toBe("warn");
+    expect(line.diagnostics[0]).toMatchObject({ code: "unparsedNumbers", samples: [{ row: 0, value: '"(500)"' }] });
+  });
+
   it("exit 2 for unreadable files, bad JSON on stdin, unknown flags and formats", () => {
     expect(run(["--spec", "missing.json", "--rows", "missing.json", "--format", "pdf"]).code).toBe(2);
     const stdin = run(["--input", "-", "--format", "html"], "{not json");

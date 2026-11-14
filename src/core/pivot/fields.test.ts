@@ -293,13 +293,16 @@ describe("movePivotField", () => {
     const back = swapPivotRowsColumns(swapped);
     expect(back.rows.map((d) => d.field)).toEqual(["department", "line"]);
     expect(back.expanded).toEqual(base.expanded);
-    expect(back.columns).toEqual(base.columns);
+    // keepEmpty is column-only (rejected on rows by validatePivotSpec), so it does not survive a trip through Rows.
+    const { keepEmpty: _keepEmpty, ...monthWithoutKeepEmpty } = base.columns as PivotDimension;
+    expect(back.columns).toEqual(monthWithoutKeepEmpty);
+    expect(swapped.rows[0]).not.toHaveProperty("keepEmpty");
     const oneRow: PivotSpec = { ...base, rows: [base.rows[0]!], columns: undefined };
     expect(swapPivotRowsColumns(oneRow)).toBe(oneRow);
     expectValid(swapPivotRowsColumns({ ...planningFilteredPivotSpec, fields: planningFieldCatalog }));
     // Subtotal placement travels with the field (since step 4 it is valid on rows too).
     const sub: PivotSpec = { ...base, columns: [{ field: "region", subtotal: "start" }, planningPivotSpec.columns as PivotDimension] };
-    expect(swapPivotRowsColumns(sub).rows).toEqual([{ field: "region", subtotal: "start" }, planningPivotSpec.columns]);
+    expect(swapPivotRowsColumns(sub).rows).toEqual([{ field: "region", subtotal: "start" }, monthWithoutKeepEmpty]);
   });
 
   it("checkbox toggling uses default areas and removes from every area", () => {

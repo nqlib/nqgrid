@@ -13,22 +13,31 @@ user sees in the app. Use it as a CLI, a Node API, or a small HTTP service.
   "rows": [{ "department": "Camp", "line": "Tents", "month": "Nov", "actual": 297000 }],
   "options": {                     // all optional
     "theme": "light",              // "light" | "dark"
+    "profile": "report",           // "report" | "statement" (bold totals, rules, no grey bands, 28 px rows)
     "page": { "size": "A4", "orientation": "landscape", "margins": { "top": 16, "right": 10, "bottom": 14, "left": 10 } }, // mm
     "title": "FY26 Sales Plan",    // default spec.title; null hides the report header
     "subtitle": "Actuals",
+    "units": "USD thousands",      // default spec.units; null hides it
     "generatedAt": "2026-10-30 09:00 UTC", // printed verbatim (the exporter never reads the clock)
     "maxColumnsPerPage": 6,        // default: fit the page at minScale, else balanced column chunks
     "minScale": 0.7,
     "kpiPanel": true,              // department KPI side panels
     "headerFooter": true,          // PDF running header (title) + footer (generated · Page X of Y)
     "locale": { "lang": "de", "page": "Seite", "of": "von", "continued": "(Forts.)", "columns": "Spalten", "generated": "Erstellt" },
-    "table": { "dimensionWidths": [184, 152], "valueWidth": 76, "rowHeight": 36, "headerChart": true }
+    "table": { "dimensionWidths": [184, 152], "valueWidth": 76, "rowHeight": 36, "headerChart": true },
+    "xlsx": { "rowLabels": "repeat", "subtotalFormulas": false } // XLSX / sheet: "repeat" | "first" | "merge"; SUBTOTAL formulas
   }
 }
 ```
 
-Specs are validated with `validatePivotSpec`; custom aggregators and `options.css` are rejected (they cannot
-cross JSON). Every problem is reported at once.
+Specs are validated with `validatePivotSpec`, as strictly as the JSON Schema (unknown keys and invalid enums are
+errors, e.g. `spec: measures[0]: unknown key(s) ('formats' was unexpected)`); unknown option keys, custom aggregators
+and `options.css` are rejected too (they cannot cross JSON). Every problem is reported at once.
+
+Data problems that do not stop an export (amounts that are not numbers, fields no row has, invalid dates, filter
+items that match nothing) come back as `model.diagnostics`: in the `model` output, on the CLI's stderr as one
+`{"level":"warn","diagnostics":[…]}` line (exit 0), in serve mode's `x-nqgrid-diagnostics` response header (JSON,
+≤ 8 KB), on the XLSX's hidden `Spec` sheet, and from `exporter.exportDetailed(input)` → `{ data, diagnostics }`.
 
 The request is specified by [`contract/pivot/v1/export-request.schema.json`](../../contract/pivot/v1/export-request.schema.json)
 (build it with `buildPivotExportRequest` from `@nqlib/nqgrid/core`). A `dataset` field is ignored here (it is the
@@ -48,7 +57,7 @@ nqgrid-export --input req.json -f sheet    # pivotModelToSheet JSON
 
 | Exit | Meaning | stderr |
 |------|---------|--------|
-| `0` | ok | — |
+| `0` | ok | nothing, or one `{"level":"warn","diagnostics":[…]}` line when the data has problems |
 | `2` | invalid input (bad JSON, spec, options, flags, unreadable file) | `{"error":{"code":"invalid_input","message":"…","details":["spec: …"]}}` |
 | `1` | internal error (e.g. Chromium missing) | `{"error":{"code":"internal","message":"…"}}` |
 
@@ -67,7 +76,7 @@ fresh context). PDF and XLSX exports share the `--concurrency` limit; other requ
 | Route | Body | Response |
 |-------|------|----------|
 | `GET /healthz` | — | `200 {"ok":true,"version":"0.1.0","browser":"ready"\|"starting"\|"cold"\|"unavailable","formats":[…]}` |
-| `POST /export?format=pdf\|xlsx\|html\|model\|sheet` | request JSON (`Content-Type: application/json`; `format` may also be a body field) | `200` file with `Content-Type` and `Content-Disposition: attachment; filename="<spec.id>.<ext>"` |
+| `POST /export?format=pdf\|xlsx\|html\|model\|sheet` | request JSON (`Content-Type: application/json`; `format` may also be a body field) | `200` file with `Content-Type` and `Content-Disposition: attachment; filename="<spec.id>.<ext>"`, plus `x-nqgrid-diagnostics: [...]` when the data has problems |
 
 Errors are JSON `{"error":{"code","message","details?"}}`: `400 invalid_input`, `404`, `405`, `413 payload_too_large`,
 `415` (not JSON), `500 internal`. One JSON log line per request goes to stderr.
@@ -119,9 +128,15 @@ Errors are `PivotExportError` (`code: "invalid_input" | "payload_too_large" | "i
   column headers repeated on every page, each department kept on one page, wide pivots split into balanced column
   chunks (dimension columns repeated, "(cont.)" titles), KPI side panels, heat colors, light or dark; active spec
   filters / Top N print as "Filters: …" under the title.
-- **XLSX** — from `pivotModelToSheet`: numeric values with Excel `numFmt`, merges, frozen panes, bold subtotals, heat
-  fills, column widths; a `KPIs` sheet (grand + department KPIs, "vs Plan" deltas, then the active filters); a hidden
-  `Spec` sheet with the filters and the spec JSON for traceability.
+- **XLSX** — from `buildPivotSheet` / `pivotModelToSheet`: title, subtitle, units and the filters line above the
+  table; numeric values with Excel `numFmt`; frozen panes below the header rows; a row outline (Excel grouping) in
+  which groups collapsed in the spec are written hidden, not dropped; indented compact labels; tabular labels
+  repeated on every row (`xlsx.rowLabels`, no body merges by default, so AutoFilter and sort work); bold subtotals,
+  statement rules with `profile: "statement"`, heat fills, column widths; print setup (landscape, fit to width,
+  header rows repeated, title / units header, "Page N of M" footer); optional `SUBTOTAL(9, …)` formulas with cached
+  values (`xlsx.subtotalFormulas`); a `KPIs` sheet (grand + department KPIs, "vs Plan" deltas, then the active
+  filters); a hidden `Spec` sheet with the filters and the spec JSON for traceability. `format=sheet` returns the
+  same sheet JSON (with the same options) for other writers.
 
 ## Requirements
 

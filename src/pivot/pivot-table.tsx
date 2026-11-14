@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { cloneElement, memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 
 import { pivotCellDrillTarget } from "../core/pivot/build-model";
 import type { PivotDrillThroughTarget } from "../core/pivot/cube";
@@ -31,6 +31,7 @@ import { pivotAriaSort, pivotDimensionStatus, PivotHeaderIndicator, type PivotDi
 import { PivotKpiDelta, PivotKpiPanel } from "./pivot-kpi-panel";
 import {
   pivotBodyGroups,
+  pivotPageBodySegments,
   pivotColumnHeaderRole,
   pivotDimensionSlots,
   pivotModelColumnDimensions,
@@ -38,6 +39,7 @@ import {
   pivotRowCaption,
   pivotTableGeometry,
   pivotVirtualRowWindow,
+  type PivotBodySegment,
   type PivotColumnHeaderRole,
   type PivotTableGeometry,
 } from "./layout";
@@ -163,6 +165,22 @@ export interface PivotTableProps {
   readonly virtualize?: boolean | "auto";
   /** Extra rows rendered above and below the viewport when virtualized (default 12). */
   readonly overscan?: number;
+  /**
+   * Child-count badges next to group labels (default: interactive mode only — they go with the
+   * expand / collapse toggles and mean nothing on paper).
+   */
+  readonly countBadges?: boolean;
+  /** Sort / filter icons in row-dimension headers (default: interactive mode only; `aria-sort` stays). */
+  readonly headerIndicators?: boolean;
+  /**
+   * Static mode: paginate the body for print (`pivotPageBodySegments`). Groups that fit stay on one
+   * page, longer ones are split across pages with their label repeated (`continuedLabel`) on each
+   * continuation page, and page breaks are explicit (`break-before: page`), so a long first group
+   * never leaves the first page empty. Heights are in table px (before any zoom).
+   */
+  readonly pagination?: { readonly pageHeight: number; readonly firstPageOffset?: number };
+  /** Appended to a group label repeated on a continuation page (default `(cont.)`). */
+  readonly continuedLabel?: string;
   readonly className?: string;
   readonly style?: CSSProperties;
   readonly "aria-label"?: string;
@@ -227,11 +245,17 @@ export const PivotTable = memo(function PivotTable({
   onDrillThrough,
   virtualize = "auto",
   overscan = 12,
+  countBadges,
+  headerIndicators,
+  pagination,
+  continuedLabel = "(cont.)",
   className,
   style,
   "aria-label": ariaLabel,
 }: PivotTableProps) {
   const interactive = mode === "interactive";
+  const showCounts = countBadges ?? interactive;
+  const showIndicators = headerIndicators ?? interactive;
   const virtual =
     interactive &&
     (virtualize === true ||
@@ -289,17 +313,26 @@ export const PivotTable = memo(function PivotTable({
     <div className={pivotGroupLabelClass} style={{ justifyContent: "space-between", paddingLeft: indent }}>
       <span className={pivotGroupLabelClass}>
         <span className={pivotLabelTextClass}>{row.label}</span>
-        <span className={pivotCountClass} title={`${row.childCount} items`}>
-          {row.childCount}
-        </span>
+        {showCounts ? (
+          <span className={pivotCountClass} title={`${row.childCount} items`}>
+            {row.childCount}
+          </span>
+        ) : null}
       </span>
       {toggleFor(row)}
     </div>
   );
 
-  const spanContent = (row: PivotBodyRow, level: number, rowSpan: number): ReactNode => {
+  const spanContent = (row: PivotBodyRow, level: number, rowSpan: number, continued = false): ReactNode => {
     const toggle = toggleFor(row);
     if (renderSpanCell) return renderSpanCell(row, { model, mode, level, rowSpan, toggle });
+    if (continued) {
+      return (
+        <span className={pivotLabelTextClass} style={{ fontWeight: 600 }}>
+          {`${row.label} ${continuedLabel}`}
+        </span>
+      );
+    }
     if (showsKpiPanel(row)) {
       return (
         <PivotKpiPanel
@@ -326,7 +359,7 @@ export const PivotTable = memo(function PivotTable({
   };
 
   const rowCellClass = (row: PivotBodyRow) =>
-    row.kind === "grandTotal" ? pivotGrandTotalCellClass : row.kind === "group" || row.kind === "subtotal" ? pivotGroupCellClass : pivotLeafCellClass;
+    row.kind === "grandTotal" ? pivotGrandTotalCellClass : row.kind === "group" || row.kind === "subtotal" || row.kind === "calculated" ? pivotGroupCellClass : pivotLeafCellClass;
 
   /** Rendered `<tr>`s a span cell covers from `from` (owner row or first rendered row) to its last row, within `[.., end)`. */
   const spanRows = (level: number, owner: number, ownerSpan: number, from: number, end: number): number => {
@@ -340,7 +373,7 @@ export const PivotTable = memo(function PivotTable({
     while (r > 0 && slots![r]![level]?.type === "covered") r--;
     return r;
   };
-  const spanCell = (owner: number, level: number, ownerSpan: number, rowSpan: number): ReactNode => {
+  const spanCell = (owner: number, level: number, ownerSpan: number, rowSpan: number, continued = false): ReactNode => {
     const row = model.rows[owner]!;
     const p = pinned(level);
     // Interactive: the panel sticks under the header while its rows scroll past.
@@ -354,7 +387,7 @@ export const PivotTable = memo(function PivotTable({
         style={p.style}
         data-nqg-span={ownerSpan}
       >
-        <div style={inner}>{spanContent(row, level, ownerSpan)}</div>
+        <div style={inner}>{spanContent(row, level, ownerSpan, continued)}</div>
       </th>
     );
   };
@@ -377,7 +410,11 @@ export const PivotTable = memo(function PivotTable({
           {row.kind === "group" ? (
             groupLabel(row, row.depth * 16)
           ) : (
-            <span className={row.kind === "subtotal" ? pivotLabelTextClass : undefined} style={{ paddingLeft: row.depth * 16 }}>
+            <span
+              className={row.kind === "subtotal" || row.kind === "calculated" ? pivotLabelTextClass : undefined}
+              style={{ paddingLeft: row.depth * 16 }}
+              title={interactive && row.formula !== undefined ? row.formula : undefined}
+            >
               {row.label}
             </span>
           )}
@@ -392,12 +429,18 @@ export const PivotTable = memo(function PivotTable({
         const owner = spanOwner(slot.level, rowIndex);
         const ownerSlot = slots![owner]![slot.level];
         if (ownerSlot?.type !== "span") return [];
-        return [spanCell(owner, slot.level, ownerSlot.rowSpan, spanRows(slot.level, owner, ownerSlot.rowSpan, rowIndex, windowEnd))];
+        return [spanCell(owner, slot.level, ownerSlot.rowSpan, spanRows(slot.level, owner, ownerSlot.rowSpan, rowIndex, windowEnd), !interactive)];
       }
       const p = pinned(slot.level);
       if (slot.type === "span") return [spanCell(rowIndex, slot.level, slot.rowSpan, spanRows(slot.level, rowIndex, slot.rowSpan, rowIndex, windowEnd))];
       const content =
-        slot.type === "group" ? groupLabel(row) : slot.type === "leaf" || slot.type === "subtotal" ? <span className={pivotLabelTextClass}>{row.label}</span> : null;
+        slot.type === "group" ? (
+          groupLabel(row)
+        ) : slot.type === "leaf" || slot.type === "subtotal" || slot.type === "calculated" ? (
+          <span className={pivotLabelTextClass} title={interactive && row.formula !== undefined ? row.formula : undefined}>
+            {row.label}
+          </span>
+        ) : null;
       return [
         <td key={`d${slot.level}`} className={cx(base, edge(slot.level), p.className)} style={p.style}>
           {content}
@@ -414,7 +457,7 @@ export const PivotTable = memo(function PivotTable({
       return (
         <td
           key={column.id}
-          className={cx(rowCellClass(row), pivotValueClass, (row.kind === "group" || row.kind === "subtotal") && pivotGroupValueClass, heat.className)}
+          className={cx(rowCellClass(row), pivotValueClass, (row.kind === "group" || row.kind === "subtotal" || row.kind === "calculated") && pivotGroupValueClass, heat.className)}
           style={heat.style}
           data-heat={heat["data-heat"]}
           onDoubleClick={drill ? () => drill(pivotCellDrillTarget(model, row, i), { model, row, rowIndex, column, columnIndex: i, cell }) : undefined}
@@ -461,6 +504,51 @@ export const PivotTable = memo(function PivotTable({
         ))}
       </tr>,
     ];
+  };
+
+  /** Ancestor group rows of `rowIndex` whose label row is above it (outermost first). */
+  const ancestorsOf = (rowIndex: number): PivotBodyRow[] => {
+    const row = model.rows[rowIndex]!;
+    const levels = row.kind === "subtotal" ? row.depth + 1 : row.depth;
+    const out: PivotBodyRow[] = [];
+    for (let level = 0; level < levels; level++) {
+      for (let r = rowIndex - 1; r >= 0; r--) {
+        const prev = model.rows[r]!;
+        if (prev.kind === "group" && prev.depth === level && prev.path.every((k, i) => k === row.path[i])) {
+          out.push(prev);
+          break;
+        }
+      }
+    }
+    return out;
+  };
+  /** Compact layout: "Opex (cont.)" rows at the top of a continuation page. */
+  const continuationRows = (rowIndex: number, breakBefore: boolean): ReactNode[] =>
+    ancestorsOf(rowIndex).map((g, i) => (
+      <tr key={`${g.id}:cont`} data-kind="continued" data-depth={g.depth} data-nqg-page-break={breakBefore && i === 0 ? "" : undefined} style={{ height: rowHeight }}>
+        <th scope="row" className={cx(pivotGroupCellClass, pivotRowHeaderClass, pivotPinnedEdgeClass)}>
+          <span className={pivotLabelTextClass} style={{ paddingLeft: g.depth * 16 }}>{`${g.label} ${continuedLabel}`}</span>
+        </th>
+        {model.columns.map((c) => (
+          <td key={c.id} className={pivotGroupCellClass} />
+        ))}
+      </tr>
+    ));
+  const pageBreakFirst = (rows: ReactNode): ReactNode => {
+    const list = Array.isArray(rows) ? rows : [rows];
+    const [first, ...rest] = list as ReactElement<Record<string, unknown>>[];
+    return [first ? cloneElement(first, { "data-nqg-page-break": "" }) : first, ...rest];
+  };
+  const staticSegments = (): readonly PivotBodySegment[] => {
+    if (!pagination) return pivotBodyGroups(model);
+    return pivotPageBodySegments(model, {
+      pageHeight: pagination.pageHeight,
+      firstPageOffset: pagination.firstPageOffset,
+      headHeight: headerHeight + 1,
+      rowHeight,
+      extraHeight: (i) => fillers.get(i) ?? 0,
+      continuationHeight: compact ? (i) => ancestorsOf(i).length * rowHeight : undefined,
+    });
   };
 
   const columnFields = pivotModelColumnDimensions(model);
@@ -510,7 +598,7 @@ export const PivotTable = memo(function PivotTable({
   const dimensionHeader = (label: string, col: number): { content: ReactNode; ariaSort?: "ascending" | "descending" } => {
     const levels = compact ? statuses.map((_, i) => i) : [col];
     const indicators = levels.map((level) => <PivotHeaderIndicator key={level} status={statuses[level]!} />);
-    const active = levels.some((level) => statuses[level]!.sort !== null || statuses[level]!.filtered);
+    const active = showIndicators && levels.some((level) => statuses[level]!.sort !== null || statuses[level]!.filtered);
     const ariaSort = compact ? undefined : pivotAriaSort(statuses[col]!);
     if (renderDimensionHeader) {
       const level = levels[0]!;
@@ -663,10 +751,15 @@ export const PivotTable = memo(function PivotTable({
       ) : interactive ? (
         <tbody>{model.rows.map((row, rowIndex) => bodyRows(row, rowIndex))}</tbody>
       ) : (
-        // Static: one <tbody> per top-level group, so print CSS can keep each group on one page.
-        pivotBodyGroups(model).map((g) => (
-          <tbody key={g.id} data-nqg-group={g.kind}>
-            {model.rows.slice(g.start, g.end).map((row, i) => bodyRows(row, g.start + i))}
+        // Static: one <tbody> per top-level group, so print CSS can keep each group on one page; with
+        // `pagination`, long groups are split into page-sized segments with their label repeated.
+        staticSegments().map((g) => (
+          <tbody key={g.id} data-nqg-group={g.kind} data-nqg-continued={g.continued ? "" : undefined}>
+            {g.continued && compact ? continuationRows(g.start, g.breakBefore === true) : null}
+            {model.rows.slice(g.start, g.end).map((row, i) => {
+              const out = bodyRows(row, g.start + i, g.continued ? g.start : 0, g.end);
+              return i === 0 && g.breakBefore && !(g.continued && compact) ? pageBreakFirst(out) : out;
+            })}
           </tbody>
         ))
       )}

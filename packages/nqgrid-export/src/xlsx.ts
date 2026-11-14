@@ -6,7 +6,9 @@ import {
   type PivotKpiValue,
   type PivotModel,
   type PivotNumberFormat,
+  type PivotSheet,
   type PivotSheetCell,
+  type PivotSheetLine,
   type PivotSpec,
 } from "@nqlib/nqgrid/core";
 import { PIVOT_STATIC_PALETTE, pivotHeatLevelFillHex } from "@nqlib/nqgrid/render-static";
@@ -18,6 +20,14 @@ export interface PivotXlsxOptions {
   readonly generatedAt?: string | null;
   /** First sheet name (default: model title, else `Pivot`). */
   readonly sheetName?: string;
+  /**
+   * The sheet to write (`buildPivotSheet` / `pivotModelToSheet` of `model`, e.g. with hidden detail
+   * rows of collapsed groups, the statement profile or `SUBTOTAL` formulas). Default:
+   * `pivotModelToSheet(model, { profile, spec })`.
+   */
+  readonly sheet?: PivotSheet;
+  /** `statement`: bold totals with rules, no grey bands (used when `sheet` is not given). */
+  readonly profile?: "report" | "statement";
 }
 
 const argb = (hex: string) => `FF${hex.replace("#", "").toUpperCase()}`;
@@ -31,7 +41,7 @@ export function xlsxSheetName(name: string, fallback = "Pivot"): string {
   return clean || fallback;
 }
 
-function styleCell(cell: ExcelJS.Cell, src: PivotSheetCell, levels: number, isDimension: boolean) {
+function styleCell(cell: ExcelJS.Cell, src: PivotSheetCell, levels: number, isDimension: boolean, statement: boolean) {
   if (src.numFmt && typeof src.v === "number") cell.numFmt = src.numFmt;
   const font: Partial<ExcelJS.Font> = { name: "Calibri", size: 11, color: { argb: argb(palette.foreground) } };
   if (src.bold) font.bold = true;
@@ -40,12 +50,31 @@ function styleCell(cell: ExcelJS.Cell, src: PivotSheetCell, levels: number, isDi
     cell.border = { bottom: thin(palette.border) };
     cell.alignment = { vertical: "middle", horizontal: src.role === "header" ? "right" : "left" };
   } else {
-    cell.alignment = { vertical: isDimension && src.role === "group" ? "top" : "middle", horizontal: isDimension ? "left" : "right" };
-    cell.border = { bottom: thin(palette.hairline), ...(src.role === "grandTotal" ? { top: thin(palette.border) } : {}) };
+    cell.alignment = {
+      vertical: isDimension && src.role === "group" ? "top" : "middle",
+      horizontal: isDimension ? "left" : "right",
+      ...(src.indent ? { indent: src.indent } : {}),
+    };
+    const rule: Partial<ExcelJS.Border> = { style: "thin", color: { argb: argb(palette.foreground) } };
+    cell.border = {
+      bottom: src.border?.bottom === "double" ? { style: "double", color: { argb: argb(palette.foreground) } } : thin(palette.hairline),
+      ...(src.border?.top ? { top: rule } : src.role === "grandTotal" ? { top: thin(palette.border) } : {}),
+    };
   }
   if (src.heat !== undefined) cell.fill = solid(pivotHeatLevelFillHex(src.heat, levels));
-  else if (src.role === "group" || src.role === "grandTotal") cell.fill = solid(palette.muted);
+  else if (!statement && (src.role === "group" || src.role === "grandTotal")) cell.fill = solid(palette.muted);
   cell.font = font;
+}
+
+/** Excel header / footer text: `&` is the code prefix, so a literal one is `&&`. */
+const hfText = (s: string) => s.replace(/&/g, "&&");
+
+/** Preamble line styles: the title large and bold, the rest small and muted. */
+function stylePreamble(cell: ExcelJS.Cell, line: PivotSheetLine) {
+  cell.font =
+    line.role === "title"
+      ? { name: "Calibri", size: 14, bold: true, color: { argb: argb(palette.foreground) } }
+      : { name: "Calibri", size: 10, color: { argb: argb(palette.mutedForeground) }, ...(line.role === "units" ? { italic: true } : {}) };
 }
 
 const kpiFormats = (spec: PivotSpec | undefined) => {
@@ -59,12 +88,19 @@ const kpiFormats = (spec: PivotSpec | undefined) => {
 };
 
 /**
- * Workbook from `pivotModelToSheet`: the pivot sheet (numeric values + numFmt, merges, frozen panes,
- * bold subtotals, heat fills, column widths), a `KPIs` sheet and a hidden `Spec` sheet. Active
- * filters (`model.filters`) are listed under the KPIs and on the Spec sheet.
+ * Workbook from a `PivotSheet` (`pivotModelToSheet`): the report sheet (title, subtitle, units and a
+ * filters line above the table; numeric values + numFmt; Excel row outline with collapsed groups
+ * hidden, not dropped; indented compact labels; frozen panes below the header rows; bold subtotals,
+ * statement rules, heat fills, column widths; print setup: landscape, fit to one page wide, header
+ * rows repeated on every page, title / units in the page header and "Page N of M" in the footer), a
+ * `KPIs` sheet (only when the spec has KPIs) and a hidden `Spec` sheet. Active filters
+ * (`model.filters`) are also listed under the KPIs and on the Spec sheet, as are the units and
+ * `model.diagnostics`.
  */
 export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOptions = {}): Promise<Uint8Array> {
-  const sheet = pivotModelToSheet(model);
+  const sheet = options.sheet ?? pivotModelToSheet(model, { profile: options.profile, ...(options.spec ? { spec: options.spec } : {}) });
+  const statement = sheet.profile === "statement";
+  const top = sheet.tableRow ?? 0;
   const wb = new ExcelJS.Workbook();
   wb.creator = "nqgrid-export";
   if (model.title) wb.title = model.title;
@@ -75,23 +111,57 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
   }
 
   // --- Pivot sheet ---------------------------------------------------------------------------
-  const ws = wb.addWorksheet(xlsxSheetName(options.sheetName ?? model.title ?? "Pivot"), {
-    views: [{ state: "frozen", xSplit: sheet.frozenCols, ySplit: sheet.frozenRows }],
+  const outlined = (sheet.outlineLevels ?? 0) > 0;
+  const ws = wb.addWorksheet(xlsxSheetName(options.sheetName ?? sheet.title ?? model.title ?? "Pivot"), {
+    views: [{ state: "frozen", xSplit: sheet.frozenCols, ySplit: top + sheet.frozenRows }],
+    properties: {
+      ...(outlined ? { outlineLevelRow: sheet.outlineLevels, outlineProperties: { summaryBelow: sheet.summaryBelow ?? false, summaryRight: true } } : {}),
+    } as Partial<ExcelJS.WorksheetProperties>,
+  });
+  (sheet.preamble ?? []).forEach((line, i) => {
+    const cell = ws.getCell(i + 1, 1);
+    cell.value = line.text;
+    stylePreamble(cell, line);
+    ws.getRow(i + 1).height = line.role === "title" ? 22 : 16;
   });
   const levels = model.heat?.levels ?? 9;
   sheet.cells.forEach((row, r) => {
     row.forEach((src, c) => {
-      const cell = ws.getCell(r + 1, c + 1);
-      if (src.v !== null) cell.value = src.v;
-      styleCell(cell, src, levels, c < sheet.rowHeaderColumnCount);
+      const cell = ws.getCell(top + r + 1, c + 1);
+      if (src.f !== undefined) cell.value = { formula: src.f, result: typeof src.v === "number" ? src.v : undefined } as ExcelJS.CellFormulaValue;
+      else if (src.v !== null) cell.value = src.v;
+      styleCell(cell, src, levels, c < sheet.rowHeaderColumnCount, statement);
     });
-    ws.getRow(r + 1).height = r < sheet.frozenRows ? 20 : 18;
+    const xr = ws.getRow(top + r + 1);
+    xr.height = r < sheet.frozenRows ? 20 : 18;
+    const meta = r >= sheet.frozenRows ? sheet.bodyRows?.[r - sheet.frozenRows] : undefined;
+    if (meta) {
+      if (meta.outlineLevel > 0) xr.outlineLevel = meta.outlineLevel;
+      if (meta.hidden) xr.hidden = true;
+      // exceljs derives `collapsed` from the level; Excel reads it on the summary row of a hidden block.
+      Object.defineProperty(xr, "collapsed", { value: meta.collapsed === true, configurable: true });
+    }
   });
-  for (const m of sheet.merges) ws.mergeCells(m.row + 1, m.col + 1, m.row + m.rowSpan, m.col + m.colSpan);
+  for (const m of sheet.merges) ws.mergeCells(top + m.row + 1, m.col + 1, top + m.row + m.rowSpan, m.col + m.colSpan);
+
+  // Print setup: landscape, one page wide, header rows on every page, title / units / page numbers.
+  ws.pageSetup = {
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    horizontalCentered: false,
+    ...(sheet.frozenRows > 0 ? { printTitlesRow: `${top + 1}:${top + sheet.frozenRows}` } : {}),
+  } as Partial<ExcelJS.PageSetup>;
+  const title = sheet.title;
+  const units = sheet.units;
+  const header = `${title ? `&L${hfText(title)}` : ""}${units ? `&R${hfText(units)}` : ""}`;
+  if (header) ws.headerFooter.oddHeader = header;
+  ws.headerFooter.oddFooter = `${options.generatedAt ? `&L${hfText(options.generatedAt)}` : ""}&RPage &P of &N`;
   for (let c = 0; c < sheet.columnCount; c++) {
     const texts =
       c < sheet.rowHeaderColumnCount
-        ? sheet.cells.map((row) => String(row[c]?.v ?? ""))
+        ? sheet.cells.map((row) => " ".repeat(2 * (row[c]?.indent ?? 0)) + String(row[c]?.v ?? ""))
         : [String(sheet.cells[sheet.frozenRows - 1]?.[c]?.v ?? ""), ...model.rows.map((row) => row.cells[c - sheet.rowHeaderColumnCount]?.text ?? "")];
     const longest = Math.max(0, ...texts.map((t) => t.length));
     ws.getColumn(c + 1).width = c < sheet.rowHeaderColumnCount ? Math.min(40, Math.max(12, longest + 4)) : Math.min(24, Math.max(10, longest + 3));
@@ -137,6 +207,8 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
     ss.addRow(["nqgrid-export · PivotSpec v1 (rebuild this workbook from the spec and the same rows)"]);
     ss.addRow(["generatedAt", options.generatedAt ?? null]);
     for (const text of sheet.filters ?? []) ss.addRow(["filter", text]);
+    if (model.units) ss.addRow(["units", model.units]);
+    for (const d of model.diagnostics ?? []) ss.addRow(["diagnostic", d.message]);
     ss.addRow([]);
     for (const line of JSON.stringify(options.spec, null, 2).split("\n")) ss.addRow([line]);
     ss.getColumn(1).width = 100;

@@ -1,0 +1,1502 @@
+[
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 110250,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 38000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 51818,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 51000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 260000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 72000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 36,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 105000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 40000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 47250,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 50000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 265000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 72000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 32,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 109200,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 38000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 51324,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 51000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 250000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 70000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 35,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 104000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 40000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 46800,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 50000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 255000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 70000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 32,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 108150,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 38000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 50831,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 51000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 240000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 68000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 34,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 103000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 40000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 46350,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 50000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 245000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 68000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 32,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 107100,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 38000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 50337,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 51000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 230000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 66000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 33,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 102000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 40000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 45900,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 50000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 235000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 66000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 32,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 106050,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 38000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 49844,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 51000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 220000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 64000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 32,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 101000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 40000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 45450,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 50000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 225000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 64000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 32,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 105000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 38000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 49350,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 51000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 210000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 62000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 31,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Actual",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 100000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 40000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 45000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 50000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 10000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Cash",
+    "LINE_SORT": 110,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 215000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Assets",
+    "LINE": "Receivables",
+    "LINE_SORT": 120,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 80000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "balance",
+    "SECTION": "Liabilities",
+    "LINE": "Payables",
+    "LINE_SORT": 130,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 62000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Engineering",
+    "LINE_SORT": 210,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 32,
+    "SIGN": 1
+  },
+  {
+    "KIND": "headcount",
+    "SECTION": "Headcount",
+    "LINE": "Sales",
+    "LINE_SORT": 220,
+    "SCENARIO": "Budget",
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 12,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-06-01",
+    "AMOUNT": 95000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-06-01",
+    "AMOUNT": 35000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-06-01",
+    "AMOUNT": 42750,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-06-01",
+    "AMOUNT": 46000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-06-01",
+    "AMOUNT": 9500,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-05-01",
+    "AMOUNT": 94000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-05-01",
+    "AMOUNT": 35000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-05-01",
+    "AMOUNT": 42300,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-05-01",
+    "AMOUNT": 46000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-05-01",
+    "AMOUNT": 9500,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-04-01",
+    "AMOUNT": 93000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-04-01",
+    "AMOUNT": 35000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-04-01",
+    "AMOUNT": 41850,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-04-01",
+    "AMOUNT": 46000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-04-01",
+    "AMOUNT": 9500,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-03-01",
+    "AMOUNT": 92000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-03-01",
+    "AMOUNT": 35000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-03-01",
+    "AMOUNT": 41400,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-03-01",
+    "AMOUNT": 46000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-03-01",
+    "AMOUNT": 9500,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-02-01",
+    "AMOUNT": 91000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-02-01",
+    "AMOUNT": 35000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-02-01",
+    "AMOUNT": 40950,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-02-01",
+    "AMOUNT": 46000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-02-01",
+    "AMOUNT": 9500,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-01-01",
+    "AMOUNT": 90000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-01-01",
+    "AMOUNT": 35000,
+    "SIGN": 1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-01-01",
+    "AMOUNT": 40500,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-01-01",
+    "AMOUNT": 46000,
+    "SIGN": -1
+  },
+  {
+    "KIND": "flow",
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "SCENARIO": "Actual",
+    "PERIOD": "2025-01-01",
+    "AMOUNT": 9500,
+    "SIGN": -1
+  }
+]

@@ -1,0 +1,1699 @@
+{
+  "title": "Management P&L: budget vs actual",
+  "subtitle": "H1 2026 by quarter",
+  "units": "USD thousands",
+  "filters": [
+    "Kind = flow"
+  ],
+  "preamble": [
+    {
+      "text": "Management P&L: budget vs actual",
+      "role": "title"
+    },
+    {
+      "text": "H1 2026 by quarter",
+      "role": "subtitle"
+    },
+    {
+      "text": "USD thousands",
+      "role": "units"
+    },
+    {
+      "text": "Filters: Kind = flow",
+      "role": "filters"
+    }
+  ],
+  "tableRow": 5,
+  "cells": [
+    [
+      {
+        "v": null,
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": "Q1",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "Q2",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": "H1",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      },
+      {
+        "v": null,
+        "role": "header"
+      }
+    ],
+    [
+      {
+        "v": "Section / Line",
+        "role": "corner",
+        "bold": true
+      },
+      {
+        "v": "Actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Budget",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Var",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Var %",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "YTD actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "PY actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Budget",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Var",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Var %",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "YTD actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "PY actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Budget",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Var",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "Var %",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "YTD actual",
+        "role": "header",
+        "bold": true
+      },
+      {
+        "v": "PY actual",
+        "role": "header",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Revenue",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Product revenue",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": 318150,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 303000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 15150,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.05,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 318150,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 273000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 327600,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 312000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 15600,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.05,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 645750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 282000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 645750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 615000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 30750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.05,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 645750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 555000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Services revenue",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": 114000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 120000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -6000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.05,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 114000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 105000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 114000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 120000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -6000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.05,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 228000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 105000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 228000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 240000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -12000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.05,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 228000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 210000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Revenue",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": 432150,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 423000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 9150,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.021631205673758865,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 432150,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 378000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 441600,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 432000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 9600,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.022222222222222223,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 873750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 387000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 873750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 855000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 18750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 0.021929824561403508,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 873750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": 765000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Cost of sales",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "COGS",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -149531,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -136350,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -13181,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.09667033370003666,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -149531,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -122850,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -153973,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -140400,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -13573,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.09667378917378917,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -303504,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -126900,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -303504,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -276750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -26754,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.0966720867208672,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -303504,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -249750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Cost of sales",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": -149531,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -136350,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -13181,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.09667033370003666,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -149531,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -122850,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -153973,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -140400,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -13573,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.09667378917378917,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -303504,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -126900,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -303504,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -276750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -26754,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.0966720867208672,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -303504,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -249750,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Operating expenses",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Salaries",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -153000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -150000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -3000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.02,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -153000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -138000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -153000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -150000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -3000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.02,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -306000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -138000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -306000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -300000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -6000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.02,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -306000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -276000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Rent",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false,
+        "indent": 1
+      },
+      {
+        "v": -30000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -30000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -30000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -28500,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -30000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -30000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -60000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -28500,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -60000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -60000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -60000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -57000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Operating expenses",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": -183000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -180000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -3000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.016666666666666666,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -183000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -166500,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -183000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -180000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -3000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.016666666666666666,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -366000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -166500,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -366000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -360000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -6000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -0.016666666666666666,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -366000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": -333000,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Operating income",
+        "role": "grandTotal",
+        "depth": -1,
+        "bold": true
+      },
+      {
+        "v": 99619,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 106650,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": -7031,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": -0.06592592592592593,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 99619,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 88650,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 104627,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 111600,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": -6973,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": -0.062482078853046595,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 204246,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 93600,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 204246,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 218250,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": -14004,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": -0.06416494845360825,
+        "numFmt": "#,##0.0%;(#,##0.0%)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 204246,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      },
+      {
+        "v": 182250,
+        "numFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+        "role": "grandTotal",
+        "bold": true
+      }
+    ]
+  ],
+  "merges": [
+    {
+      "row": 0,
+      "col": 1,
+      "rowSpan": 1,
+      "colSpan": 6
+    },
+    {
+      "row": 0,
+      "col": 7,
+      "rowSpan": 1,
+      "colSpan": 6
+    },
+    {
+      "row": 0,
+      "col": 13,
+      "rowSpan": 1,
+      "colSpan": 6
+    },
+    {
+      "row": 0,
+      "col": 0,
+      "rowSpan": 2,
+      "colSpan": 1
+    }
+  ],
+  "frozenRows": 2,
+  "frozenCols": 1,
+  "rowHeaderColumnCount": 1,
+  "columnCount": 19,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": true,
+  "outlineLevels": 1
+}

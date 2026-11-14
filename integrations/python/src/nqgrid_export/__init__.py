@@ -4,7 +4,8 @@
 - :class:`SubprocessExporter` — one-shot ``nqgrid-export --input - --out -`` runner, same interface.
 - :mod:`nqgrid_export.models` — Pydantic v2 models generated from ``contract/pivot/v1``.
 - :func:`validate_pivot_spec` / :func:`validate_export_request` — JSON Schema + referential checks.
-- :func:`parse_calc` / :func:`check_calculated_measure` — calculated-measure expressions, same grammar as nqgrid.
+- :func:`parse_calc` / :func:`check_calculated_measure` / :func:`check_calculated_item` — calculated-measure and
+  calculated-item expressions, same grammar as nqgrid.
 - :func:`infer_pivot_fields` — field catalogue (labels, types) from sample rows, same as nqgrid's field list.
 - :func:`write_xlsx_from_sheet` — openpyxl workbook from ``format="sheet"`` JSON.
 - :mod:`nqgrid_export.mcp_tool` — reference MCP server (``export_pivot_report``, ``describe_pivot_spec``).
@@ -20,12 +21,13 @@ from .errors import (
     NqgridPayloadTooLarge,
     NqgridUnavailable,
 )
-from .exporter import PivotExporter
+from .exporter import ExportOutput, PivotExporter
 from .formats import EXPORT_FORMATS, ExportFormat, ExportResult, ReportFormat, export_filename, pdf_page_count
 from .models import PivotExportRequest, PivotSpec
 from .request import build_export_request
 from .subprocess_exporter import SubprocessExporter
 from .validation import (
+    check_calculated_item,
     check_calculated_measure,
     check_fields,
     date_field_source,
@@ -46,6 +48,7 @@ __all__ = [
     "AsyncNqgridExportClient",
     "CalcError",
     "ExportFormat",
+    "ExportOutput",
     "ExportResult",
     "NqgridExportClient",
     "NqgridExportError",
@@ -60,6 +63,7 @@ __all__ = [
     "SubprocessExporter",
     "__version__",
     "build_export_request",
+    "check_calculated_item",
     "check_calculated_measure",
     "check_fields",
     "date_field_source",

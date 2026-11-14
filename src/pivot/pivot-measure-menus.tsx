@@ -1,6 +1,7 @@
 import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { formatPivotCalcError, type PivotCalcError } from "../core/pivot/calc";
+import { checkPivotCalculatedItem, pivotItemReference, pivotItemReferencers, planPivotCalculatedItem, type PivotCalculatedItemInput } from "../core/pivot/calculated-items";
 import { pivotColumnFields } from "../core/pivot/columns";
 import { checkPivotCalculatedMeasure, planPivotCalculatedMeasure, setPivotMeasureShowAs } from "../core/pivot/measures";
 import type { PivotFacet, PivotNumberFormat, PivotShowAs, PivotShowAsBase, PivotSpec } from "../core/pivot/types";
@@ -193,6 +194,231 @@ export function PivotCalculatedMeasureForm({ spec, measureId, onSubmit, onCancel
 }
 
 // ---------------------------------------------------------------------------
+// Calculated item form
+// ---------------------------------------------------------------------------
+
+export interface PivotCalculatedItemLabels {
+  readonly titleNew: string;
+  readonly titleEdit: string;
+  readonly name: string;
+  readonly formula: string;
+  readonly placeholder: string;
+  readonly insert: string;
+  readonly placement: string;
+  readonly placements: Readonly<Record<"end" | "start", string>>;
+  readonly after: (label: string) => string;
+  readonly before: (label: string) => string;
+  readonly format: string;
+  readonly formats: Readonly<Record<"keep" | "number" | "percent" | "integer", string>>;
+  readonly includeInTotals: string;
+  readonly hint: string;
+  /** Shown instead of Delete while another item's formula reads this one. */
+  readonly usedBy: (keys: string) => string;
+  readonly add: string;
+  readonly save: string;
+  readonly cancel: string;
+  readonly remove: string;
+}
+
+export const PIVOT_CALCULATED_ITEM_LABELS: PivotCalculatedItemLabels = {
+  titleNew: "New calculated item",
+  titleEdit: "Edit calculated item",
+  name: "Name",
+  formula: "Formula",
+  placeholder: "e.g. [Revenue] + [Cost of sales]",
+  insert: "Insert item…",
+  placement: "Position",
+  placements: { end: "At the end", start: "At the start" },
+  after: (label) => `After ${label}`,
+  before: (label) => `Before ${label}`,
+  format: "Format",
+  formats: { keep: "Measure format", number: "Number", percent: "Percent", integer: "Integer" },
+  includeInTotals: "Add to totals",
+  hint: "Items of this field in [brackets], + - * / % ^, abs, round, min, max, if, coalesce. Evaluated per column on each item's totals; left out of subtotals and the grand total unless added.",
+  usedBy: (keys) => `Used by ${keys}`,
+  add: "Add",
+  save: "Save",
+  cancel: "Cancel",
+  remove: "Delete",
+};
+
+const ITEM_FORMATS: Readonly<Record<"number" | "percent" | "integer", PivotNumberFormat>> = {
+  number: {},
+  percent: { style: "percent", decimals: 1 },
+  integer: { decimals: 0 },
+};
+
+export interface PivotCalculatedItemFormProps {
+  readonly spec: PivotSpec;
+  /** Row field the item belongs to. */
+  readonly field: string;
+  /** Edit this calculated item (default: create a new one). */
+  readonly itemKey?: string;
+  /** Keys of the field, for the insert and position pickers (e.g. `grid.facet(field)`). */
+  readonly keys?: readonly { readonly key: string; readonly label: string }[];
+  /** Called with the new spec (and the item key) when the item is valid and submitted. */
+  readonly onSubmit: (next: PivotSpec, key: string) => void;
+  readonly onCancel?: () => void;
+  /** Shows a Delete button (editing only; disabled while another item reads this one). */
+  readonly onRemove?: () => void;
+  readonly className?: string;
+  readonly style?: CSSProperties;
+  readonly labels?: Partial<PivotCalculatedItemLabels>;
+}
+
+/**
+ * Excel's "Insert calculated item" for a row field: name, formula over keys of the field (validated as you
+ * type with `checkPivotCalculatedItem`: grammar, a taken name, reference cycles among items — message and
+ * position inline), an "insert item" picker, the position among the siblings (after / before a key, start,
+ * end), a format and "add to totals". Submits through `planPivotCalculatedItem`.
+ */
+export function PivotCalculatedItemForm({ spec, field, itemKey, keys = [], onSubmit, onCancel, onRemove, className, style, labels: overrides }: PivotCalculatedItemFormProps) {
+  const labels = { ...PIVOT_CALCULATED_ITEM_LABELS, ...overrides };
+  const id = useId();
+  const dim = spec.rows.find((d) => d.field === field);
+  const items = dim?.calculatedItems ?? [];
+  const existing = itemKey !== undefined ? items.find((it) => it.key === itemKey) : undefined;
+  const [name, setName] = useState(existing?.key ?? "");
+  const [formula, setFormula] = useState(existing?.formula ?? "");
+  const initialPlacement = existing?.after !== undefined ? `after:${existing.after}` : existing?.before !== undefined ? `before:${existing.before}` : existing?.position === "start" ? "start" : "end";
+  const [placement, setPlacement] = useState(initialPlacement);
+  // "keep": the measures' format for a new item, the item's own format when editing one.
+  const [format, setFormat] = useState<"keep" | "number" | "percent" | "integer">("keep");
+  const [includeInTotals, setIncludeInTotals] = useState(existing?.includeInTotals === true);
+  const [touched, setTouched] = useState(false);
+  const key = name.trim();
+  const input: PivotCalculatedItemInput = useMemo(() => {
+    const [kind, ...rest] = placement.split(":");
+    const anchor = rest.join(":");
+    return {
+      key,
+      formula,
+      ...(existing?.label !== undefined ? { label: existing.label } : {}),
+      ...(kind === "after" ? { after: anchor } : kind === "before" ? { before: anchor } : kind === "start" ? { position: "start" as const } : {}),
+      ...(format !== "keep" ? { format: ITEM_FORMATS[format] } : {}),
+      ...(includeInTotals ? { includeInTotals: true } : {}),
+    };
+  }, [key, formula, placement, format, includeInTotals, existing?.label]);
+  const error = useMemo(() => (formula.trim() ? checkPivotCalculatedItem(spec, field, input.key ? input : { ...input, key: itemKey ?? "\u0000new" }, itemKey) : null), [spec, field, input, itemKey]);
+  const valid = formula.trim() !== "" && key !== "" && error === null;
+  const errorText = error ? ("code" in error && (error.code === "cycle" || error.code === "keyTaken" || error.code === "notRowField" || error.code === "emptyKey") ? error.message : formatPivotCalcError(error as PivotCalcError)) : null;
+  const referencers = existing ? pivotItemReferencers(spec, field, existing.key) : [];
+  // Insert / position choices: the field's keys, then the other calculated items.
+  const choices = [
+    ...keys.filter((k) => !items.some((it) => it.key === k.key)),
+    ...items.filter((it) => it.key !== existing?.key).map((it) => ({ key: it.key, label: it.label ?? it.key })),
+  ];
+
+  const submit = () => {
+    setTouched(true);
+    if (!valid) return;
+    const plan = planPivotCalculatedItem(spec, field, existing?.format && format === "keep" ? { ...input, format: existing.format } : input, existing?.key);
+    if (!plan.error && (plan.changed || existing)) onSubmit(plan.spec, key);
+  };
+
+  const column: CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
+  return (
+    <form
+      className={cx(pivotFilterMenuClass, className)}
+      style={style}
+      aria-label={existing ? labels.titleEdit : labels.titleNew}
+      data-nqg-item-form={field}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <span className={pivotFilterMenuLabelClass}>{existing ? labels.titleEdit : labels.titleNew}</span>
+      <label style={column}>
+        <span className={pivotFilterMenuLabelClass}>{labels.name}</span>
+        <input className={pivotFilterMenuInputClass} value={name} onChange={(e) => setName(e.target.value)} data-nqg-item-name="" />
+      </label>
+      <label style={column}>
+        <span className={pivotFilterMenuLabelClass}>{labels.formula}</span>
+        <textarea
+          className={pivotCalcInputClass}
+          value={formula}
+          placeholder={labels.placeholder}
+          spellCheck={false}
+          aria-invalid={Boolean(errorText && (touched || formula.length > 0))}
+          aria-describedby={`${id}-error ${id}-hint`}
+          onChange={(e) => setFormula(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          data-nqg-item-formula=""
+        />
+      </label>
+      <span id={`${id}-error`} className={pivotCalcErrorClass} aria-live="polite" data-nqg-item-error="">
+        {errorText && (touched || formula.length > 0) ? errorText : ""}
+      </span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <select
+          className={pivotFilterMenuInputClass}
+          aria-label={labels.insert}
+          value=""
+          onChange={(e) => {
+            const ref = e.target.value;
+            if (ref) setFormula((f) => (f && !/\s$/.test(f) ? `${f} ${pivotItemReference(ref)}` : `${f}${pivotItemReference(ref)}`));
+          }}
+        >
+          <option value="">{labels.insert}</option>
+          {choices.map((k) => (
+            <option key={k.key} value={k.key}>
+              {k.label}
+            </option>
+          ))}
+        </select>
+        <select className={pivotFilterMenuInputClass} aria-label={labels.placement} value={placement} onChange={(e) => setPlacement(e.target.value)} data-nqg-item-placement="">
+          <option value="end">{labels.placements.end}</option>
+          <option value="start">{labels.placements.start}</option>
+          {[...choices, ...(placement.includes(":") && !choices.some((c) => placement.endsWith(`:${c.key}`)) ? [{ key: placement.slice(placement.indexOf(":") + 1), label: placement.slice(placement.indexOf(":") + 1) }] : [])].flatMap((k) => [
+            <option key={`after:${k.key}`} value={`after:${k.key}`}>
+              {labels.after(k.label)}
+            </option>,
+            <option key={`before:${k.key}`} value={`before:${k.key}`}>
+              {labels.before(k.label)}
+            </option>,
+          ])}
+        </select>
+        <select className={pivotFilterMenuInputClass} aria-label={labels.format} value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
+          {(["keep", "number", "percent", "integer"] as const).map((f) => (
+            <option key={f} value={f}>
+              {labels.format}: {labels.formats[f]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <label className={pivotFilterMenuLabelClass} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <input type="checkbox" checked={includeInTotals} onChange={(e) => setIncludeInTotals(e.target.checked)} data-nqg-item-totals="" />
+        {labels.includeInTotals}
+      </label>
+      <span id={`${id}-hint`} className={pivotCalcErrorClass} style={{ color: "var(--muted-foreground, inherit)" }}>
+        {labels.hint}
+      </span>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+        {existing && onRemove ? (
+          <button type="button" className={pivotFilterMenuButtonClass} onClick={onRemove} disabled={referencers.length > 0} title={referencers.length ? labels.usedBy(referencers.join(", ")) : undefined} style={{ marginRight: "auto" }}>
+            {labels.remove}
+          </button>
+        ) : null}
+        {onCancel ? (
+          <button type="button" className={pivotFilterMenuButtonClass} onClick={onCancel}>
+            {labels.cancel}
+          </button>
+        ) : null}
+        <button type="submit" className={pivotFilterMenuPrimaryButtonClass} disabled={!valid} data-nqg-item-submit="">
+          {existing ? labels.save : labels.add}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Show values as
 // ---------------------------------------------------------------------------
 
@@ -203,6 +429,9 @@ export interface PivotShowAsLabels {
   readonly baseItem: string;
   readonly previous: string;
   readonly next: string;
+  /** Where the base item is looked up (`showAsBase.scope`). */
+  readonly baseScope: string;
+  readonly scopes: Readonly<Record<"parent" | "all", string>>;
 }
 
 export const PIVOT_SHOW_AS_LABELS: PivotShowAsLabels = {
@@ -214,6 +443,7 @@ export const PIVOT_SHOW_AS_LABELS: PivotShowAsLabels = {
     percentOfRowTotal: "% of row total",
     percentOfParentRow: "% of parent row total",
     percentOfParentColumn: "% of parent column total",
+    percentOf: "% of",
     differenceFrom: "Difference from",
     percentDifferenceFrom: "% difference from",
     runningTotal: "Running total in",
@@ -225,6 +455,8 @@ export const PIVOT_SHOW_AS_LABELS: PivotShowAsLabels = {
   baseItem: "Base item",
   previous: "(previous)",
   next: "(next)",
+  baseScope: "Compare with",
+  scopes: { parent: "Item in the same group", all: "Item across all groups" },
 };
 
 /** Every "show values as" kind, in Excel's menu order. */
@@ -233,6 +465,7 @@ export const PIVOT_SHOW_AS_KINDS: readonly PivotShowAs[] = [
   "percentOfGrandTotal",
   "percentOfColumnTotal",
   "percentOfRowTotal",
+  "percentOf",
   "percentOfParentRow",
   "percentOfParentColumn",
   "differenceFrom",
@@ -263,12 +496,19 @@ const ITEM_PREVIOUS = "\u0000previous";
 const ITEM_NEXT = "\u0000next";
 
 /**
- * Excel's "Show values as" for one measure: the kind, and for differences / running totals / ranks
- * the base field (a row or column field) and base item ((previous), (next) or a key). Applies on
+ * Excel's "Show values as" for one measure: the kind, and for % of / differences / running totals /
+ * ranks the base field (a row or column field) and base item ((previous), (next) or a key; % of needs
+ * a key). With a key on a row field, "Compare with" picks the item in the same group (Excel) or
+ * across all groups (`showAsBase.scope: "all"`, e.g. % of Revenue on every P&L row). Applies on
  * change; a base kind without a base field available is disabled.
  */
 export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabel, className, style, labels: overrides, children }: PivotShowAsMenuProps) {
-  const labels = { ...PIVOT_SHOW_AS_LABELS, ...overrides, kinds: { ...PIVOT_SHOW_AS_LABELS.kinds, ...overrides?.kinds } };
+  const labels = {
+    ...PIVOT_SHOW_AS_LABELS,
+    ...overrides,
+    kinds: { ...PIVOT_SHOW_AS_LABELS.kinds, ...overrides?.kinds },
+    scopes: { ...PIVOT_SHOW_AS_LABELS.scopes, ...overrides?.scopes },
+  };
   const id = useId();
   const measure = spec.measures.find((m) => m.id === measureId);
   const dims = [...spec.rows, ...pivotColumnFields(spec)];
@@ -276,12 +516,24 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
   const showAs = measure?.showAs ?? "value";
   const base = measure?.showAsBase;
   const needsBase = PIVOT_SHOW_AS_WITH_BASE.has(showAs);
+  const isPercentOf = showAs === "percentOf";
   const isDifference = showAs === "differenceFrom" || showAs === "percentDifferenceFrom";
+  const usesItem = isPercentOf || isDifference;
   if (!measure) return null;
   const apply = (kind: PivotShowAs, nextBase: PivotShowAsBase | null) => onChange(setPivotMeasureShowAs(spec, measureId, kind, nextBase));
-  const defaultBase = (): PivotShowAsBase | null => (base && dims.some((d) => d.field === base.field) ? base : dims.length ? { field: dims[dims.length > 1 ? 1 : 0]!.field } : null);
-  const facet = needsBase && isDifference && base ? getFacet?.(base.field) : undefined;
+  /** % of needs an item: keep the current one, else the field's first key (from `getFacet`). */
+  const withItem = (b: PivotShowAsBase): PivotShowAsBase | null => {
+    if (b.item !== undefined) return b;
+    const first = getFacet?.(b.field)?.values[0]?.key;
+    return first === undefined ? null : { field: b.field, item: first, ...(b.scope ? { scope: b.scope } : {}) };
+  };
+  const defaultBase = (kind: PivotShowAs): PivotShowAsBase | null => {
+    const b = base && dims.some((d) => d.field === base.field) ? base : dims.length ? { field: dims[dims.length > 1 ? 1 : 0]!.field } : null;
+    return b && kind === "percentOf" ? withItem(b) : b;
+  };
+  const facet = needsBase && usesItem && base ? getFacet?.(base.field) : undefined;
   const itemValue = base?.item !== undefined ? base.item : base?.position === "next" ? ITEM_NEXT : ITEM_PREVIOUS;
+  const scopeAvailable = usesItem && base?.item !== undefined && spec.rows.some((d) => d.field === base.field);
 
   return (
     <div className={cx(pivotFilterMenuClass, className)} style={style} role="group" aria-labelledby={`${id}-title`} data-nqg-show-as="">
@@ -294,7 +546,7 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
         value={showAs}
         onChange={(e) => {
           const kind = e.target.value as PivotShowAs;
-          apply(kind, PIVOT_SHOW_AS_WITH_BASE.has(kind) ? defaultBase() : null);
+          apply(kind, PIVOT_SHOW_AS_WITH_BASE.has(kind) ? defaultBase(kind) : null);
         }}
         data-nqg-show-as-kind=""
       >
@@ -310,7 +562,10 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
           <select
             className={pivotFilterMenuInputClass}
             value={base?.field ?? ""}
-            onChange={(e) => apply(showAs, { field: e.target.value })}
+            onChange={(e) => {
+              const next = { field: e.target.value };
+              apply(showAs, isPercentOf ? withItem(next) : next);
+            }}
             data-nqg-show-as-field=""
           >
             {dims.map((d) => (
@@ -321,7 +576,7 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
           </select>
         </label>
       ) : null}
-      {needsBase && isDifference && base ? (
+      {needsBase && usesItem && base ? (
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span className={pivotFilterMenuLabelClass}>{labels.baseItem}</span>
           <select
@@ -329,17 +584,35 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
             value={itemValue}
             onChange={(e) => {
               const v = e.target.value;
-              apply(showAs, v === ITEM_PREVIOUS ? { field: base.field } : v === ITEM_NEXT ? { field: base.field, position: "next" } : { field: base.field, item: v });
+              const scope = base.scope ? { scope: base.scope } : {};
+              apply(showAs, v === ITEM_PREVIOUS ? { field: base.field } : v === ITEM_NEXT ? { field: base.field, position: "next" } : { field: base.field, item: v, ...scope });
             }}
             data-nqg-show-as-item=""
           >
-            <option value={ITEM_PREVIOUS}>{labels.previous}</option>
-            <option value={ITEM_NEXT}>{labels.next}</option>
+            {isPercentOf ? null : <option value={ITEM_PREVIOUS}>{labels.previous}</option>}
+            {isPercentOf ? null : <option value={ITEM_NEXT}>{labels.next}</option>}
             {(facet?.values ?? (base.item !== undefined ? [{ key: base.item, label: base.item }] : [])).map((v) => (
               <option key={v.key} value={v.key}>
                 {v.label}
               </option>
             ))}
+          </select>
+        </label>
+      ) : null}
+      {needsBase && scopeAvailable && base ? (
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className={pivotFilterMenuLabelClass}>{labels.baseScope}</span>
+          <select
+            className={pivotFilterMenuInputClass}
+            value={base.scope ?? "parent"}
+            onChange={(e) => {
+              const rest: PivotShowAsBase = { field: base.field, ...(base.item !== undefined ? { item: base.item } : {}) };
+              apply(showAs, e.target.value === "all" ? { ...rest, scope: "all" } : rest);
+            }}
+            data-nqg-show-as-scope=""
+          >
+            <option value="parent">{labels.scopes.parent}</option>
+            <option value="all">{labels.scopes.all}</option>
           </select>
         </label>
       ) : null}

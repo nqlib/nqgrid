@@ -1,4 +1,4 @@
-import { buildPivotModel, pivotModelToSheet, type PivotDataRow, type PivotSpec } from "@nqlib/nqgrid/core";
+import { buildPivotModel, buildPivotSheet, type PivotDataRow, type PivotDiagnostic, type PivotModel, type PivotSheet, type PivotSpec } from "@nqlib/nqgrid/core";
 import { renderPivotHtml, type RenderPivotHtmlOptions } from "@nqlib/nqgrid/render-static";
 
 import { PivotExportError, toPivotExportError } from "./errors";
@@ -35,8 +35,43 @@ export interface ExportPivotInput<F extends PivotExportFormat = PivotExportForma
 
 export type PivotBrowserState = "cold" | "starting" | "ready" | "unavailable";
 
+/** `exportDetailed` result: the file plus `model.diagnostics` (data problems worth reporting, `[]` when none). */
+export interface PivotExportOutput<F extends PivotExportFormat = PivotExportFormat> {
+  readonly data: PivotExportResult<F>;
+  readonly diagnostics: readonly PivotDiagnostic[];
+}
+
+/** Response header of `POST /export` carrying `model.diagnostics` as JSON (ASCII-escaped, ≤ 8 KB). */
+export const PIVOT_DIAGNOSTICS_HEADER = "x-nqgrid-diagnostics";
+
+/**
+ * `diagnostics` as an HTTP-header-safe JSON array: non-ASCII escaped (`\u00e9`), and entries dropped
+ * from the end (samples first) until it fits `maxLength` (the model already bounds them; this only
+ * guards header limits).
+ */
+export function pivotDiagnosticsHeaderValue(diagnostics: readonly PivotDiagnostic[], maxLength = 8000): string {
+  const encode = (list: readonly unknown[]) => JSON.stringify(list).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  let list: readonly PivotDiagnostic[] = diagnostics;
+  let text = encode(list);
+  if (text.length > maxLength) {
+    list = list.map((d) => {
+      const rest = { ...d };
+      delete (rest as { samples?: unknown }).samples;
+      return rest;
+    });
+    text = encode(list);
+  }
+  while (text.length > maxLength && list.length > 0) {
+    list = list.slice(0, -1);
+    text = encode(list);
+  }
+  return text;
+}
+
 export interface PivotExporter {
   export<F extends PivotExportFormat>(input: ExportPivotInput<F>): Promise<PivotExportResult<F>>;
+  /** `export` plus the model's diagnostics (serve mode sends them in `x-nqgrid-diagnostics`, the CLI on stderr). */
+  exportDetailed<F extends PivotExportFormat>(input: ExportPivotInput<F>): Promise<PivotExportOutput<F>>;
   /** Launch Chromium now (serve mode keeps it warm). */
   warm(): Promise<void>;
   browserState(): PivotBrowserState;
@@ -93,18 +128,35 @@ export function createPivotExporter(options: CreatePivotExporterOptions = {}): P
     return browser;
   };
 
-  const run = async (input: ExportPivotInput): Promise<Uint8Array | string> => {
+  const run = async (input: ExportPivotInput): Promise<{ data: Uint8Array | string; diagnostics: readonly PivotDiagnostic[] }> => {
     const req = parsePivotExportRequest({ spec: input.spec, rows: input.rows, options: input.options }, input.format);
+    // Workbooks (and the sheet JSON Python paints them from) also write collapsed groups' rows, hidden.
+    if (req.format === "xlsx" || req.format === "sheet") {
+      const o = req.options;
+      const { model, sheet } = buildPivotSheet(req.spec, req.rows, {
+        validate: false,
+        profile: o?.profile,
+        rowLabels: o?.xlsx?.rowLabels,
+        subtotalFormulas: o?.xlsx?.subtotalFormulas,
+        ...(o?.title !== undefined ? { title: o.title } : {}),
+        ...(o?.subtitle !== undefined ? { subtitle: o.subtitle } : {}),
+        ...(o?.units !== undefined ? { units: o.units } : {}),
+      });
+      return { data: await render(req, model, sheet), diagnostics: model.diagnostics ?? [] };
+    }
     const model = buildPivotModel(req.spec, req.rows, { validate: false });
+    return { data: await render(req, model), diagnostics: model.diagnostics ?? [] };
+  };
+  const render = async (req: ReturnType<typeof parsePivotExportRequest>, model: PivotModel, sheet?: PivotSheet): Promise<Uint8Array | string> => {
     switch (req.format) {
       case "model":
         return `${JSON.stringify(model, null, 2)}\n`;
       case "sheet":
-        return `${JSON.stringify(pivotModelToSheet(model), null, 2)}\n`;
+        return `${JSON.stringify(sheet, null, 2)}\n`;
       case "html":
         return renderPivotHtml(model, htmlOptions(req.options));
       case "xlsx":
-        return writePivotXlsx(model, { spec: req.spec, generatedAt: req.options?.generatedAt ?? null });
+        return writePivotXlsx(model, { spec: req.spec, sheet, generatedAt: req.options?.generatedAt ?? null });
       case "pdf": {
         const html = renderPivotHtml(model, htmlOptions(req.options));
         const o = req.options;
@@ -123,7 +175,15 @@ export function createPivotExporter(options: CreatePivotExporterOptions = {}): P
   return {
     async export<F extends PivotExportFormat>(input: ExportPivotInput<F>) {
       try {
-        return (await run(input)) as PivotExportResult<F>;
+        return (await run(input)).data as PivotExportResult<F>;
+      } catch (error) {
+        throw toPivotExportError(error);
+      }
+    },
+    async exportDetailed<F extends PivotExportFormat>(input: ExportPivotInput<F>) {
+      try {
+        const out = await run(input);
+        return { data: out.data as PivotExportResult<F>, diagnostics: out.diagnostics };
       } catch (error) {
         throw toPivotExportError(error);
       }

@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "id": "fpa-balance-headcount",
+  "title": "Balance sheet and headcount",
+  "subtitle": "Actual 2026, month-end balances and average FTE",
+  "units": "USD thousands · FTE",
+  "layout": "compact",
+  "rows": [
+    {
+      "field": "SECTION",
+      "label": "Section",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    },
+    {
+      "field": "LINE",
+      "label": "Line",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    }
+  ],
+  "columns": [
+    {
+      "field": "PERIOD:yearQuarter",
+      "label": "Quarter"
+    },
+    {
+      "field": "PERIOD:month",
+      "label": "Month"
+    }
+  ],
+  "columnsExpanded": [
+    [
+      "2026-Q2"
+    ]
+  ],
+  "filters": [
+    {
+      "field": "KIND",
+      "exclude": [
+        "flow"
+      ],
+      "label": "Kind"
+    }
+  ],
+  "measures": [
+    {
+      "id": "balance",
+      "label": "Balance",
+      "field": "AMOUNT",
+      "signField": "SIGN",
+      "aggregate": {
+        "type": "closingBalance",
+        "timeField": "PERIOD"
+      },
+      "filter": [
+        {
+          "field": "SCENARIO",
+          "include": [
+            "Actual"
+          ]
+        },
+        {
+          "field": "PERIOD:year",
+          "include": [
+            "2026"
+          ]
+        },
+        {
+          "field": "KIND",
+          "include": [
+            "balance"
+          ]
+        }
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "fte",
+      "label": "FTE",
+      "field": "AMOUNT",
+      "aggregate": {
+        "type": "averageOverTime",
+        "timeField": "PERIOD"
+      },
+      "filter": [
+        {
+          "field": "SCENARIO",
+          "include": [
+            "Actual"
+          ]
+        },
+        {
+          "field": "PERIOD:year",
+          "include": [
+            "2026"
+          ]
+        },
+        {
+          "field": "KIND",
+          "include": [
+            "headcount"
+          ]
+        }
+      ],
+      "format": {
+        "decimals": 1
+      }
+    },
+    {
+      "id": "ord",
+      "label": "Line order",
+      "field": "LINE_SORT",
+      "aggregate": "min"
+    }
+  ],
+  "values": [
+    "balance",
+    "fte"
+  ],
+  "totals": {
+    "grandTotalLabel": "Net assets · total FTE",
+    "rowTotal": true,
+    "rowTotalLabel": "H1 2026"
+  }
+}

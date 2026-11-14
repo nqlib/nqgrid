@@ -24,7 +24,7 @@ class Totals(BaseModel):
     rowTotalLabel: str | None = None
     subtotalLabel: str | None = None
     """
-    Label of column subtotals and of subtotal: "end" rows; {label} is the group label (default "{label} Total").
+    Label of column subtotals and of subtotal: "end" rows; {label} is the group label (default "{label} Total"). A dimension's own subtotalLabel wins for its level.
     """
 
 
@@ -74,6 +74,18 @@ class RatioAggregate(BaseModel):
     offset: float | None = None
 
 
+class TimeAggregate(BaseModel):
+    """
+    Semi-additive aggregates over timeField (a date, a derived date field such as PERIOD:yearMonth, or any field whose keys sort chronologically: numbers, ISO dates, "2026-01"). closingBalance / openingBalance: for every series in a cell (one combination of the layout's non-time row and column keys, e.g. an account), the sum of its records at the latest / earliest timeField key it has in the cell, then summed across series (Q1 of a monthly balance = the March balance; a group adds its accounts' balances). averageOverTime: the cell's sum divided by the number of distinct timeField keys with a value in it (Jan 31, Feb 32, Mar 33 FTE -> Q1 32). Records without a value or a time key are skipped.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: Literal["closingBalance", "openingBalance", "averageOverTime"]
+    timeField: Annotated[str, Field(min_length=1)]
+
+
 class CustomAggregate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -100,6 +112,10 @@ class NumberFormat(BaseModel):
     groupSeparator: str | None = None
     decimalSeparator: str | None = None
     empty: str | None = None
+    scale: Literal[1000, 1000000, 1000000000] | None = None
+    """
+    Divide displayed values by 1000 (thousands), 1000000 (millions) or 1000000000 (billions) before formatting with the usual decimals, sign and currency rules; aggregation, sorting and XLSX cell values are unchanged (Excel shows them scaled with #,##0, / #,##0,, ). Not with compact or percent style (validatePivotSpec).
+    """
 
 
 class SortBy(BaseModel):
@@ -189,7 +205,7 @@ class FacetWithLabel(BaseModel):
 
 class ShowAsBase(BaseModel):
     """
-    Base of the difference / running-total / rank kinds of showAs: a row or column field, and for differences the base item — a key of that field (item) or the previous (default) / next sibling (position). Running totals and ranks use the field only.
+    Base of percentOf and of the difference / running-total / rank kinds of showAs: a row or column field, and for percentOf / differences the base item — a key of that field (item; required by percentOf) or the previous (default) / next sibling (position). Running totals and ranks use the field only.
     """
 
     model_config = ConfigDict(
@@ -201,6 +217,10 @@ class ShowAsBase(BaseModel):
     A key of field, e.g. "2025"; wins over position.
     """
     position: Literal["previous", "next"] | None = None
+    scope: Literal["parent", "all"] | None = None
+    """
+    Where item is looked up (percentOf / differences with an item): parent (default, Excel) — among the cell's siblings under the same parent; all — the aggregate of every record whose field key is item in the cell's column (after filters), whatever the row's parent, so every row incl. group, subtotal and grand-total rows uses the same base (a P&L's "% of Revenue"). all needs a row field.
+    """
 
 
 class PositiveNumber(RootModel[float]):
@@ -233,6 +253,24 @@ class Table(BaseModel):
     kpiCaptionAttribute: str | None = None
 
 
+class Xlsx(BaseModel):
+    """
+    XLSX only (ignored by the other formats; format=sheet takes them too, for the Python openpyxl writer).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    rowLabels: Literal["repeat", "first", "merge"] | None = None
+    """
+    Tabular layout: repeat (default) writes a group's label on every row of the group so AutoFilter and sort keep each row's context; first writes it once (Excel's pivot default); merge merges the cells like the PDF (breaks filtering and sorting).
+    """
+    subtotalFormulas: bool | None = None
+    """
+    Write group, subtotal and grand-total cells of plain sum / count measures (no showAs, not calculated) as SUBTOTAL(9, ...) formulas over their detail rows, with the computed value cached. Default false: values only. The Python openpyxl writer cannot store cached values, so its formulas show their result only after Excel / LibreOffice recalculates.
+    """
+
+
 class Kpi(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -245,25 +283,42 @@ class Kpi(BaseModel):
     deltaFormat: NumberFormat | None = None
 
 
-class Dimension(BaseModel):
+class CalculatedItem(BaseModel):
+    """
+    A calculated item: formula over keys of the dimension's field ([Revenue] + [Cost of sales]), evaluated per column and measure over aggregated values. References: sibling keys under the same parent (any key at the outermost level) or other calculated items of the dimension; same grammar and limits as calculated measures. Left out of totals unless includeInTotals.
+    """
+
     model_config = ConfigDict(
         extra="forbid",
     )
-    field: Annotated[str, Field(min_length=1)]
+    key: Annotated[str, Field(min_length=1)]
+    """
+    Row key of the item (its path entry and its name in other items' formulas); unique per dimension.
+    """
+    formula: Annotated[str, Field(max_length=1000)]
+    """
+    Expression over keys of the field in brackets, e.g. "[Revenue] + [Cost of sales]".
+    """
     label: str | None = None
-    order: list[str] | None = None
-    sort: Literal["asc", "desc", "none"] | None = None
-    keepEmpty: bool | None = None
     """
-    Column dimensions: keep order keys without data; date-grouped fields also fill gaps between the first and last period with data.
+    Row label (default key).
     """
-    blankLabel: str | None = None
-    attributes: list[Attribute] | None = None
-    sortBy: SortBy | None = None
-    topN: TopN | None = None
-    subtotal: Literal["end", "start", "none"] | None = None
+    after: str | None = None
     """
-    Groups of this field (every level but the innermost). Columns: subtotal column per group at the end (default), the start, or none. Rows: start (default; the group row carries the subtotals, Excel's "at top"), end (a subtotal row after the group's children) or none. Collapsed groups always show their totals.
+    Place right after this key's rows (a data key or another calculated item).
+    """
+    before: str | None = None
+    """
+    Place right before this key's rows.
+    """
+    position: Literal["start", "end"] | None = None
+    """
+    Start or end (default) of the siblings, without after / before.
+    """
+    format: NumberFormat | None = None
+    includeInTotals: bool | None = None
+    """
+    Add the item's values into its parent's subtotal and every total above (Excel). Default false.
     """
 
 
@@ -275,16 +330,25 @@ class Measure(BaseModel):
     field: Annotated[str | None, Field(min_length=1)] = None
     calculate: Annotated[str | None, Field(max_length=1000, min_length=1)] = None
     """
-    Calculated measure: an expression over other measure ids, evaluated per cell over their aggregated values, e.g. "actual / plan - 1" or "[prior year] * 1.05". Operators + - * / % ^, comparisons, and / or / not, null; functions abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull. Division by zero gives no value. Excludes field and aggregate. Grammar: docs/pivot-headless.md; test vectors: calc-expressions.json.
+    Calculated measure: an expression over other measure ids, evaluated per cell over their aggregated values, e.g. "actual / plan - 1" or "[prior year] * 1.05". Operators + - * / % ^, comparisons, and / or / not, null; functions abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull. Division by zero gives no value. Referenced measures are read before their showAs, so referencing a measure whose showAs is not value is rejected (put showAs on the calculated measure; a groupShowAs alone is fine). Excludes field and aggregate. Grammar: docs/pivot-headless.md; test vectors: calc-expressions.json.
     """
     label: str | None = None
     aggregate: (
         WeightedAvgAggregate
         | RatioAggregate
+        | TimeAggregate
         | CustomAggregate
         | Literal["sum", "avg", "min", "max", "count", "first", "last", "distinctCount"]
         | None
     ) = None
+    signField: Annotated[str | None, Field(min_length=1)] = None
+    """
+    Record field holding a multiplier (normally 1 / -1) applied to each record's value before aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings ("-1"); a missing or non-numeric sign counts as 1. sum / avg / min / max / first / last / closingBalance / openingBalance / averageOverTime sign the value, weightedAvg the value (not the weight), ratio the numerator only. Not allowed with count, distinctCount, custom or calculate (validatePivotSpec).
+    """
+    filter: Filter | list[Filter] | None = None
+    """
+    Measure-level filter (DAX CALCULATE, Excel SUMIFS): only records that pass it are aggregated by this measure; rows, columns and totals still come from every record that passes the report filters. One filter or a list (ANDed), same shape as filters[], on any field including derived date fields (PERIOD:year). E.g. {"id": "actual", "field": "AMOUNT", "filter": {"field": "SCENARIO", "include": ["Actual"]}}. A cell whose records all fail it is empty. Not allowed with calculate (filter the measures it references).
+    """
     format: NumberFormat | None = None
     percentFormat: NumberFormat | None = None
     showAs: (
@@ -295,6 +359,7 @@ class Measure(BaseModel):
             "percentOfParentColumn",
             "percentOfRowTotal",
             "percentOfGrandTotal",
+            "percentOf",
             "differenceFrom",
             "percentDifferenceFrom",
             "runningTotal",
@@ -305,7 +370,7 @@ class Measure(BaseModel):
         | None
     ) = None
     """
-    Excel "Show values as". Percent kinds are ratios. differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase.
+    Excel "Show values as". Percent kinds are ratios. percentOf (Excel "% Of": value / the base item's value), differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase; percentOf also needs showAsBase.item.
     """
     groupShowAs: (
         Literal[
@@ -315,6 +380,7 @@ class Measure(BaseModel):
             "percentOfParentColumn",
             "percentOfRowTotal",
             "percentOfGrandTotal",
+            "percentOf",
             "differenceFrom",
             "percentDifferenceFrom",
             "runningTotal",
@@ -325,7 +391,7 @@ class Measure(BaseModel):
         | None
     ) = None
     """
-    Excel "Show values as". Percent kinds are ratios. differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase.
+    Excel "Show values as". Percent kinds are ratios. percentOf (Excel "% Of": value / the base item's value), differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase; percentOf also needs showAsBase.item.
     """
     showAsBase: ShowAsBase | None = None
 
@@ -417,12 +483,20 @@ class Options(BaseModel):
         extra="forbid",
     )
     theme: Literal["light", "dark"] | None = None
+    profile: Literal["report", "statement"] | None = None
+    """
+    Print profile. report (default) prints like the app; statement prints finance-statement emphasis: bold totals in the full text colour, a rule above subtotal values, a double rule under the grand total, no grey bands, denser 28 px rows (unless table.rowHeight).
+    """
     page: Page | None = None
     title: str | None = None
     """
     Report title (default spec.title); null hides the report header.
     """
     subtitle: str | None = None
+    units: str | None = None
+    """
+    Unit note under the title (default: spec.units); null hides it.
+    """
     generatedAt: str | None = None
     """
     Printed verbatim (the exporter never reads the clock).
@@ -436,6 +510,48 @@ class Options(BaseModel):
     """
     locale: Locale | None = None
     table: Table | None = None
+    xlsx: Xlsx | None = None
+    """
+    XLSX only (ignored by the other formats; format=sheet takes them too, for the Python openpyxl writer).
+    """
+
+
+class Dimension(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    label: str | None = None
+    order: list[str] | None = None
+    sort: Literal["asc", "desc", "none"] | None = None
+    keepEmpty: bool | None = None
+    """
+    Column dimensions only (rejected on rows by validatePivotSpec): keep order keys without data; date-grouped fields also fill gaps between the first and last period with data.
+    """
+    blankLabel: str | None = None
+    attributes: list[Attribute] | None = None
+    sortBy: SortBy | None = None
+    topN: TopN | None = None
+    subtotal: Literal["end", "start", "none"] | None = None
+    """
+    Groups of this field (every level but the innermost). Columns: subtotal column per group at the end (default), the start, or none. Rows: start (default; the group row carries the subtotals, Excel's "at top"), end (a subtotal row after the group's children) or none. Collapsed groups always show their totals.
+    """
+    subtotalLabel: str | None = None
+    """
+    Label of this field's subtotal rows (subtotal: "end") and subtotal columns, overriding totals.subtotalLabel for this level; {label} is the group label (e.g. "{label}" names a P&L section's subtotal row after the section).
+    """
+    subtotalLabels: dict[str, str] | None = None
+    """
+    Per-group subtotal labels by group key, overriding subtotalLabel for that group only (e.g. {"Revenue": "Total revenue"}); {label} is the group label. Rows and columns.
+    """
+    calculatedItems: list[CalculatedItem] | None = None
+    """
+    Row dimensions only (rejected on columns by validatePivotSpec): Excel calculated items, rows computed by a formula over other keys of this field (siblings under the same parent; at the outermost level any key, e.g. P&L sections) per column and measure.
+    """
+    itemFormats: dict[str, NumberFormat] | None = None
+    """
+    Row dimensions only: number format per key of this field, used instead of the measures' format on that key's rows (group / leaf / subtotal row or calculated item) for cells shown as values.
+    """
 
 
 class Columns(RootModel[list[Dimension]]):
@@ -447,7 +563,7 @@ class Columns(RootModel[list[Dimension]]):
 
 class PivotSpec(BaseModel):
     """
-    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field) are done by validatePivotSpec().
+    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field, percentOf needing showAsBase.item, showAsBase.scope "all" needing an item and a row field, signField only on value aggregates, keepEmpty only on column dimensions, showAsBase only with a showAs kind that reads it, calculated measures not referencing measures with showAs, format.scale not with compact or percent) are done by validatePivotSpec().
     """
 
     model_config = ConfigDict(
@@ -457,6 +573,10 @@ class PivotSpec(BaseModel):
     id: str | None = None
     title: str | None = None
     subtitle: str | None = None
+    units: str | None = None
+    """
+    Unit note printed verbatim under the title of the PDF / HTML report and in the XLSX print header, e.g. "EUR thousands" or "($ in thousands)". It never changes numbers: scale values with format.scale.
+    """
     rows: Annotated[list[Dimension], Field(min_length=1)]
     columns: Dimension | Columns | None = None
     """

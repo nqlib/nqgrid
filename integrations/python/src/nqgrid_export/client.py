@@ -18,7 +18,7 @@ from typing import Any, Literal, overload
 import httpx
 
 from .errors import NqgridExportError, NqgridUnavailable, error_from_response
-from .exporter import PivotExporter
+from .exporter import DIAGNOSTICS_HEADER, ExportOutput, PivotExporter, parse_diagnostics
 from .formats import ExportFormat, ExportResult, ReportFormat, check_format, decode_result
 from .request import OptionsInput, Rows, SpecInput, build_export_request, dumps_request
 
@@ -65,16 +65,20 @@ class NqgridExportClient(PivotExporter):
         self._owns_client = http_client is None
         self._http = http_client or httpx.Client(timeout=_timeout(timeout), headers=dict(headers or {}))
 
-    def _export_bytes(self, body: bytes, fmt: ExportFormat) -> bytes:
+    def _post(self, body: bytes, fmt: ExportFormat) -> httpx.Response:
         try:
-            response = self._http.post(
-                f"{self.base_url}/export", params={"format": fmt}, content=body, headers=_HEADERS
-            )
+            return self._http.post(f"{self.base_url}/export", params={"format": fmt}, content=body, headers=_HEADERS)
         except httpx.TimeoutException as e:
             raise NqgridUnavailable(f"nqgrid-export timed out: {e}", code="timeout") from e
         except httpx.TransportError as e:
             raise NqgridUnavailable(f"cannot reach nqgrid-export at {self.base_url}: {e}") from e
-        return _check(response)
+
+    def _export_bytes(self, body: bytes, fmt: ExportFormat) -> bytes:
+        return _check(self._post(body, fmt))
+
+    def _export_bytes_with_diagnostics(self, body: bytes, fmt: ExportFormat) -> tuple[bytes, list[dict[str, Any]]]:
+        response = self._post(body, fmt)
+        return _check(response), parse_diagnostics(response.headers.get(DIAGNOSTICS_HEADER))
 
     def health(self) -> dict[str, Any]:
         """``GET /healthz`` → ``{ok, version, browser, formats}``."""
@@ -144,6 +148,23 @@ class AsyncNqgridExportClient:
         except httpx.TransportError as e:
             raise NqgridUnavailable(f"cannot reach nqgrid-export at {self.base_url}: {e}") from e
         return decode_result(fmt, _check(response))
+
+    async def export_report(
+        self, spec: SpecInput, rows: Rows, format: ExportFormat = "pdf", options: OptionsInput | None = None
+    ) -> ExportOutput:
+        """Like :meth:`export`, plus the model's ``diagnostics`` (see :class:`~nqgrid_export.exporter.ExportOutput`)."""
+        fmt = check_format(format)
+        body = dumps_request(build_export_request(spec, rows, options=options))
+        try:
+            response = await self._http.post(
+                f"{self.base_url}/export", params={"format": fmt}, content=body, headers=_HEADERS
+            )
+        except httpx.TimeoutException as e:
+            raise NqgridUnavailable(f"nqgrid-export timed out: {e}", code="timeout") from e
+        except httpx.TransportError as e:
+            raise NqgridUnavailable(f"cannot reach nqgrid-export at {self.base_url}: {e}") from e
+        data = _check(response)
+        return ExportOutput(decode_result(fmt, data), parse_diagnostics(response.headers.get(DIAGNOSTICS_HEADER)))
 
     async def health(self) -> dict[str, Any]:
         try:

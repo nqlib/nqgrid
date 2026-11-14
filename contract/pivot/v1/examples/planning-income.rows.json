@@ -1,0 +1,506 @@
+[
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-01-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-01-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-01-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-01-01",
+    "AMOUNT": -400
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 200
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-01-01",
+    "AMOUNT": 800
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-02-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-02-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-02-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-02-01",
+    "AMOUNT": -415
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 210
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-02-01",
+    "AMOUNT": 820
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-03-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-03-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-03-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-03-01",
+    "AMOUNT": -430
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 220
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-03-01",
+    "AMOUNT": 840
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-04-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-04-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-04-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-04-01",
+    "AMOUNT": -445
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 230
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-04-01",
+    "AMOUNT": 860
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-05-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-05-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-05-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-05-01",
+    "AMOUNT": -460
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 240
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-05-01",
+    "AMOUNT": 880
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-06-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-06-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-06-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-06-01",
+    "AMOUNT": -475
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 250
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-06-01",
+    "AMOUNT": 900
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-07-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-07-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-07-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-07-01",
+    "AMOUNT": -490
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 260
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-07-01",
+    "AMOUNT": 920
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-08-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-08-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-08-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-08-01",
+    "AMOUNT": -505
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 270
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-08-01",
+    "AMOUNT": 940
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-09-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-09-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-09-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-09-01",
+    "AMOUNT": -520
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 280
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-09-01",
+    "AMOUNT": 960
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-10-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-10-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-10-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-10-01",
+    "AMOUNT": -535
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 290
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-10-01",
+    "AMOUNT": 980
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-11-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-11-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-11-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-11-01",
+    "AMOUNT": -550
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 300
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-11-01",
+    "AMOUNT": 1000
+  },
+  {
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
+    "LINE_SORT": 60,
+    "PERIOD": "2026-12-01",
+    "AMOUNT": -40
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Rent",
+    "LINE_SORT": 50,
+    "PERIOD": "2026-12-01",
+    "AMOUNT": -50
+  },
+  {
+    "SECTION": "Operating expenses",
+    "LINE": "Salaries",
+    "LINE_SORT": 40,
+    "PERIOD": "2026-12-01",
+    "AMOUNT": -250
+  },
+  {
+    "SECTION": "Cost of sales",
+    "LINE": "COGS",
+    "LINE_SORT": 30,
+    "PERIOD": "2026-12-01",
+    "AMOUNT": -565
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Services revenue",
+    "LINE_SORT": 20,
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 310
+  },
+  {
+    "SECTION": "Revenue",
+    "LINE": "Product revenue",
+    "LINE_SORT": 10,
+    "PERIOD": "2026-12-01",
+    "AMOUNT": 1020
+  }
+]

@@ -35,6 +35,19 @@ describe("reducePivotGridSpec: field-list actions", () => {
     expect(reducePivotGridSpec(added, model, { type: "removeField", field: "units", from: "values", fields }).values).toEqual(["actual"]);
   });
 
+  it("measure filters and semi-additive aggregates (batch B)", () => {
+    const added = reducePivotGridSpec(spec, model, { type: "addMeasure", field: "units", fields });
+    const filtered = reducePivotGridSpec(added, model, { type: "setMeasureFilter", measureId: "units", filter: { field: "region", include: ["North"] } });
+    expect(filtered.measures.at(-1)!.filter).toEqual({ field: "region", include: ["North"] });
+    const fm = buildPivotModel(filtered, rows);
+    const north = fm.columns.reduce((t, c, i) => (c.measureId === "units" && c.columnKey !== null ? t + (fm.grandTotal.cells[i]!.value ?? 0) : t), 0);
+    expect(north).toBe(rows.filter((r) => r.region === "North").reduce((t, r) => t + Number(r.units), 0));
+    expect(reducePivotGridSpec(filtered, model, { type: "setMeasureFilter", measureId: "units", filter: null }).measures.at(-1)!.filter).toBeUndefined();
+    const closing = reducePivotGridSpec(added, model, { type: "setMeasureAggregate", measureId: "units", aggregate: { type: "closingBalance", timeField: "month" }, fields });
+    expect(closing.measures.at(-1)!.aggregate).toEqual({ type: "closingBalance", timeField: "month" });
+    expect(closing.measures.at(-1)!.label).toMatch(/^Closing balance of /);
+  });
+
   it("the builder serves facets for any field without rebuilding the model", () => {
     const builder = createPivotModelBuilder();
     const m = builder.build(spec, rows);
@@ -186,5 +199,55 @@ describe("PivotFieldList: shared deferred draft and date fields", () => {
     expect(out).toContain('data-nqg-chip-key="columns:orderDate:year"');
     expect(out).toContain(">Year (Order date)<");
     expect(out).toContain(">Quarter (Order date)<");
+  });
+});
+
+describe("calculated items in the grid state and field list (batch C)", () => {
+  it("reducer actions add, edit, remove items and set per-group subtotal labels", async () => {
+    const { generateIncomePivotRows, incomePivotSpec } = await import("../fixtures/income-pivot-mock");
+    const income = buildPivotModel(incomePivotSpec, generateIncomePivotRows());
+    const added = reducePivotGridSpec(incomePivotSpec, income, {
+      type: "setCalculatedItem",
+      field: "SECTION",
+      item: { key: "Operating margin %", formula: "[EBITDA] / [Revenue]", after: "EBITDA", format: { style: "percent", decimals: 1 } },
+    });
+    const next = buildPivotModel(added, generateIncomePivotRows());
+    expect(next.rows.map((r) => r.label).slice(13, 15)).toEqual(["EBITDA", "Operating margin %"]);
+    expect(next.rows[14]!.cells.at(-1)!.text).toBe("32.8%");
+    // Invalid items are ignored; removal is refused while another item reads the key.
+    expect(reducePivotGridSpec(added, next, { type: "setCalculatedItem", field: "SECTION", item: { key: "Bad", formula: "[EBITDA] +" } })).toBe(added);
+    expect(reducePivotGridSpec(added, next, { type: "removeCalculatedItem", field: "SECTION", key: "Gross margin" })).toBe(added);
+    const removed = reducePivotGridSpec(added, next, { type: "removeCalculatedItem", field: "SECTION", key: "Operating margin %" });
+    expect(removed.rows[0]!.calculatedItems).toEqual(incomePivotSpec.rows[0]!.calculatedItems);
+    const relabelled = reducePivotGridSpec(removed, next, { type: "setSubtotalLabel", field: "SECTION", key: "Revenue", label: "Net revenue" });
+    expect(buildPivotModel(relabelled, generateIncomePivotRows()).rows[3]!.label).toBe("Net revenue");
+  });
+
+  it("renders the calculated item editor with an inline error", async () => {
+    const { PivotCalculatedItemForm } = await import("./pivot-measure-menus");
+    const { incomePivotSpec } = await import("../fixtures/income-pivot-mock");
+    const html = renderToStaticMarkup(
+      createElement(PivotCalculatedItemForm, {
+        spec: incomePivotSpec,
+        field: "SECTION",
+        itemKey: "EBITDA",
+        keys: [
+          { key: "Revenue", label: "Revenue" },
+          { key: "Operating expenses", label: "Operating expenses" },
+        ],
+        onSubmit: () => {},
+        onRemove: () => {},
+      }),
+    );
+    expect(html).toContain('data-nqg-item-form="SECTION"');
+    expect(html).toContain("Edit calculated item");
+    expect(html).toContain("[Gross margin] + [Operating expenses]");
+    expect(html).toContain('<option value="after:Operating expenses" selected="">After Operating expenses</option>');
+    expect(html).toContain("After Gross margin");
+    // A formula with a syntax error shows the message and position as you type.
+    const bad = { ...incomePivotSpec, rows: [{ ...incomePivotSpec.rows[0]!, calculatedItems: [{ key: "X", formula: "[Revenue] +" }] }, incomePivotSpec.rows[1]!] };
+    const error = renderToStaticMarkup(createElement(PivotCalculatedItemForm, { spec: bad, field: "SECTION", itemKey: "X", onSubmit: () => {} }));
+    expect(error).toContain("unexpected end of expression at 11");
+    expect(error).toContain('aria-invalid="true"');
   });
 });
