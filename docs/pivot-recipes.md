@@ -269,6 +269,7 @@ validates and sends. Nothing is pushed down to SQL. Practical ceilings (see
 | You want | Status | Workaround |
 |---|---|---|
 | A formula over lines of **different** sections (`[Revenue › Product revenue] - [Cost of sales › COGS]`) | Not supported | Item formulas reference keys of their own field under one parent. Put the item on the level whose keys you need (sections: SECTION; lines of one section: LINE), or move the lines you combine into one section. |
+| "% of Gross margin" (a calculated item as the `showAsBase.item` of a show-as) | Not supported | The base comes from the data (`baseItemNotFound` diagnostic, empty cells). Use a calculated item per ratio row (`[EBITDA] / [Gross margin]`). |
 | A calculated item on a **column** field (e.g. a "Q1 − Q2" column) | Not supported (rejected) | Use a calculated measure with measure filters (one measure per period) or `showAs: "differenceFrom"` along the column field. |
 | Items **added into** subtotals and the grand total (Excel's default) | Opt-in | `"includeInTotals": true` per item (e.g. an adjustment row); statement rows stay out by default. |
 | A formula row whose inputs may be missing in some columns | Null propagates | `[Revenue] + coalesce([Other income], 0)`. An item whose inputs are all missing (filtered out) is not shown. |
