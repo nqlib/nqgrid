@@ -88,3 +88,29 @@ def test_cycles() -> None:
     assert find_cycles({"a": ["b"], "b": ["a"], "c": ["a"]}) == [["a", "b", "a"]]
     assert find_cycles({"a": ["a"]}) == [["a", "a"]]
     assert find_cycles({"a": ["b", "x"], "b": ["c"], "c": []}) == []
+
+
+ITEM_VECTORS = VECTORS["items"]
+
+
+@pytest.mark.parametrize("case", ITEM_VECTORS["valid"], ids=lambda c: str(c["expr"])[:40])
+def test_item_formula_vectors(case: dict[str, Any]) -> None:
+    src = build(case["expr"])
+    parsed = parse_calc(src, allow_reserved=True)
+    assert parsed.error is None, parsed.error
+    assert parsed.ast is not None
+    if "references" in case:
+        assert list(parsed.references) == case["references"]
+    values = dict(case.get("values") or [])
+    assert close(evaluate_calc(parsed.ast, values), case["result"])
+    if any(r in ("__proto__", "constructor", "prototype") for r in parsed.references):
+        assert parse_calc(src).error is not None  # calculated measures keep rejecting them
+
+
+@pytest.mark.parametrize("case", ITEM_VECTORS["invalid"], ids=lambda c: repr(c["expr"])[:40])
+def test_invalid_item_formula_vectors(case: dict[str, Any]) -> None:
+    parsed = parse_calc(build(case["expr"]), allow_reserved=True)
+    assert parsed.error is not None
+    assert parsed.error.code == case["code"]
+    if "position" in case:
+        assert parsed.error.position == case["position"]

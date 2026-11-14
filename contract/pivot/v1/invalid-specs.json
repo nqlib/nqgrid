@@ -343,6 +343,101 @@
           }
         ]
       }
+    },
+    {
+      "name": "income statement: calculated items, per-group subtotal labels and item formats",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "subtotal": "end",
+            "subtotalLabels": {
+              "Revenue": "Total revenue",
+              "Operating expenses": "Total operating expenses"
+            },
+            "calculatedItems": [
+              {
+                "key": "Gross margin",
+                "formula": "[Revenue] + [Cost of sales]",
+                "after": "Cost of sales"
+              },
+              {
+                "key": "Gross margin %",
+                "formula": "[Gross margin] / [Revenue]",
+                "after": "Gross margin",
+                "format": {
+                  "style": "percent",
+                  "decimals": 1
+                }
+              },
+              {
+                "key": "EBITDA",
+                "formula": "[Gross margin] + [Operating expenses]",
+                "before": "Depreciation",
+                "includeInTotals": false
+              },
+              {
+                "key": "Memo",
+                "label": "Memo: constant",
+                "formula": "100",
+                "position": "start"
+              }
+            ],
+            "itemFormats": {
+              "Headcount": {
+                "decimals": 1,
+                "suffix": " FTE"
+              }
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "columns": {
+          "field": "PERIOD:quarter",
+          "subtotalLabels": {
+            "Q1": "First quarter"
+          }
+        },
+        "measures": [
+          {
+            "id": "m",
+            "field": "AMOUNT"
+          }
+        ]
+      }
+    },
+    {
+      "name": "calculated items named like object internals (keys are opaque strings)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "__proto__",
+                "formula": "[constructor] + [prototype] + [__proto__x]"
+              },
+              {
+                "key": "constructor",
+                "formula": "1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      }
     }
   ],
   "invalid": [
@@ -2239,6 +2334,609 @@
       },
       "paths": [
         "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "calculated items on a column dimension",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "columns": {
+          "field": "b",
+          "calculatedItems": [
+            {
+              "key": "X",
+              "formula": "[b1] - [b2]"
+            }
+          ]
+        },
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "columns.calculatedItems is only supported on row dimensions"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "item formats on a column dimension",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "columns": [
+          {
+            "field": "b",
+            "itemFormats": {
+              "b1": {
+                "decimals": 1
+              }
+            }
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "columns[0].itemFormats is only supported on row dimensions"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "duplicate calculated item key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "1"
+              },
+              {
+                "key": "GM",
+                "formula": "2"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[1].key \"GM\" is duplicated"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item with after and position",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "1",
+                "after": "Revenue",
+                "position": "end"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0]: use only one of after, before and position"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item placed after itself",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "1",
+                "after": "GM"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0]: cannot be placed after or before itself"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula with a syntax error",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "[Revenue] +"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: unexpected end of expression (at 11)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula with an unterminated reference",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "[Revenue + 1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: missing \"]\" (at 0)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula with an unknown function",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM",
+                "formula": "sum([Revenue])"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: unknown function \"sum\" (allowed: abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull) (at 0)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated items referencing each other",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "A",
+                "formula": "[B] + 1"
+              },
+              {
+                "key": "B",
+                "formula": "[A] * 2"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: reference cycle A → B → A"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item referencing itself",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "[X] + 1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: reference cycle X → X"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula nested too deep",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((([a])))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].formula: expression is nested deeper than 64 levels (at 64)"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "calculated item formula too long",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0].formula"
+      ]
+    },
+    {
+      "name": "calculated item without a formula",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0]"
+      ]
+    },
+    {
+      "name": "calculated item with an empty key",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "",
+                "formula": "1"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0].key"
+      ]
+    },
+    {
+      "name": "unknown key in a calculated item",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "1",
+                "parent": "Revenue"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0]: unknown key(s) ('parent' was unexpected)"
+      ]
+    },
+    {
+      "name": "calculated item position that is not start or end",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "X",
+                "formula": "1",
+                "position": "after"
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems[0].position"
+      ]
+    },
+    {
+      "name": "calculated items that are not a list",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": {
+              "key": "X",
+              "formula": "1"
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].calculatedItems"
+      ]
+    },
+    {
+      "name": "non-string subtotal label",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "subtotalLabels": {
+              "Revenue": 5
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "paths": [
+        "rows[0].subtotalLabels"
+      ]
+    },
+    {
+      "name": "percent calculated item with a scale",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "calculatedItems": [
+              {
+                "key": "GM %",
+                "formula": "[GM] / [Revenue]",
+                "format": {
+                  "style": "percent",
+                  "scale": 1000
+                }
+              }
+            ]
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].calculatedItems[0].format: scale does not apply to percent style"
+      ],
+      "schemaValid": true
+    },
+    {
+      "name": "unknown key in an item format",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "SECTION",
+            "itemFormats": {
+              "GM %": {
+                "scal": 1000
+              }
+            }
+          },
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v"
+          }
+        ]
+      },
+      "errors": [
+        "rows[0].itemFormats.GM %: unknown key(s) ('scal' was unexpected)"
       ]
     }
   ]

@@ -525,11 +525,11 @@ function omitKeys<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Om
 }
 
 /**
- * A dimension on its way into Columns (no `sortBy` / `topN`; `keepEmpty` is dropped on the way into
- * Rows). `subtotal` is valid in both areas (row groups: `start` / `end` / `none` rows, column groups:
- * subtotal columns), so it travels.
+ * A dimension on its way into Columns (no `sortBy` / `topN` / `calculatedItems` / `itemFormats`;
+ * `keepEmpty` is dropped on the way into Rows). `subtotal` and `subtotalLabels` are valid in both areas
+ * (row groups: `start` / `end` / `none` rows, column groups: subtotal columns), so they travel.
  */
-const stripColumnOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "sortBy", "topN");
+const stripColumnOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "sortBy", "topN", "calculatedItems", "itemFormats");
 const clamp = (i: number | undefined, max: number) => (i === undefined ? max : Math.max(0, Math.min(max, Math.floor(i))));
 
 /** Working copy of the layout parts a move touches. */

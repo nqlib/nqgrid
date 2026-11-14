@@ -23,7 +23,7 @@ export interface PivotSheetCell {
    * of the written sheet, i.e. after `tableRow`); `v` stays the cached result.
    */
   readonly f?: string;
-  /** Statement profile rules: a thin rule above (subtotal values, grand total) and a double rule below (grand total). */
+  /** Statement profile rules: a thin rule above (subtotal and calculated item values, grand total) and a double rule below (grand total). */
   readonly border?: { readonly top?: "thin"; readonly bottom?: "double" };
 }
 
@@ -135,7 +135,7 @@ export interface PivotModelToSheetOptions {
 const MAX_OUTLINE_LEVEL = 7;
 
 const roleOf = (row: PivotBodyRow): PivotSheetCellRole =>
-  row.kind === "grandTotal" ? "grandTotal" : row.kind === "group" || row.kind === "subtotal" ? "group" : "leaf";
+  row.kind === "grandTotal" ? "grandTotal" : row.kind === "group" || row.kind === "subtotal" || row.kind === "calculated" ? "group" : "leaf";
 
 /** Excel number format of a value cell: the measure's, its percent format, or `0` for ranks. */
 function numFmtOf(showAs: string | undefined, numFmt: string, percentNumFmt: string): string {
@@ -274,14 +274,14 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
     } else {
       out.push({ v: row.label, role, depth: row.depth, bold, ...(row.depth > 0 ? { indent: row.depth } : {}) });
     }
-    const subtotalRule = statement && row.kind === "subtotal";
+    const subtotalRule = statement && (row.kind === "subtotal" || row.kind === "calculated");
     const totalRule = statement && row.kind === "grandTotal";
     if (totalRule) for (let i = 0; i < out.length; i++) out[i] = { ...out[i]!, border: { top: "thin", bottom: "double" } };
     row.cells.forEach((cell, i) => {
       const col = model.columns[i]!;
       out.push({
         v: cell.value,
-        numFmt: numFmtOf(cell.showAs, col.excelNumFmt, col.excelPercentNumFmt),
+        numFmt: numFmtOf(cell.showAs, row.excelNumFmt ?? col.excelNumFmt, col.excelPercentNumFmt),
         role,
         bold,
         ...(cell.heat !== undefined ? { heat: cell.heat } : {}),
@@ -347,6 +347,8 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
  * covers every detail row of the group (nested groups included) and still adds each leaf once;
  * function 9 also counts rows hidden by the outline, so collapsed groups keep their totals, while
  * rows hidden by an AutoFilter drop out (Excel's behaviour). Cells without a value stay empty.
+ * Calculated item rows keep values, and a range with a calculated item inside keeps values too (a
+ * `SUBTOTAL` would add the item into the total; `includeInTotals` items are already in the cached value).
  */
 function addSubtotalFormulas(
   cells: PivotSheetCell[][],
@@ -382,6 +384,7 @@ function addSubtotalFormulas(
       if (j - 1 > i) [from, to] = [i + 1, j - 1];
     }
     if (from < 0) return;
+    for (let j = from; j <= to; j++) if (rows[j]!.kind === "calculated") return;
     const out = cells[headerCount + i]!;
     row.cells.forEach((cell, c) => {
       if (!additive[c] || cell.value === null || cell.showAs !== undefined) return;

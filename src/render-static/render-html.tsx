@@ -6,7 +6,13 @@ import { pivotTableGeometry } from "../pivot/layout";
 import { PivotHeaderSummary } from "../pivot/pivot-header-chart";
 import { PivotTable, type PivotTableProps } from "../pivot/pivot-table";
 import { PIVOT_STATIC_PALETTE, type PivotStaticTheme } from "./color";
-import { PIVOT_STATIC_CSS, PIVOT_STATIC_NESTED_HEADER_CSS, PIVOT_STATIC_STATEMENT_CSS, PIVOT_STATIC_STATEMENT_ROW_HEIGHT } from "./css";
+import {
+  PIVOT_STATIC_CSS,
+  PIVOT_STATIC_NESTED_HEADER_CSS,
+  PIVOT_STATIC_STATEMENT_CALCULATED_CSS,
+  PIVOT_STATIC_STATEMENT_CSS,
+  PIVOT_STATIC_STATEMENT_ROW_HEIGHT,
+} from "./css";
 import {
   pivotColumnChunks,
   pivotColumnsPerPage,
@@ -271,7 +277,10 @@ export function renderPivotHtml(model: PivotModel, options: RenderPivotHtmlOptio
   // The page background also covers the margins (Chromium otherwise paints its default canvas there).
   const pageCss = `${layout.page.css}\n@page { background: ${PIVOT_STATIC_PALETTE[theme].page}; }`;
   const nested = model.columnDimensions ? PIVOT_STATIC_NESTED_HEADER_CSS : "";
-  const statement = options.profile === "statement" ? PIVOT_STATIC_STATEMENT_CSS : "";
+  const statement =
+    options.profile === "statement"
+      ? PIVOT_STATIC_STATEMENT_CSS + (model.rows.some((r) => r.kind === "calculated") ? PIVOT_STATIC_STATEMENT_CALCULATED_CSS : "")
+      : "";
   const css = `${PIVOT_STATIC_CSS}${pageCss}\n${nested}${statement}${options.css ? `${options.css}\n` : ""}`;
   return [
     "<!DOCTYPE html>",

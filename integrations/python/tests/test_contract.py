@@ -25,6 +25,7 @@ from nqgrid_export.models import Options, RatioAggregate
 from nqgrid_export.request import dumps_request
 from nqgrid_export.validation import (
     calc_example_spec,
+    check_calculated_item,
     check_calculated_measure,
     date_field_source,
     dates_example_spec,
@@ -483,6 +484,26 @@ def test_calc_spec_round_trips_and_mirrors_ts_validation() -> None:
     assert check_calculated_measure(base, "m / pp") == 'unknown measure "pp" at 4'
     loop = {**base, "measures": [*base["measures"], {"id": "c", "calculate": "m * 2"}]}
     assert check_calculated_measure(loop, "c + 1", "m") == "reference cycle c → m → c"
+
+
+def test_check_calculated_item_mirrors_ts() -> None:
+    """Inline check for the field list's calculated item editor (mirrors checkPivotCalculatedItem)."""
+    spec = {
+        "version": 1,
+        "rows": [{"field": "SECTION", "calculatedItems": [{"key": "a", "formula": "[b] + 1"}]}],
+        "columns": {"field": "Q"},
+        "measures": [{"id": "m", "field": "v"}],
+    }
+    assert check_calculated_item(spec, "SECTION", {"key": "GM", "formula": "[Revenue] + [Cost of sales]"}) is None
+    assert check_calculated_item(spec, "SECTION", {"key": "x", "formula": "[__proto__] + constructor"}) is None
+    assert check_calculated_item(spec, "Q", {"key": "x", "formula": "1"}) == '"Q" is not a row field'
+    assert check_calculated_item(spec, "SECTION", {"key": "x", "formula": "[Revenue] +"}) == (
+        "unexpected end of expression at 11"
+    )
+    assert check_calculated_item(spec, "SECTION", {"key": "", "formula": "1"}) == "the item needs a name"
+    assert check_calculated_item(spec, "SECTION", {"key": "a", "formula": "1"}) == 'a calculated item "a" exists'
+    assert check_calculated_item(spec, "SECTION", {"key": "a", "formula": "1"}, "a") is None
+    assert check_calculated_item(spec, "SECTION", {"key": "b", "formula": "[a] * 2"}) == "reference cycle a → b → a"
 
 
 def test_statement_spec_round_trips_and_mirrors_ts_validation() -> None:

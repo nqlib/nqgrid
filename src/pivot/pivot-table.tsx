@@ -359,7 +359,7 @@ export const PivotTable = memo(function PivotTable({
   };
 
   const rowCellClass = (row: PivotBodyRow) =>
-    row.kind === "grandTotal" ? pivotGrandTotalCellClass : row.kind === "group" || row.kind === "subtotal" ? pivotGroupCellClass : pivotLeafCellClass;
+    row.kind === "grandTotal" ? pivotGrandTotalCellClass : row.kind === "group" || row.kind === "subtotal" || row.kind === "calculated" ? pivotGroupCellClass : pivotLeafCellClass;
 
   /** Rendered `<tr>`s a span cell covers from `from` (owner row or first rendered row) to its last row, within `[.., end)`. */
   const spanRows = (level: number, owner: number, ownerSpan: number, from: number, end: number): number => {
@@ -410,7 +410,11 @@ export const PivotTable = memo(function PivotTable({
           {row.kind === "group" ? (
             groupLabel(row, row.depth * 16)
           ) : (
-            <span className={row.kind === "subtotal" ? pivotLabelTextClass : undefined} style={{ paddingLeft: row.depth * 16 }}>
+            <span
+              className={row.kind === "subtotal" || row.kind === "calculated" ? pivotLabelTextClass : undefined}
+              style={{ paddingLeft: row.depth * 16 }}
+              title={interactive && row.formula !== undefined ? row.formula : undefined}
+            >
               {row.label}
             </span>
           )}
@@ -430,7 +434,13 @@ export const PivotTable = memo(function PivotTable({
       const p = pinned(slot.level);
       if (slot.type === "span") return [spanCell(rowIndex, slot.level, slot.rowSpan, spanRows(slot.level, rowIndex, slot.rowSpan, rowIndex, windowEnd))];
       const content =
-        slot.type === "group" ? groupLabel(row) : slot.type === "leaf" || slot.type === "subtotal" ? <span className={pivotLabelTextClass}>{row.label}</span> : null;
+        slot.type === "group" ? (
+          groupLabel(row)
+        ) : slot.type === "leaf" || slot.type === "subtotal" || slot.type === "calculated" ? (
+          <span className={pivotLabelTextClass} title={interactive && row.formula !== undefined ? row.formula : undefined}>
+            {row.label}
+          </span>
+        ) : null;
       return [
         <td key={`d${slot.level}`} className={cx(base, edge(slot.level), p.className)} style={p.style}>
           {content}
@@ -447,7 +457,7 @@ export const PivotTable = memo(function PivotTable({
       return (
         <td
           key={column.id}
-          className={cx(rowCellClass(row), pivotValueClass, (row.kind === "group" || row.kind === "subtotal") && pivotGroupValueClass, heat.className)}
+          className={cx(rowCellClass(row), pivotValueClass, (row.kind === "group" || row.kind === "subtotal" || row.kind === "calculated") && pivotGroupValueClass, heat.className)}
           style={heat.style}
           data-heat={heat["data-heat"]}
           onDoubleClick={drill ? () => drill(pivotCellDrillTarget(model, row, i), { model, row, rowIndex, column, columnIndex: i, cell }) : undefined}

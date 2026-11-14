@@ -1935,11 +1935,41 @@ function measureSourceFields(spec: PivotSpec, id: string, out: string[], seen = 
 }
 
 /**
+ * Key codes a calculated item `key` of dimension `d` reads (its data keys, through other items too), or
+ * `null` when `key` is not a calculated item of `d` (calculated items shadow data keys of the same name).
+ */
+function pivotItemReadCodes(d: PivotDimension, key: string, keys: readonly string[]): Set<number> | null {
+  const list = d.calculatedItems;
+  if (!list?.some((it) => it.key === key)) return null;
+  const byKey = new Map(list.map((it) => [it.key, it] as const));
+  const codeOf = new Map(keys.map((k, c) => [k, c] as const));
+  const out = new Set<number>();
+  const seen = new Set<string>();
+  const visit = (k: string) => {
+    if (seen.has(k)) return;
+    seen.add(k);
+    const parsed = parsePivotCalc(byKey.get(k)!.formula, { allowReservedNames: true });
+    if (!parsed.ok) return;
+    for (const ref of parsed.references) {
+      if (byKey.has(ref)) visit(ref);
+      else {
+        const c = codeOf.get(ref);
+        if (c !== undefined) out.add(c);
+      }
+    }
+  };
+  visit(key);
+  return out;
+}
+
+/**
  * Source records behind a pivot cell (Excel's "Show details"): records that pass the report /
  * label filters and Top N (an "Other" row lists the keys it folds; keys cut by Top N without
  * "Other" never match), whose row keys start with `target.path` and column keys with
  * `target.columnPath`. Date-grouped fields match by their derived keys (`orderDate:year` = `"2026"`).
- * Group, subtotal and total cells pass shorter paths and get the broader record set.
+ * Group, subtotal and total cells pass shorter paths and get the broader record set. A calculated item
+ * row (`path` ending with the item's key) lists the records of every key its formula reads under the same
+ * parent (an item reading no key: none); `total` then differs from the row's `sourceRowCount` (0).
  *
  * Does not aggregate, so it costs one filter pass (plus one partial aggregation per Top-N level);
  * pass the builder's `encoding` (`createPivotModelBuilder().drillThrough`) to skip re-encoding.
@@ -1973,13 +2003,17 @@ export function pivotDrillThrough(
 
   const sel = selectPivotRecords(spec, rows, { aggregators: options.aggregators, encoding: options.encoding }, []);
   const { enc, n, mask, levelCodes, levelKeys } = sel;
+  // A calculated item at the end of the path: the records of every key its formula reads, directly or
+  // through other items of the level (Gross margin → Revenue and Cost of sales).
+  const itemLevel = path.length - 1;
+  const itemCodes = itemLevel >= 0 ? pivotItemReadCodes(spec.rows[itemLevel]!, path[itemLevel]!, levelKeys[itemLevel]!) : null;
   // Target key code per level (-1: the key has no records).
-  const rowTargets = path.map((key, d) => levelKeys[d]!.indexOf(key));
+  const rowTargets = path.map((key, d) => (d === itemLevel && itemCodes ? -2 : levelKeys[d]!.indexOf(key)));
   const colCodes = columnPath.map((key, j) => {
     const c = enc.codes(colDims[j]!.field);
     return { codes: c.codes, code: c.index.get(key) ?? -1 };
   });
-  if (rowTargets.some((c) => c < 0) || colCodes.some((c) => c.code < 0)) return none;
+  if (rowTargets.some((c) => c === -1) || colCodes.some((c) => c.code < 0)) return none;
   // A filtered measure lists the records it aggregated (any of its sets, for a calculated measure).
   const sets = target.measureId !== undefined ? measureFilterSets(spec, target.measureId) : null;
   let keep: Uint8Array | null = null;
@@ -2000,7 +2034,9 @@ export function pivotDrillThrough(
   outer: for (let i = 0; i < n; i++) {
     if (mask !== null && mask[i] === 0) continue;
     if (keep !== null && keep[i] === 0) continue;
-    for (let d = 0; d < rowTargets.length; d++) if (levelCodes[d]![i] !== rowTargets[d]) continue outer;
+    for (let d = 0; d < rowTargets.length; d++) {
+      if (rowTargets[d] === -2 ? !itemCodes!.has(levelCodes[d]![i]!) : levelCodes[d]![i] !== rowTargets[d]) continue outer;
+    }
     for (let j = 0; j < colCodes.length; j++) if (colCodes[j]!.codes[i] !== colCodes[j]!.code) continue outer;
     if (total >= offset && indices.length < limit) indices.push(i);
     total++;

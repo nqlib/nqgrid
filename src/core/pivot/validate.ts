@@ -46,7 +46,8 @@ const keySet = (keys: string) => new Set(keys.split(" "));
 const SPEC_KEYS = keySet(
   "version id title subtitle units rows columns measures values totals expanded columnsExpanded heat headerCharts kpis kpiLevels layout filters facets fields fieldLabels valuesIndex",
 );
-const DIMENSION_KEYS = keySet("field label order sort keepEmpty blankLabel attributes sortBy topN subtotal subtotalLabel");
+const DIMENSION_KEYS = keySet("field label order sort keepEmpty blankLabel attributes sortBy topN subtotal subtotalLabel subtotalLabels calculatedItems itemFormats");
+const CALCULATED_ITEM_KEYS = keySet("key formula label after before position format includeInTotals");
 const SORT_BY_KEYS = keySet("measure direction columnKey");
 const TOP_N_KEYS = keySet("measure count direction columnKey other otherLabel");
 const MEASURE_KEYS = keySet("id field calculate label aggregate signField filter format percentFormat showAs groupShowAs showAsBase");
@@ -246,6 +247,58 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     }
     if (d.subtotal !== undefined && !SUBTOTALS.has(d.subtotal as string)) errors.push(`${where}.subtotal must be "end" | "start" | "none"`);
     if (d.subtotalLabel !== undefined && typeof d.subtotalLabel !== "string") errors.push(`${where}.subtotalLabel must be a string`);
+    if (d.subtotalLabels !== undefined && !(isObject(d.subtotalLabels) && Object.values(d.subtotalLabels).every((v) => typeof v === "string"))) {
+      errors.push(`${where}.subtotalLabels must be an object of strings`);
+    }
+    if (d.itemFormats !== undefined) {
+      if (!isRow) errors.push(`${where}.itemFormats is only supported on row dimensions`);
+      else if (!isObject(d.itemFormats)) errors.push(`${where}.itemFormats must be an object of number formats`);
+      else for (const [key, f] of Object.entries(d.itemFormats)) checkFormat(f, `${where}.itemFormats.${key}`);
+    }
+    if (d.calculatedItems !== undefined) {
+      if (!isRow) errors.push(`${where}.calculatedItems is only supported on row dimensions`);
+      else if (!Array.isArray(d.calculatedItems)) errors.push(`${where}.calculatedItems must be an array`);
+      else checkCalculatedItems(d.calculatedItems, where);
+    }
+  };
+  /** Calculated items of a row dimension: shape, unique keys, one placement, formula grammar, cycles among items. */
+  const checkCalculatedItems = (list: readonly unknown[], dimWhere: string) => {
+    const keys = new Set<string>();
+    const refs = new Map<string, readonly string[]>();
+    const whereOf = new Map<string, string>();
+    list.forEach((it, j) => {
+      const where = `${dimWhere}.calculatedItems[${j}]`;
+      if (!isObject(it) || !isNonEmptyString(it.key)) {
+        errors.push(`${where}.key must be a non-empty string`);
+        return;
+      }
+      unknown(it, CALCULATED_ITEM_KEYS, where);
+      const key = it.key;
+      if (keys.has(key)) errors.push(`${where}.key "${key}" is duplicated`);
+      keys.add(key);
+      optString(it.label, `${where}.label`);
+      optString(it.after, `${where}.after`);
+      optString(it.before, `${where}.before`);
+      optEnum(it.position, ["start", "end"], `${where}.position`);
+      optBoolean(it.includeInTotals, `${where}.includeInTotals`);
+      checkFormat(it.format, `${where}.format`);
+      if ([it.after, it.before, it.position].filter((v) => v !== undefined).length > 1) errors.push(pivotItemPlacementMessage(where));
+      if (it.after === key || it.before === key) errors.push(`${where}: cannot be placed after or before itself`);
+      if (typeof it.formula !== "string") {
+        errors.push(`${where}.formula must be a string`);
+        return;
+      }
+      const parsed = parsePivotCalc(it.formula, { allowReservedNames: true });
+      if (!parsed.ok) {
+        errors.push(`${where}.formula: ${parsed.error.message} (at ${parsed.error.position})`);
+        return;
+      }
+      if (!refs.has(key)) {
+        refs.set(key, parsed.references);
+        whereOf.set(key, where);
+      }
+    });
+    for (const cycle of findPivotCalcCycles(refs)) errors.push(`${whereOf.get(cycle[0]) ?? dimWhere}.formula: reference cycle ${cycle.join(" → ")}`);
   };
 
   const dimensionFields: [string, string][] = [];
@@ -589,6 +642,11 @@ export function pivotCalcShowAsMessage(where: string, ref: string, kind: string)
     `${where}.calculate: references "${ref}", which has showAs "${kind}"; calculated measures read aggregated values before showAs. ` +
     `Reference the plain measure and put showAs on the calculated measure instead (e.g. calculate "actual - budget" with showAs "${kind}")`
   );
+}
+
+/** A calculated item with more than one of `after` / `before` / `position`. */
+export function pivotItemPlacementMessage(where: string): string {
+  return `${where}: use only one of after, before and position`;
 }
 
 /** A measure filter on a calculated measure (it aggregates nothing itself). */

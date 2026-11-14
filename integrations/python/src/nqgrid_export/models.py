@@ -283,29 +283,42 @@ class Kpi(BaseModel):
     deltaFormat: NumberFormat | None = None
 
 
-class Dimension(BaseModel):
+class CalculatedItem(BaseModel):
+    """
+    A calculated item: formula over keys of the dimension's field ([Revenue] + [Cost of sales]), evaluated per column and measure over aggregated values. References: sibling keys under the same parent (any key at the outermost level) or other calculated items of the dimension; same grammar and limits as calculated measures. Left out of totals unless includeInTotals.
+    """
+
     model_config = ConfigDict(
         extra="forbid",
     )
-    field: Annotated[str, Field(min_length=1)]
+    key: Annotated[str, Field(min_length=1)]
+    """
+    Row key of the item (its path entry and its name in other items' formulas); unique per dimension.
+    """
+    formula: Annotated[str, Field(max_length=1000)]
+    """
+    Expression over keys of the field in brackets, e.g. "[Revenue] + [Cost of sales]".
+    """
     label: str | None = None
-    order: list[str] | None = None
-    sort: Literal["asc", "desc", "none"] | None = None
-    keepEmpty: bool | None = None
     """
-    Column dimensions only (rejected on rows by validatePivotSpec): keep order keys without data; date-grouped fields also fill gaps between the first and last period with data.
+    Row label (default key).
     """
-    blankLabel: str | None = None
-    attributes: list[Attribute] | None = None
-    sortBy: SortBy | None = None
-    topN: TopN | None = None
-    subtotal: Literal["end", "start", "none"] | None = None
+    after: str | None = None
     """
-    Groups of this field (every level but the innermost). Columns: subtotal column per group at the end (default), the start, or none. Rows: start (default; the group row carries the subtotals, Excel's "at top"), end (a subtotal row after the group's children) or none. Collapsed groups always show their totals.
+    Place right after this key's rows (a data key or another calculated item).
     """
-    subtotalLabel: str | None = None
+    before: str | None = None
     """
-    Label of this field's subtotal rows (subtotal: "end") and subtotal columns, overriding totals.subtotalLabel for this level; {label} is the group label (e.g. "{label}" names a P&L section's subtotal row after the section).
+    Place right before this key's rows.
+    """
+    position: Literal["start", "end"] | None = None
+    """
+    Start or end (default) of the siblings, without after / before.
+    """
+    format: NumberFormat | None = None
+    includeInTotals: bool | None = None
+    """
+    Add the item's values into its parent's subtotal and every total above (Excel). Default false.
     """
 
 
@@ -500,6 +513,44 @@ class Options(BaseModel):
     xlsx: Xlsx | None = None
     """
     XLSX only (ignored by the other formats; format=sheet takes them too, for the Python openpyxl writer).
+    """
+
+
+class Dimension(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    field: Annotated[str, Field(min_length=1)]
+    label: str | None = None
+    order: list[str] | None = None
+    sort: Literal["asc", "desc", "none"] | None = None
+    keepEmpty: bool | None = None
+    """
+    Column dimensions only (rejected on rows by validatePivotSpec): keep order keys without data; date-grouped fields also fill gaps between the first and last period with data.
+    """
+    blankLabel: str | None = None
+    attributes: list[Attribute] | None = None
+    sortBy: SortBy | None = None
+    topN: TopN | None = None
+    subtotal: Literal["end", "start", "none"] | None = None
+    """
+    Groups of this field (every level but the innermost). Columns: subtotal column per group at the end (default), the start, or none. Rows: start (default; the group row carries the subtotals, Excel's "at top"), end (a subtotal row after the group's children) or none. Collapsed groups always show their totals.
+    """
+    subtotalLabel: str | None = None
+    """
+    Label of this field's subtotal rows (subtotal: "end") and subtotal columns, overriding totals.subtotalLabel for this level; {label} is the group label (e.g. "{label}" names a P&L section's subtotal row after the section).
+    """
+    subtotalLabels: dict[str, str] | None = None
+    """
+    Per-group subtotal labels by group key, overriding subtotalLabel for that group only (e.g. {"Revenue": "Total revenue"}); {label} is the group label. Rows and columns.
+    """
+    calculatedItems: list[CalculatedItem] | None = None
+    """
+    Row dimensions only (rejected on columns by validatePivotSpec): Excel calculated items, rows computed by a formula over other keys of this field (siblings under the same parent; at the outermost level any key, e.g. P&L sections) per column and measure.
+    """
+    itemFormats: dict[str, NumberFormat] | None = None
+    """
+    Row dimensions only: number format per key of this field, used instead of the measures' format on that key's rows (group / leaf / subtotal row or calculated item) for cells shown as values.
     """
 
 

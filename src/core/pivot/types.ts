@@ -105,6 +105,71 @@ export interface PivotDimension {
    * a P&L section's subtotal row after the section: `Gross margin`).
    */
   readonly subtotalLabel?: string;
+  /**
+   * Per-group subtotal labels, by group key, overriding `subtotalLabel` for that group only
+   * (`{ "Revenue": "Total revenue", "Operating expenses": "Total operating expenses" }`); `{label}` is
+   * the group label. Rows and columns, like `subtotalLabel`. Keys compare as case-sensitive strings.
+   */
+  readonly subtotalLabels?: Readonly<Record<string, string>>;
+  /**
+   * Row dimensions only: Excel "calculated items" — extra rows of this field computed by a formula over
+   * other keys of the same field (siblings under the same parent; at the outermost level, groups of the
+   * whole field, e.g. P&L sections), per column and per measure. See `PivotCalculatedItem`.
+   */
+  readonly calculatedItems?: readonly PivotCalculatedItem[];
+  /**
+   * Row dimensions only: number format per key of this field (`{ "Gross margin %": { style: "percent" } }`),
+   * used instead of the measures' `format` on that key's rows (its group / leaf row and subtotal row, or
+   * calculated item) for cells shown as values. `showAs` percentages keep `percentFormat`.
+   */
+  readonly itemFormats?: Readonly<Record<string, PivotNumberFormat>>;
+}
+
+/**
+ * A calculated item (Excel's "Calculated Item…", a Power BI visual-calculation row): a row of its
+ * dimension whose values are `formula` evaluated over other keys of the same field, per column and per
+ * measure, from their aggregated values — `"[Revenue] + [Cost of sales]"` gives Gross margin in every
+ * column, also the total column (the formula over the totals, not a sum of formula results).
+ *
+ * - **References** are keys of the field in brackets (`[Cost of sales]`) or bare names (`Revenue`):
+ *   sibling keys under the same parent row (at the outermost level, any key of the field, so a P&L's
+ *   section totals), or other calculated items of the same dimension (cascading totals: EBITDA =
+ *   `[Gross margin] + [Operating expenses]`). Keys are opaque, case-sensitive strings (also
+ *   `__proto__`). A key that is missing under a parent (filtered out, cut by Top N, no data) reads as
+ *   no value, and null propagates (`coalesce([Other income], 0)`), like calculated measures. Same safe
+ *   grammar, functions and limits as `PivotMeasure.calculate` (`parsePivotCalc`).
+ * - **Where it shows:** under every parent where at least one key it reads (directly or through other
+ *   items) exists; items reading no key (constants) everywhere. `after` / `before` a key, or
+ *   `position` (default `end`), among the siblings; it keeps that anchor whatever `sortBy` / `order` /
+ *   Top N do to the data keys, and goes to the end when the anchor is missing.
+ * - **Totals:** by default an item is left out of its parent's subtotal and the grand total
+ *   (`includeInTotals: false`), so a statement's Gross margin row is not added to Operating income
+ *   again. `true` adds its value to every total above it, as Excel does.
+ * - **Measures:** a plain measure's item value is the formula over the referenced keys' values of that
+ *   measure; a calculated measure is evaluated over the item's values of the measures it references
+ *   (Gross margin's margin % = its margin / its revenue). `showAs` applies to the item's values where it
+ *   has a base: % of column / row / grand total / parent row / parent column, `percentOf` with
+ *   `scope: "all"` and anything along a column field; along a row field the item's cells are empty
+ *   (it has no position among the data keys), above the base level the value shows. Never heat,
+ *   sorting, Top N, KPIs or facets.
+ */
+export interface PivotCalculatedItem {
+  /** Key of the item's row (its `path` entry, and its name in other items' formulas). Unique per dimension. */
+  readonly key: string;
+  /** Expression over keys of the field, e.g. `"[Revenue] + [Cost of sales]"` or `"[Gross margin] / [Revenue]"`. */
+  readonly formula: string;
+  /** Row label (default `key`). */
+  readonly label?: string;
+  /** Place the item right after this key's rows (its group, children and subtotal row) — a data key or another item. */
+  readonly after?: string;
+  /** Place the item right before this key's rows. */
+  readonly before?: string;
+  /** `start` or `end` (default) of the siblings, without `after` / `before`. */
+  readonly position?: "start" | "end";
+  /** Number format of the item's value cells (e.g. a percent row in a currency statement); wins over `itemFormats`. */
+  readonly format?: PivotNumberFormat;
+  /** Add the item's values into its parent's subtotal and every total above (Excel). Default false. */
+  readonly includeInTotals?: boolean;
 }
 
 /** Sort sibling keys by an aggregated measure (raw value, before `showAs`). */
@@ -554,8 +619,10 @@ export interface PivotBodyRow {
   /**
    * `subtotal` — the totals of an expanded group whose field has `subtotal: "end"`, after its
    * children (same `depth` / `path` as the group, label `{label} Total`).
+   * `calculated` — a calculated item (`PivotDimension.calculatedItems`): `path` ends with the item's
+   * key, never expandable, `sourceRowCount` 0, `formula` set.
    */
-  readonly kind: "group" | "leaf" | "grandTotal" | "subtotal";
+  readonly kind: "group" | "leaf" | "grandTotal" | "subtotal" | "calculated";
   /** Row-dimension level (`-1` for the grand total). */
   readonly depth: number;
   readonly path: readonly string[];
@@ -576,6 +643,15 @@ export interface PivotBodyRow {
    * (`none`): its cells are blank.
    */
   readonly subtotal?: "end" | "none";
+  /** Calculated item rows: the item's formula. */
+  readonly formula?: string;
+  /**
+   * Number format of this row's value cells shown as values (calculated item `format`, or the
+   * dimension's `itemFormats` for the row's key), instead of the column's `format`; absent otherwise.
+   */
+  readonly format?: PivotNumberFormat;
+  /** Excel format of `format` (present with it). */
+  readonly excelNumFmt?: string;
 }
 
 /** A row-dimension cell that covers `span` consecutive visible rows starting at `rowIndex`. */
@@ -713,7 +789,15 @@ export type PivotDiagnosticCode =
   /** `filters[].include` / `exclude` items that no record has (keys compare as case-sensitive strings). */
   | "filterItemsNotFound"
   /** A `showAsBase.item` that is not a key of its field: the measure's cells are empty. */
-  | "baseItemNotFound";
+  | "baseItemNotFound"
+  /**
+   * Keys named by `calculatedItems` (formula references, `after` / `before`), `subtotalLabels` or
+   * `itemFormats` that are neither values of the field nor calculated items: references read as no
+   * value, anchored items go to the end, labels / formats apply to nothing.
+   */
+  | "itemKeyNotFound"
+  /** A calculated item's `key` is also a value of its field: formulas and anchors naming it mean the calculated item. */
+  | "itemKeyConflict";
 
 /** One entry of `PivotModel.diagnostics` (plain JSON; `message` is ready to show to a user or an agent). */
 export interface PivotDiagnostic {
@@ -728,7 +812,7 @@ export interface PivotDiagnostic {
   readonly samples?: readonly { readonly row: number; readonly value: string }[];
   /** `mixedKeyTypes`: JS types seen, first one first. */
   readonly types?: readonly string[];
-  /** `filterItemsNotFound` / `baseItemNotFound`: the items that match nothing (≤ 10). */
+  /** `filterItemsNotFound` / `baseItemNotFound` / `itemKeyNotFound` / `itemKeyConflict`: the keys concerned (≤ 10). */
   readonly items?: readonly string[];
   readonly message: string;
 }

@@ -105,6 +105,7 @@ export function pivotColumnHeaderRole(model: PivotModel, row: number, cell: Pivo
  * - `group` — the group summary next to its span (label, child count, toggle);
  * - `leaf` — a leaf label;
  * - `subtotal` — the label of a group's `subtotal: "end"` row ("Camp Total"), next to the group's span;
+ * - `calculated` — the label of a calculated item, in the column of its own level;
  * - `grandTotal` — the grand-total label, covering every dimension column;
  * - `empty` — nothing to show;
  * - `covered` — inside an earlier `span` cell; render no `<td>`.
@@ -114,6 +115,7 @@ export type PivotDimensionSlot =
   | { readonly type: "group"; readonly level: number }
   | { readonly type: "leaf"; readonly level: number }
   | { readonly type: "subtotal"; readonly level: number }
+  | { readonly type: "calculated"; readonly level: number }
   | { readonly type: "grandTotal"; readonly colSpan: number }
   | { readonly type: "empty"; readonly level: number }
   | { readonly type: "covered"; readonly level: number };
@@ -141,6 +143,8 @@ export function pivotDimensionSlots(model: PivotModel): PivotDimensionSlot[][] {
         slots.push({ type: "group", level });
       } else if (row.kind === "subtotal" && level === row.depth + 1) {
         slots.push({ type: "subtotal", level });
+      } else if (row.kind === "calculated" && level === row.depth) {
+        slots.push({ type: "calculated", level });
       } else {
         slots.push({ type: "empty", level });
       }
@@ -419,7 +423,7 @@ export interface PivotBodyGroup {
   readonly start: number;
   /** Last row index (exclusive). */
   readonly end: number;
-  readonly kind: "group" | "leaf" | "grandTotal" | "subtotal";
+  readonly kind: PivotBodyRow["kind"];
 }
 
 /**

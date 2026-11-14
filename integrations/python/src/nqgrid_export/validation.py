@@ -14,7 +14,10 @@ Three layers, cheapest first:
    ``signField`` (not with counts, distinct counts or calculated measures), a measure ``filter`` (not on
    calculated measures), ``keepEmpty`` only on column
    dimensions, ``showAsBase`` only where a ``showAs`` kind reads it, no calculated measure over a show-as measure,
-   ``format.scale`` not with ``compact`` / percent style, and custom aggregators (not available in nqgrid-export).
+   ``format.scale`` not with ``compact`` / percent style, calculated items (row dimensions only, unique keys,
+   one of ``after`` / ``before`` / ``position``, formula grammar with any key as a reference, no reference cycle
+   among a field's items; keys of the data are only known at build time, so unknown keys are ``itemKeyNotFound``
+   diagnostics, not errors), ``itemFormats`` on rows only, and custom aggregators (not available in nqgrid-export).
 
 nqgrid's ``validatePivotSpec`` runs the same checks (layers 1 and 2), so both accept and reject the same specs;
 ``contract/pivot/v1/invalid-specs.json`` is run by both test suites (identical messages for unknown keys and the
@@ -255,12 +258,14 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
         for key in ("sortBy", "topN"):
             if isinstance(d.get(key), dict):
                 ref(d[key].get("measure"), f"rows[{i}].{key}.measure")
+        if isinstance(d.get("calculatedItems"), list):
+            errors += _calculated_item_errors(d["calculatedItems"], f"{prefix}rows[{i}]")
         if isinstance(d.get("field"), str):
             used.setdefault(d["field"], f"rows[{i}]")
     for where, d in column_dimensions(spec):
         if not isinstance(d, dict):
             continue
-        for key in ("sortBy", "topN"):
+        for key in ("sortBy", "topN", "calculatedItems", "itemFormats"):
             if key in d:
                 errors.append(f"{prefix}{where}.{key} is only supported on row dimensions")
         field = d.get("field")
@@ -292,6 +297,46 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
     return errors
 
 
+def _calculated_item_errors(items: list[Any], where: str) -> list[str]:
+    """Calculated items of a row dimension (unique keys, one placement, formula grammar, cycles among items);
+    same messages as ``validatePivotSpec``. Keys of the data are unknown here: references to them are not checked."""
+    errors: list[str] = []
+    keys: set[str] = set()
+    refs: dict[str, list[str]] = {}
+    where_of: dict[str, str] = {}
+    for j, it in enumerate(items):
+        if not isinstance(it, dict) or not isinstance(it.get("key"), str) or not it["key"]:
+            continue
+        w = f"{where}.calculatedItems[{j}]"
+        key = it["key"]
+        if key in keys:
+            errors.append(f'{w}.key "{key}" is duplicated')
+        keys.add(key)
+        if sum(1 for k in ("after", "before", "position") if k in it) > 1:
+            errors.append(item_placement_message(w))
+        if it.get("after") == key or it.get("before") == key:
+            errors.append(f"{w}: cannot be placed after or before itself")
+        if not isinstance(it.get("formula"), str):
+            continue
+        parsed = parse_calc(it["formula"], allow_reserved=True)
+        if parsed.error is not None:
+            errors.append(f"{w}.formula: {parsed.error.message} (at {parsed.error.position})")
+            continue
+        if key not in refs:
+            refs[key] = list(parsed.references)
+            where_of[key] = w
+    for cycle in find_cycles(refs):
+        errors.append(f"{where_of.get(cycle[0], where)}.formula: reference cycle {' → '.join(cycle)}")
+    return errors
+
+
+def item_placement_message(where: str) -> str:
+    """A calculated item with more than one of ``after`` / ``before`` / ``position``.
+
+    Mirrors ``pivotItemPlacementMessage``."""
+    return f"{where}: use only one of after, before and position"
+
+
 FORMAT_SCALES = (1000, 1_000_000, 1_000_000_000)
 """``format.scale`` values (Excel scales by powers of 1000: ``#,##0,`` / ``#,##0,,`` / ``#,##0,,,``)."""
 
@@ -307,6 +352,17 @@ def _number_formats(spec: dict[str, Any]) -> list[tuple[str, Any]]:
     for i, f in enumerate(spec.get("fields") or []):
         if isinstance(f, dict):
             out.append((f"fields[{i}].format", f.get("format")))
+    for i, d in enumerate(spec.get("rows") or []):
+        if not isinstance(d, dict):
+            continue
+        if isinstance(d.get("itemFormats"), dict):
+            out += [(f"rows[{i}].itemFormats.{k}", f) for k, f in d["itemFormats"].items()]
+        if isinstance(d.get("calculatedItems"), list):
+            out += [
+                (f"rows[{i}].calculatedItems[{j}].format", it.get("format"))
+                for j, it in enumerate(d["calculatedItems"])
+                if isinstance(it, dict)
+            ]
     return out
 
 
@@ -444,6 +500,38 @@ def check_calculated_measure(spec: Mapping[str, Any], calculate: Any, measure_id
     }
     refs[measure_id] = list(parsed.references)
     cycle = next((c for c in find_cycles(refs) if measure_id in c), None)
+    return f"reference cycle {' → '.join(cycle)}" if cycle else None
+
+
+def check_calculated_item(
+    spec: Mapping[str, Any], field: str, item: Mapping[str, Any], replace_key: str | None = None
+) -> str | None:
+    """Problem with a calculated item (``{"key", "formula", ...}``) for row field ``field`` (new, or replacing the
+    item ``replace_key``), or ``None`` when valid. Mirrors ``checkPivotCalculatedItem``: a row field, the formula
+    grammar (any key may be referenced, also ``__proto__``), a non-empty key not taken by another item, and no
+    reference cycle among the field's items. Keys of the data are not checked here: unknown keys show up as
+    ``itemKeyNotFound`` in the model's ``diagnostics``."""
+    dim = next((d for d in spec.get("rows") or [] if isinstance(d, dict) and d.get("field") == field), None)
+    if dim is None:
+        return f'"{field}" is not a row field'
+    parsed = parse_calc(item.get("formula"), allow_reserved=True)
+    if parsed.error is not None:
+        return str(parsed.error)
+    key = item.get("key")
+    if not isinstance(key, str) or not key:
+        return "the item needs a name"
+    others = [it for it in dim.get("calculatedItems") or [] if isinstance(it, dict) and it.get("key") != replace_key]
+    if any(it.get("key") == key for it in others):
+        return f'a calculated item "{key}" exists'
+    refs = {
+        it["key"]: list(p.references)
+        for it in others
+        if isinstance(it.get("key"), str)
+        for p in [parse_calc(it.get("formula"), allow_reserved=True)]
+        if p.error is None
+    }
+    refs[key] = list(parsed.references)
+    cycle = next((c for c in find_cycles(refs) if key in c), None)
     return f"reference cycle {' → '.join(cycle)}" if cycle else None
 
 

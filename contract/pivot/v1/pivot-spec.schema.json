@@ -346,6 +346,74 @@
         "subtotalLabel": {
           "type": "string",
           "description": "Label of this field's subtotal rows (subtotal: \"end\") and subtotal columns, overriding totals.subtotalLabel for this level; {label} is the group label (e.g. \"{label}\" names a P&L section's subtotal row after the section)."
+        },
+        "subtotalLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Per-group subtotal labels by group key, overriding subtotalLabel for that group only (e.g. {\"Revenue\": \"Total revenue\"}); {label} is the group label. Rows and columns."
+        },
+        "calculatedItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/calculatedItem"
+          },
+          "description": "Row dimensions only (rejected on columns by validatePivotSpec): Excel calculated items, rows computed by a formula over other keys of this field (siblings under the same parent; at the outermost level any key, e.g. P&L sections) per column and measure."
+        },
+        "itemFormats": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/numberFormat"
+          },
+          "description": "Row dimensions only: number format per key of this field, used instead of the measures' format on that key's rows (group / leaf / subtotal row or calculated item) for cells shown as values."
+        }
+      }
+    },
+    "calculatedItem": {
+      "type": "object",
+      "required": [
+        "key",
+        "formula"
+      ],
+      "additionalProperties": false,
+      "description": "A calculated item: formula over keys of the dimension's field ([Revenue] + [Cost of sales]), evaluated per column and measure over aggregated values. References: sibling keys under the same parent (any key at the outermost level) or other calculated items of the dimension; same grammar and limits as calculated measures. Left out of totals unless includeInTotals.",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Row key of the item (its path entry and its name in other items' formulas); unique per dimension."
+        },
+        "formula": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Expression over keys of the field in brackets, e.g. \"[Revenue] + [Cost of sales]\"."
+        },
+        "label": {
+          "type": "string",
+          "description": "Row label (default key)."
+        },
+        "after": {
+          "type": "string",
+          "description": "Place right after this key's rows (a data key or another calculated item)."
+        },
+        "before": {
+          "type": "string",
+          "description": "Place right before this key's rows."
+        },
+        "position": {
+          "enum": [
+            "start",
+            "end"
+          ],
+          "description": "Start or end (default) of the siblings, without after / before."
+        },
+        "format": {
+          "$ref": "#/$defs/numberFormat"
+        },
+        "includeInTotals": {
+          "type": "boolean",
+          "description": "Add the item's values into its parent's subtotal and every total above (Excel). Default false."
         }
       }
     },

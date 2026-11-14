@@ -101,3 +101,37 @@ describe("calc expressions: safety", () => {
     expect(findPivotCalcCycles(new Map([["a", ["b", "x"]], ["b", ["c"]], ["c", []]]))).toEqual([]);
   });
 });
+
+describe("calc expressions: item formula vectors (calc-expressions.json items)", () => {
+  interface ItemVector {
+    readonly expr: Expr;
+    readonly values?: readonly (readonly [string, number])[];
+    readonly result?: number | null;
+    readonly references?: readonly string[];
+    readonly code?: string;
+    readonly position?: number;
+  }
+  const items = (vectors as unknown as { items: { valid: readonly ItemVector[]; invalid: readonly ItemVector[] } }).items;
+
+  it.each(items.valid.map((v, i) => [i, v] as const))("valid item formula #%i", (_i, v) => {
+    const src = build(v.expr) as string;
+    const parsed = parsePivotCalc(src, { allowReservedNames: true });
+    expect(parsed.ok ? null : parsed.error).toBeNull();
+    if (!parsed.ok) return;
+    if (v.references) expect(parsed.references).toEqual(v.references);
+    const values = new Map(v.values ?? []);
+    const program = compilePivotCalc(parsed.ast, (name) => parsed.references.indexOf(name));
+    const out = program(parsed.references.map((name) => values.get(name) ?? NaN));
+    expect(close(out === out ? out : null, v.result ?? null)).toBe(true);
+    // Without the option, reserved names stay rejected for calculated measures.
+    if (parsed.references.some((r) => ["__proto__", "constructor", "prototype"].includes(r))) expect(parsePivotCalc(src).ok).toBe(false);
+  });
+
+  it.each(items.invalid.map((v, i) => [i, v] as const))("invalid item formula #%i", (_i, v) => {
+    const parsed = parsePivotCalc(build(v.expr), { allowReservedNames: true });
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+    expect(parsed.error.code).toBe(v.code);
+    if (v.position !== undefined) expect(parsed.error.position).toBe(v.position);
+  });
+});

@@ -288,6 +288,15 @@ export const PIVOT_STATIC_STATEMENT_CSS = `.nqg-pivot .nqg-pivot-group, .nqg-piv
 }
 `;
 
+/**
+ * Appended to `PIVOT_STATIC_STATEMENT_CSS` when the model has calculated item rows (Gross margin, EBITDA):
+ * bold with a rule above their values, like subtotals. Kept separate so statements without calculated
+ * items keep a byte-identical stylesheet.
+ */
+export const PIVOT_STATIC_STATEMENT_CALCULATED_CSS = `.nqg-pivot tr[data-kind="calculated"] > * { font-weight: 600; }
+.nqg-pivot tr[data-kind="calculated"] > .nqg-pivot-value { border-top: 1px solid var(--nqg-fg); }
+`;
+
 /** Default row height of the statement profile (denser than the report's 36 px; 14 px text still fits). */
 export const PIVOT_STATIC_STATEMENT_ROW_HEIGHT = 28;
 
