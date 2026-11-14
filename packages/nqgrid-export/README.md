@@ -13,9 +13,11 @@ user sees in the app. Use it as a CLI, a Node API, or a small HTTP service.
   "rows": [{ "department": "Camp", "line": "Tents", "month": "Nov", "actual": 297000 }],
   "options": {                     // all optional
     "theme": "light",              // "light" | "dark"
+    "profile": "report",           // "report" | "statement" (bold totals, rules, no grey bands, 28 px rows)
     "page": { "size": "A4", "orientation": "landscape", "margins": { "top": 16, "right": 10, "bottom": 14, "left": 10 } }, // mm
     "title": "FY26 Sales Plan",    // default spec.title; null hides the report header
     "subtitle": "Actuals",
+    "units": "USD thousands",      // default spec.units; null hides it
     "generatedAt": "2026-10-30 09:00 UTC", // printed verbatim (the exporter never reads the clock)
     "maxColumnsPerPage": 6,        // default: fit the page at minScale, else balanced column chunks
     "minScale": 0.7,
@@ -27,8 +29,14 @@ user sees in the app. Use it as a CLI, a Node API, or a small HTTP service.
 }
 ```
 
-Specs are validated with `validatePivotSpec`; custom aggregators and `options.css` are rejected (they cannot
-cross JSON). Every problem is reported at once.
+Specs are validated with `validatePivotSpec`, as strictly as the JSON Schema (unknown keys and invalid enums are
+errors, e.g. `spec: measures[0]: unknown key(s) ('filter' was unexpected)`); unknown option keys, custom aggregators
+and `options.css` are rejected too (they cannot cross JSON). Every problem is reported at once.
+
+Data problems that do not stop an export (amounts that are not numbers, fields no row has, invalid dates, filter
+items that match nothing) come back as `model.diagnostics`: in the `model` output, on the CLI's stderr as one
+`{"level":"warn","diagnostics":[…]}` line (exit 0), in serve mode's `x-nqgrid-diagnostics` response header (JSON,
+≤ 8 KB), on the XLSX's hidden `Spec` sheet, and from `exporter.exportDetailed(input)` → `{ data, diagnostics }`.
 
 The request is specified by [`contract/pivot/v1/export-request.schema.json`](../../contract/pivot/v1/export-request.schema.json)
 (build it with `buildPivotExportRequest` from `@nqlib/nqgrid/core`). A `dataset` field is ignored here (it is the
@@ -48,7 +56,7 @@ nqgrid-export --input req.json -f sheet    # pivotModelToSheet JSON
 
 | Exit | Meaning | stderr |
 |------|---------|--------|
-| `0` | ok | — |
+| `0` | ok | nothing, or one `{"level":"warn","diagnostics":[…]}` line when the data has problems |
 | `2` | invalid input (bad JSON, spec, options, flags, unreadable file) | `{"error":{"code":"invalid_input","message":"…","details":["spec: …"]}}` |
 | `1` | internal error (e.g. Chromium missing) | `{"error":{"code":"internal","message":"…"}}` |
 
@@ -67,7 +75,7 @@ fresh context). PDF and XLSX exports share the `--concurrency` limit; other requ
 | Route | Body | Response |
 |-------|------|----------|
 | `GET /healthz` | — | `200 {"ok":true,"version":"0.1.0","browser":"ready"\|"starting"\|"cold"\|"unavailable","formats":[…]}` |
-| `POST /export?format=pdf\|xlsx\|html\|model\|sheet` | request JSON (`Content-Type: application/json`; `format` may also be a body field) | `200` file with `Content-Type` and `Content-Disposition: attachment; filename="<spec.id>.<ext>"` |
+| `POST /export?format=pdf\|xlsx\|html\|model\|sheet` | request JSON (`Content-Type: application/json`; `format` may also be a body field) | `200` file with `Content-Type` and `Content-Disposition: attachment; filename="<spec.id>.<ext>"`, plus `x-nqgrid-diagnostics: [...]` when the data has problems |
 
 Errors are JSON `{"error":{"code","message","details?"}}`: `400 invalid_input`, `404`, `405`, `413 payload_too_large`,
 `415` (not JSON), `500 internal`. One JSON log line per request goes to stderr.

@@ -50,6 +50,17 @@ except NqgridExportError as e:       # anything else: NqgridInternalError (500 /
     print(e.code, e.message)
 ```
 
+Data diagnostics (the export still succeeds): `export_report` returns the file plus nqgrid's `model.diagnostics`
+(read from the service's `x-nqgrid-diagnostics` header, or the CLI's stderr line), e.g. amounts like `"1,234.50"` or
+`"(500)"` that are not numbers and were left out of totals, fields no row has, invalid dates, filter items that match
+nothing:
+
+```python
+out = client.export_report(spec, rows, format="pdf")      # ExportOutput(data, diagnostics)
+for d in out.diagnostics:                                  # [{"code": "unparsedNumbers", "field": "AMOUNT", "path": ...,
+    log.warning(d["message"])                              #   "count": 3, "samples": [{"row": 1, "value": "\"(500)\""}], ...}]
+```
+
 `spec` / `options` may be dicts or the generated Pydantic models (`PivotSpec`, `Options`). Rows may contain
 `Decimal`, `date`, `datetime`, `UUID` and `Enum` values. `AsyncNqgridExportClient` has the same API with `await`.
 
@@ -80,7 +91,7 @@ timeout / missing binary → `NqgridUnavailable`). Each PDF launches Chromium (~
 from nqgrid_export import PivotSpec, validate_pivot_spec, validate_export_request, check_fields
 
 spec = PivotSpec.model_validate(raw)                         # structural (Pydantic)
-errors = validate_pivot_spec(raw)                            # JSON Schema + referential checks → ["values[0] references unknown measure 'x' …"]
+errors = validate_pivot_spec(raw)                            # JSON Schema + referential checks → ["measures[0]: unknown key(s) ('filter' was unexpected)", …]
 errors += check_fields(raw, rows)                            # fields the rows do not have (typos)
 validate_export_request({"spec": raw, "dataset": "sales"})   # the whole request, incl. options (css is rejected)
 ```
@@ -117,7 +128,10 @@ scripts/generate_models.sh   # copies contract/pivot/v1 schemas + example into t
 
 The Pydantic models cannot express the schema's one `if/then` rule (a measure needs `field` unless its aggregate
 is `count`, `ratio` or `custom`) or the cross-references; `validate_pivot_spec` covers both, and nqgrid-export
-re-validates everything.
+re-validates everything with the same strictness: nqgrid's `validatePivotSpec` rejects unknown keys and invalid enums
+too, and `contract/pivot/v1/invalid-specs.json` (run by both test suites) pins identical messages for unknown keys and
+the referential checks (`keepEmpty` on rows, an unused `showAsBase`, calculated measures over show-as measures,
+`format.scale` with `compact` / percent) and identical paths for schema enums and types.
 
 ## XLSX in Python
 
@@ -160,8 +174,8 @@ Or, configured entirely from env: `nqgrid-export-mcp` / `python -m nqgrid_export
 
 | Tool | Signature | Returns |
 |------|-----------|---------|
-| `export_pivot_report` | `(spec: dict, rows: list[dict] \| None = None, dataset: str \| None = None, format: "pdf" \| "xlsx" = "pdf", email_to: list[str] \| None = None, subject: str \| None = None, options: dict \| None = None, body: str \| None = None)` | `{ok, format, path, filename, bytes, pages, rows, dataset, recipients, emailed, validation_errors, error}` |
-| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, calc_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields, date grouping, calculated measures, show values as, subtotal positions and distinct count) |
+| `export_pivot_report` | `(spec: dict, rows: list[dict] \| None = None, dataset: str \| None = None, format: "pdf" \| "xlsx" = "pdf", email_to: list[str] \| None = None, subject: str \| None = None, options: dict \| None = None, body: str \| None = None)` | `{ok, format, path, filename, bytes, pages, rows, dataset, recipients, emailed, validation_errors, diagnostics, error}` (`diagnostics`: data problems found while building a report that was still made) |
+| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, calc_example_spec, statement_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields, date grouping, calculated measures, show values as, subtotal positions and distinct count) |
 
 Resources: `nqgrid://pivot-spec/v1/schema` (JSON) and `nqgrid://pivot-spec/v1/guide` (Markdown).
 

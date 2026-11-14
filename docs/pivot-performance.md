@@ -522,3 +522,59 @@ slicer click (12.5–17.5 against 14.4–23.3, one outlier) and the sub-2 ms 500
 merge / read switches are unchanged for specs without the new features: the view stage adds one `Map` per build for
 global bases (empty unless used), and `readValue` checks a flag only in its distinct-count and custom cases.
 
+
+## Batch A: strict validation, diagnostics, print profile
+
+What changed on the build path: `validatePivotSpec` checks every key and value the JSON Schema checks (it runs on
+every `buildPivotModel` / builder build), the record encoding counts data problems while it reads a column
+(`PivotRowEncoding.stats`: a few additions per record, samples only on the rare bad value), the cube turns those
+counts into `model.diagnostics` once per build, and number strings are trimmed once and refuse radix literals. The
+view stage adds one loop over the measures (`showAsBase.item` lookups). Print pagination
+(`pivotPageBodySegments`) runs in `renderPivotHtml` only.
+
+**Validation cost** (`validatePivotSpec`, 20,000 calls, mean): base spec 0.003 → 0.006–0.008 ms, filtered spec
+0.004 → 0.006–0.007 ms. A cold 10k-row build takes about 10 ms, so validating by default costs < 0.1 % of a build
+and stays on (`validate: false` remains for specs you built yourself).
+
+**Build cost, min of N** (same process, interleaved 3× per tree, HEAD `1848a8d` worktree vs this tree; the minimum is
+the least noisy statistic on this shared VM):
+
+| Scenario | 100k before | 100k after | 500k before | 500k after |
+|---|---:|---:|---:|---:|
+| Base spec, cold (min of 40 / 10) | 31.8 / 33.4 / 31.8 | 32.7 / 33.8 / 32.9 | 142.9 / 143.7 / 142.2 | 145.8 / 149.1 / 142.1 |
+| Filters + facets + Top 5 + sortBy, cold | 34.0 / 35.0 / 34.9 | 35.7 / 34.9 / 35.6 | 166.0 / 176.5 / 165.4 | 170.3 / 168.8 / 169.8 |
+| Base spec + `signField` on 2 measures, cold | 32.9 / 33.6 / 32.9 | 34.4 / 34.1 / 34.6 | 150.1 / 152.8 / 153.0 | 155.1 / 155.2 / 154.0 |
+| 500k rows with amounts as strings (`"1234.00"`), cold (min of 10, 2×) | | | 229.0 / 236.4 | 234.0 / 237.8 |
+
+That is +1–3 % on cold builds (about +2 % at 100k, +1.5 % at 500k, +2 % with string amounts), within the "few %"
+budget for the diagnostics in the record pass.
+
+**`pnpm bench`** (vitest bench medians of 2 interleaved runs per tree, `bench/pivot.bench.ts`,
+`pivot-statement.bench.ts`, `pivot-step4.bench.ts`; Intel Xeon 2.80 GHz, 4 vCPU shared VM, Node 22):
+
+| Scenario | 10k | 100k | 500k |
+|---|---:|---:|---:|
+| Base spec, cold | 13.6 → 15.3 | 34.5 → 38.4 | 157.3 → 169.3 |
+| 3 filters, cold | 9.1 → 10.0 | 32.1 → 35.0 | 143.7 → 153.2 |
+| Filters + label filter + 4 facets + Top 5 + sortBy, cold | 10.9 → 10.9 | 36.7 → 39.1 | 183.5 → 185.2 |
+| View-only change (expand / collapse / heat scope) | 2.1 → 2.1 | 1.9 → 2.2 | 2.4 → 2.5 |
+| Filter change: slicer click | 1.9 → 2.3 | 6.8 → 7.1 | 27.9 → 28.2 |
+| Move field: Line ↔ Columns | 17.4 → 18.7 | 23.9 → 27.1 | 65.6 → 59.4 |
+| Add measure: Units into Values | 10.4 → 10.6 | 17.4 → 19.4 | 56.9 → 52.0 |
+| Statement reference: base spec, cold | | 42.1 → 43.3 | 151.4 → 161.8 |
+| `signField` on 2 measures, numeric sign, cold | | 40.1 → 47.4 | 169.0 → 183.7 |
+| `signField` on 2 measures, string sign `"-1"`, cold | | 40.8 → 49.3 | 175.8 → 194.3 |
+| `percentOf` scope all, cold | | 36.3 → 39.3 | 156.2 → 159.5 |
+| View-only: values / % of scope all / scope parent | | 7.8 → 8.8 | 7.7 → 9.2 |
+| Step 4 reference: base spec, cold | | 40.2 → 48.7 | 159.6 → 167.4 |
+| Calculated measure as a 4th value, cold | | 42.1 → 44.8 | 176.7 → 162.0 |
+| Distinct count of 20k customers, cold | | 62.9 → 58.7 | 241.5 → 241.5 |
+| Running total along month, cold | | 41.0 → 44.1 | 168.2 → 161.2 |
+| View-only: running total / difference from / subtotal rows | | 9.5 → 10.1 | 8.8 → 10.0 |
+| Drill-through: leaf cell | | 0.64 → 0.79 | 3.6 → 3.5 |
+
+The vitest medians swing ±10–20 % between runs of the *same* tree on this VM (e.g. "Step 4 reference" and
+"Statement reference" run the identical base spec: 40.2 vs 42.1 ms before), and rows move both ways (500k move
+field −9 %, add measure −9 %, calculated measure −8 %). The rows above +10 % (`signField` at 100k, the 100k step-4
+reference, sub-10 ms view-only rows) are not reproduced by the min-of-N runs above, which put the signed build at
++2–5 %. The view stage itself only gained a loop over the measures, and validation 0.003 ms per build.

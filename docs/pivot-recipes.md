@@ -105,9 +105,24 @@ In the app: `usePivotGrid(statementPivotSpec, rows)` + `PivotTable`; on the serv
 ```python
 from nqgrid_export import NqgridExportClient, validate_pivot_spec
 
-assert validate_pivot_spec(spec) == []                       # same checks and messages as the engine
-pdf = NqgridExportClient("http://127.0.0.1:8787").export(spec, rows, format="pdf")
+assert validate_pivot_spec(spec) == []    # rejects what the engine / nqgrid-export reject (shared vectors)
+out = NqgridExportClient("http://127.0.0.1:8787").export_report(spec, rows, format="pdf",
+                                                              options={"profile": "statement"})
+pdf, warnings = out.data, out.diagnostics  # e.g. amounts like "(500)" that are not numbers
 ```
+
+`validate_pivot_spec` (JSON Schema + referential checks) and the engine's `validatePivotSpec` accept and reject the
+same specs; `contract/pivot/v1/invalid-specs.json` is run by both test suites. Messages are identical for unknown keys
+and the newer referential checks; for schema enums and types the Python message comes from jsonschema and names the
+same path. `export_report` also returns the model's `diagnostics` (see
+[Validation and diagnostics](./pivot-headless.md#validation-and-diagnostics)).
+
+**Print.** `"profile": "statement"` (export option, or `renderPivotHtml(model, { profile: "statement" })`) prints the
+subtotal and Operating income rows bold in the full text colour, with a rule above each subtotal and a double rule
+under Operating income, without grey bands, child counts or sort arrows. **In thousands:** add
+`"scale": 1000, "decimals": 1` to the amount's `format` and `"units": "EUR thousands"` to the spec (printed under the
+title and in the XLSX page header); XLSX cells keep the exact amounts with an Excel format such as
+`#,##0.0,;(#,##0.0,)`.
 
 "Server-side" means the Node service `nqgrid-export` (`serve` mode, Docker image or `node dist/cli.js serve`) receives
 the spec **and the raw rows** as JSON and pivots them **in memory**, with the same engine as the browser; Python only
@@ -134,6 +149,13 @@ validates and sends. Nothing is pushed down to SQL. Practical ceilings (see
 | Sign as a field-list setting | Spec only | The field list has no sign control; set `signField` in the spec (or with `setPivotMeasureSignField(spec, id, field)` / `grid.setMeasureSignField`). |
 | `signField` on `count`, `distinctCount`, custom aggregates or calculated measures | Rejected (`validatePivotSpec`) | Counts have no values to sign; a calculated measure uses the signs of the measures it references. Ratios sign the numerator only. |
 | Custom aggregators (functions) from Python / JSON | Not supported | JavaScript only (`BuildPivotModelOptions.aggregators`); nqgrid-export rejects them. |
+| Balance-sheet lines (closing balances) by quarter or year | **Wrong if summed** | `sum` adds the monthly balances (Q1 cash = Jan + Feb + Mar); `last` takes the last **record in input order** of the whole group, not each account's last balance summed. Filter to period-end months (`{"field": "PERIOD:month", "include": ["Mar", "Jun", "Sep", "Dec"]}` with quarter columns; leave `rowTotal` and year subtotals off, they would add the quarter-ends) or send period-end balances only. |
+| Headcount / FTE averaged over time | **Wrong with `avg`** | `avg` averages records (per team and month), not the department's monthly totals. Pre-aggregate to department × month in SQL, then `avg` over months. |
+| Latest estimate (actual where closed, else budget) | **Wrong at totals** | Calculated measures see aggregated values: `coalesce(actual, budget)` on the year total is actual-to-date only. Compute `LE` per row in SQL and sum it. |
+| A calculated measure over a "show values as" measure (YTD variance = `ytd - ytdBudget`) | Rejected (`validatePivotSpec`) | It would read the values before the show-as (the monthly variance). Calculate first, then show: `{"calculate": "actual - budget", "showAs": "runningTotal", "showAsBase": {"field": "PERIOD:month"}}`. |
+| Variance % on costs (negative bases) | Excel-consistent, FP&A-surprising | `percentDifferenceFrom` divides by the signed base, so a cost overrun shows **+10 %**. Use a calculated measure `(actual - budget) / abs(budget)`. |
+| Several currencies | Not supported | Rows are summed as they come; convert to one reporting currency before export (and say which in `units`). |
+| Scenario (Actual / Budget) as a column dimension | Totals add scenarios | The row total and outer subtotals add Actual + Budget, and calculated measures cannot reference a scenario. Send scenarios as separate value columns (`ACTUAL`, `BUDGET`, plus `PY_*` / `YTD_*` if needed) and use one measure each. |
 | SQL pushdown / database-side pivoting | Not supported | The engine pivots rows in memory (browser, Node API or nqgrid-export); pre-aggregate in SQL (above). |
 
 Notes:

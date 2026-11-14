@@ -53,7 +53,9 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
   [Several column fields](#several-column-fields-excel-parity-step-3). `order` + `keepEmpty` keep fiscal months stable.
 - Date fields group by naming a derived field (`orderDate:year`, `orderDate:quarter`, …): see
   [Date grouping](#date-grouping-excel-parity-step-3).
-- `measures` — `aggregate`: `sum | avg | min | max | count | distinctCount | first | last`,
+- `measures` — `aggregate`: `sum | avg | min | max | count | distinctCount | first | last` (`first` / `last` are the
+  first / last record **in input order** with a value; a group or total takes one record, not the sum of each
+  account's last value, so they are not opening / closing balances),
   `{ type: "weightedAvg", weightField }`, `{ type: "ratio", numeratorField, denominatorField, offset }`
   (`offset: -1` = growth), or `{ type: "custom", name }` resolved from `options.aggregators`. Calculated measures:
   `calculate: "actual / plan - 1"` (see [step 4](#calculated-measures-show-values-as-subtotals-distinct-count-drill-through-excel-parity-step-4)).
@@ -76,6 +78,11 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
 - `filters`, `facets`, and per row dimension `sortBy` / `topN`: see [Filters, slicers & sorting](#filters-slicers--sorting-excel-parity).
 - `fields`, `fieldLabels` (field catalogue, metadata only) and `valuesIndex` (Σ Values position): see
   [Field list & drag-and-drop](#field-list--drag-and-drop-excel-parity-step-2).
+- `format.scale` (display in thousands / millions) and `units` (the unit note printed under the title): see
+  [Scaling and units](#scaling-formatscale-and-units).
+
+Specs are validated strictly (unknown keys, bad enums and the referential checks), and every model can carry
+`diagnostics` for data problems: see [Validation and diagnostics](#validation-and-diagnostics).
 
 ## Filters, slicers & sorting (Excel parity)
 
@@ -167,13 +174,15 @@ const renderDimensionHeader = useCallback(
 | `PivotSlicer` | Excel-style slicer for one `PivotFacet`: grid of value buttons (`columns`), selected values highlighted (all of them while unfiltered), items with no data greyed out and listed last (`noDataLast`, `hideItemsWithNoData`), clear button, optional multi-select toggle (`multiSelect` / `onMultiSelectChange`), `showCounts`, `renderItem`, `classNames` slots. ARIA: `group` + multi-select `listbox` of `option` buttons with one roving tab stop. Keys: arrows / Home / End move, Enter selects only, Space toggles, Delete or Alt+C clears. Stateless. |
 | `PivotFilterMenu` | Header filter panel: sort (A→Z, Z→A, by a measure, largest / smallest), Top / Bottom N with "Other", searchable checkbox list with tri-state "Select all" and counts. The list and Top N are drafts until Apply, and sort applies immediately. Callbacks: `onApplyValues`, `onTopNChange`, `onSortChange`, `onClear`, `onClose`. Native inputs, `labels` for i18n, `classNames` slots. Put it in any popover (the playground uses the nqui `Popover`). |
 | `PivotHeaderMenu` | Minimal inline disclosure (trigger plus absolutely positioned `role="dialog"` panel, no portal, no effects). Escape or focus leaving the menu closes it. |
-| `PivotHeaderIndicator`, `pivotDimensionStatus`, `pivotAriaSort` | Sort arrow and funnel with an accessible description ("Sorted by Actual, descending · Line: Top 3 by Actual"). `PivotTable` shows them on dimension headers (also in static mode) and sets `aria-sort`. |
+| `PivotHeaderIndicator`, `pivotDimensionStatus`, `pivotAriaSort` | Sort arrow and funnel with an accessible description ("Sorted by Actual, descending · Line: Top 3 by Actual"). `PivotTable` shows them on dimension headers in interactive mode (static / print output leaves them out unless `headerIndicators`) and always sets `aria-sort`. |
 | `pivotSlicerProps(grid, field)`, `pivotFilterMenuProps(grid, field)`, `pivotFacetOf(model, field)` | Bind the components to `usePivotGrid`. The field must be listed in `spec.facets`. |
 | `usePivotGrid` actions | `setFilter`, `setFilterValues`, `toggleFilterValue(field, key, mode)`, `clearFilter`, `clearFilters`, `setSort`, `setTopN`, which are also `reducePivotGridSpec` actions. Several actions dispatched before the next render chain on each other. |
 
 **Exports.** `renderPivotHtml` prints "Filters: Department = Camp, Packs · Line: Top 3 by Actual, rest as Other"
 under the title (`locale.filters` renames the label). `PivotSheet.filters` carries the same lines. The
-`nqgrid-export` XLSX lists them under the KPIs and on the hidden `Spec` sheet.
+`nqgrid-export` XLSX lists them on the hidden `Spec` sheet, and under the KPIs on the `KPIs` sheet when the spec has
+KPIs. Without KPIs the visible report sheet does not show the filters yet (a title / filter block on the report sheet
+is planned with the XLSX work).
 
 **Performance.** Filters and facets run in one pass over column-encoded records, and the aggregated cube is reused
 for view-only changes (expanded state, heat, labels, formats). `usePivotGrid` does this automatically. Headless
@@ -625,13 +634,92 @@ const result = useMemo(() => (drill ? grid.drillThrough(drill, { limit: 500 }) :
 | `usePivotGrid` / `reducePivotGridSpec` | `setCalculatedMeasure(input)`, `removeMeasure(id)`, `setMeasureShowAs(id, showAs, base?, scope?)`, `setSubtotal(field, position)`, `setMeasureSignField(id, field \| null)`, `drillThrough(target, options?)`. |
 
 **Exports.** Static HTML / PDF and both XLSX writers render calculated measures and the new show-as kinds as numbers
-with their formats, and subtotal rows as bold group rows ("Camp Total" in the Department column of the sheet).
+with their formats. Subtotal rows ("Camp Total" in the Department column of the sheet) are bold in both XLSX writers.
+In static HTML / PDF the default `report` profile prints them like the app's group rows (grey band, weight 500,
+values in the muted text colour); `renderPivotHtml(model, { profile: "statement" })` (export option `profile`) prints
+them bold in the full text colour with a rule above, and the grand total with a double rule below (see
+[Static HTML](#static-html-nqlibnqgridrender-static)).
 
 ### Formatting is deterministic
 
 `formatPivotNumber` does not use `Intl`. WebKit (macOS Tauri), WebView2 (Windows Tauri) and Node
 can disagree on compact notation; core always prints `$302k`, `$4.76M`, `+5.5%` the same way.
-`toExcelNumFmt` gives the matching Excel format so XLSX cells stay numeric.
+`toExcelNumFmt` gives the Excel format so XLSX cells stay numeric: exact for plain, currency, percent and `scale`
+formats (sign display and parentheses included). `compact` is best effort, because an Excel format allows only two
+conditions: the XLSX abbreviates thousands for both signs (`[>=1000]"$"#,##0,"k";[<=-1000]("$"#,##0,"k");"$"#,##0`),
+so `$4.76M` in the PDF reads `$4,760k` in Excel and `-$500` keeps a minus where the PDF prints `($500)`. Use
+`scale` when a column must read in one unit everywhere.
+
+### Scaling (`format.scale`) and units
+
+`format.scale: 1000 | 1000000 | 1000000000` divides the **displayed** value before the usual decimals, currency,
+sign and parentheses rules; aggregation, sorting, Top N, heat, `showAs` and the numbers in XLSX cells are unchanged.
+Excel gets its scaling commas, so the cell still holds the real value:
+
+| Format | 12,345 | -629 | Excel numFmt |
+|--------|-------:|-----:|--------------|
+| `{ style: "currency", currency: "USD", scale: 1000, decimals: 1, negative: "parentheses" }` | `$12.3` | `($0.6)` | `"$"#,##0.0,;("$"#,##0.0,)` |
+| `{ scale: 1000000, decimals: 2, suffix: "m" }` | `0.01m` | `0.00m` | `#,##0.00,,"m"` |
+| `{ compact: true }` (for comparison: units vary per cell) | `12.3k` | `-629` | see above |
+
+`scale` cannot be combined with `compact` or with `style: "percent"` (`validatePivotSpec` rejects both). Name the
+unit with the spec-level `units` (free text, printed verbatim): `"units": "USD thousands"` or `"($ in thousands)"`.
+Static HTML / PDF print it under the title (and subtitle); the XLSX writers put it in the printed page header (title
+left, units right) and on the hidden `Spec` sheet; `model.units` / `PivotSheet.units` carry it. nqgrid never derives
+the note from the formats: keep `units` and `scale` consistent.
+
+## Validation and diagnostics
+
+**Strict validation.** `validatePivotSpec` (used by `buildPivotModel`, `createPivotModelBuilder`, `usePivotGrid`,
+`renderPivotHtmlFromSpec` and `nqgrid-export`) checks everything the JSON Schema checks, so the engine, the CLI /
+HTTP service and the Python validator accept and reject the same specs:
+
+- unknown keys everywhere the schema says `additionalProperties: false` (the spec, dimensions, measures, formats,
+  `sortBy`, `topN`, `showAsBase`, aggregates, totals, heat, header charts, KPIs, filters, label matches, facets,
+  catalogue fields), with the Python validator's message: `measures[0]: unknown key(s) ('filter' was unexpected)`;
+- enums, types and ranges (`layout`, `totals.*`, `heat.applyTo` / `domain`, `headerCharts.type`, `kpiLevels`, every
+  number-format key, labels, `attributes`, `topN.otherLabel`, …);
+- keys the engine would ignore: `keepEmpty` on a row dimension (`rows[0].keepEmpty is only supported on column
+  dimensions`), `showAsBase` on a measure whose `showAs` / `groupShowAs` never reads it;
+- a calculated measure that references a measure whose `showAs` is not `value` (it would read the value *before* the
+  show-as, e.g. a "YTD variance" over two running totals gives the monthly variance; a `groupShowAs` alone is fine,
+  group rows then read the group's aggregate, as Excel calculated fields do). Put the show-as on the calculated
+  measure instead: `{ "id": "ytdVar", "calculate": "actual - budget", "showAs": "runningTotal", "showAsBase": { "field":
+  "PERIOD:month" } }`;
+- `format.scale` with `compact` or percent style.
+
+`contract/pivot/v1/invalid-specs.json` holds the shared vectors: both test suites assert that every invalid spec is
+rejected, with identical messages where listed (unknown keys and the checks above) or at the same path (schema
+enums and types, where the Python message comes from jsonschema), and that every valid one is accepted. Messages of
+the older referential checks name the same path but quote values per language (`"nope"` vs `'nope'`).
+
+`buildPivotModel` validates by default (`validate: false` skips it for specs you built and validated yourself);
+validation costs about 0.01–0.02 ms for the bench specs, i.e. well under 0.1 % of a 10k-row build
+([pivot-performance.md](./pivot-performance.md#batch-a-strict-validation-diagnostics-print-profile)).
+
+**Diagnostics.** `model.diagnostics` (present only when there is something to report) lists data and spec problems
+that leave cells empty or totals short, gathered while the records are encoded (no extra pass), one entry per field
+and problem, with at most 5 samples:
+
+| `code` | When | Example message |
+|--------|------|-----------------|
+| `unparsedNumbers` | Non-blank measure (or weight / numerator / denominator) values that are not numbers or plain numeric strings: `"1,234.50"`, `"(500)"`, `"$12"`, `"5%"`, `true`, `"0x10"` | `3 values of "AMOUNT" (measures[0].field) are not numbers and left out of every total, e.g. "1,234.50" (row 1), …` |
+| `missingField` | No record has a field the spec reads (a typo) | `No record has the field "regionn" (filters[0].field); check the spelling.` |
+| `invalidDates` | Values of a date-grouped field that are not ISO 8601 / epoch ms (grouped as `(blank)`) | `2 values of "d" (rows[0].field) are not dates …, e.g. "31/12/2026" (row 1)` |
+| `mixedKeyTypes` | A key field mixes JS types (`2024` and `"2024"` are one key, `1` and `"1.0"` two) | `"k" (rows[0].field) mixes number and string values …` |
+| `filterItemsNotFound` | `filters[].include` / `exclude` items no record has (case-sensitive) | `filters[0].include: "x" is not a value of "a" …` |
+| `baseItemNotFound` | `showAsBase.item` is not a key of its field | `measures[0].showAsBase.item "Revenue " is not a value of "LINE" …` |
+
+Each entry has `code`, `field`, `path`, `message` and, by code, `count`, `samples` (`[{ row, value }]`, 0-based input
+row), `types` or `items`. Accounting and locale formats are **reported, not parsed**: guessing whether `"1.234"` is
+one thousand or 1.234 would silently change totals, so send plain numbers (Python `Decimal` → string is fine). Radix
+literals (`"0x10"`) no longer parse as numbers (they summed as 16 before).
+
+Where diagnostics surface: `model.diagnostics` (also in the `model` export); `nqgrid-export serve` sends them in the
+`x-nqgrid-diagnostics` response header (JSON, ≤ 8 KB) and the CLI as one `{"level":"warn","diagnostics":[…]}` line
+on stderr (exit code 0); the hidden `Spec` sheet of the XLSX lists their messages; the PDF body never shows them. The
+Python client returns them from `export_report(...)` and the MCP tool's `export_pivot_report` result
+(`diagnostics`).
 
 ## Financial statements
 
@@ -733,10 +821,13 @@ Everything a non-JS producer needs is in [`contract/pivot/v1`](../contract/pivot
 
 The golden files are regenerated by `src/core/pivot/contract.test.ts` and `src/render-static/render-static.test.ts` (`pnpm test -u`);
 any diff is a contract change and should bump the spec `version` if it is breaking.
-`validatePivotSpec` additionally checks references the schema cannot express
+`validatePivotSpec` checks everything the schema checks (see [Validation and diagnostics](#validation-and-diagnostics))
+plus references the schema cannot express
 (unknown measure ids in `values`, `heat`, `headerCharts`, `kpis`, `sortBy`, `topN`; duplicate measure ids, facets and
-catalogue fields; `sortBy` / `topN` only on row dimensions; calculated-measure grammar, references and cycles;
-`showAsBase` on a row or column field).
+catalogue fields; `sortBy` / `topN` only on row dimensions; calculated-measure grammar, references and cycles, and no
+references to show-as measures; `showAsBase` on a row or column field and only where it is read; `keepEmpty` only on
+column dimensions; `format.scale` not with `compact` / percent). `invalid-specs.json` holds the shared validation
+vectors for both languages.
 
 ### XLSX without Node
 
@@ -799,8 +890,10 @@ const html = renderPivotHtml(model, {
   title: "FY26 Sales Plan", subtitle: "Actuals",    // default: model.title / model.subtitle
   generatedAt: "2026-10-30 09:00 UTC",              // passed in (string or Date) → byte-identical output
   maxColumnsPerPage: 6,                             // default: fit at minScale (0.7), else balanced chunks
-  locale: { lang: "de", continued: "(Forts.)" },
+  locale: { lang: "de", continued: "(Forts.)" },     // also repeated on continuation pages of long groups
   kpiPanel: true,
+  profile: "statement",                             // "report" (default) or finance-statement emphasis
+  units: "EUR thousands",                           // default: model.units (spec.units); null hides it
 });
 const same = renderPivotHtmlFromSpec(spec, rows, options);   // validates + buildPivotModel
 ```
@@ -817,7 +910,9 @@ The golden output is `contract/pivot/v1/examples/planning.html`.
 | Page box | `@page { size; margin }` from `page` (A4 / A3 / Letter / Legal / Tabloid, landscape default); `@page` background follows the theme so dark PDFs have no white margins. |
 | Width | Print geometry (`[184, 152]` dimension columns, 76 px values). If the table is wider than the page it is zoomed down (`zoom`, ≥ `minScale` 0.7) — 12 months fit A4/Letter landscape. |
 | Column paging | Beyond that (or with `maxColumnsPerPage`), value columns split into **balanced chunks** that never split a top-level header (12 at 5/page → 4 + 4 + 4). With several column fields, a top-level group wider than a page is split along its next header level instead (`pivotColumnUnits(model, maxColumns)`). Each chunk is its own table starting on a new page, repeats the dimension columns and the full-year band summary, keeps one header-bar scale, and is titled "… (cont.)" with "Month May – Oct · Columns 7–12 of 12". |
-| Rows | `<thead>` (header chart band + column headers) repeats on every page; each top-level group is its own `<tbody>` with `break-inside: avoid` (a group taller than a page still breaks). |
+| Rows | `<thead>` (header chart band + column headers) repeats on every page. Rows are paginated from their fixed heights (`pivotPageBodySegments`): a top-level group that fits the rest of the page stays there, one that fits a fresh page starts one, and a group taller than a page is split, filling the current page first (so a long first section never leaves page 1 with only the title), with "Section 0 (cont.)" repeated at the top of each continuation page (`locale.continued`) and at least two rows (last line + subtotal) carried over. Page breaks are explicit (`break-before: page` on the first row); each segment is a `<tbody>` with `break-inside: avoid`. |
+| Print affordances | No child-count badges and no sort / filter icons in static output (`PivotTable` `countBadges` / `headerIndicators` turn them back on); `aria-sort` stays. |
+| Profile | `profile: "report"` (default) prints like the app. `profile: "statement"` appends `PIVOT_STATIC_STATEMENT_CSS`: subtotal, group and grand-total rows bold in the full text colour on the page surface (no grey band), a rule above subtotal values, a rule above and a double rule below the grand total, no hairlines between lines, 28 px rows unless `table.rowHeight`. |
 | Tall KPI panels | When a department's KPI panel is taller than its rows (`pivotKpiPanelHeight` vs `rowSpan × rowHeight`), static mode adds a blank filler row covered by the span cell, so data rows keep their height. |
 
 Pure helpers: `pivotStaticLayout`, `resolvePivotStaticPage`, `pivotColumnChunks`, `slicePivotModelColumns`,
@@ -836,8 +931,10 @@ nqgrid-export --spec spec.json --rows rows.json --out report.xlsx     # format f
 nqgrid-export serve --port 8787                                       # 127.0.0.1, one warm Chromium
 ```
 
-- **Validation** — `validatePivotSpec` plus request/option checks; errors print as JSON on stderr.
-  Exit `2` = invalid input, `1` = internal error.
+- **Validation** — `validatePivotSpec` (as strict as the JSON Schema: unknown keys and bad enums are errors) plus
+  request/option checks (unknown option keys too); errors print as JSON on stderr. Exit `2` = invalid input (HTTP
+  400), `1` = internal error. Data diagnostics do not fail an export: the CLI prints them as one JSON line on stderr
+  with exit `0`, serve mode in the `x-nqgrid-diagnostics` header.
 - **Serve mode** — `GET /healthz` → `{ ok, version, browser, formats }`; `POST /export?format=pdf|xlsx|html|model|sheet`
   with the request JSON → the file (`Content-Type`, `Content-Disposition: attachment; filename="<spec.id>.<ext>"`).
   Errors `{ error: { code, message, details? } }` with 400 / 404 / 405 / 413 (body cap, default 10 MiB) / 415 / 500.
