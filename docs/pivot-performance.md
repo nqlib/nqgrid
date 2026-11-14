@@ -634,3 +634,57 @@ formulas add no measurable time to `writePivotXlsx`.
 
 The harness was a temporary script (min-of-N, interleaved, importing both trees' `build-model.ts` into one process);
 `bench/pivot-planning.bench.ts` keeps the feature scenarios for `pnpm bench`.
+
+## Batch C: calculated items
+
+What changed: nothing on the build path. Calculated items, `subtotalLabels` and `itemFormats` are view state (not part of
+`pivotSpecDataKey`), so the record pass and the cube are untouched, and adding or editing an item in the app reuses the
+cached cube. `pivotModelFromCube` compiles the items once per call (`compilePivotItemPlan`, `null` without items) and
+evaluates each (item instance, measure, column bucket) on first read, memoized per instance: a cascading item (EBITDA
+over Gross margin) reads the memoized value, never a record. Specs without items take the old view path plus a few
+`null` checks per row (`formatOfKey`, `collectChildren`).
+
+**Regression check, min of N** (same process, interleaved 3× per tree, HEAD `03f5755` worktree vs this tree; min of
+25 runs at 100k, 8 at 500k; Intel Xeon 2.10 GHz, 4 vCPU shared VM, Node 22). Last column: best after vs best before.
+
+| Scenario | Records | before (3 rounds) | after (3 rounds) | Δ |
+|---|---:|---|---|---:|
+| Base spec, cold | 100,000 | 33.5 / 34.0 / 34.1 | 34.6 / 33.9 / 32.7 | −2.3 % |
+| Filters + facets + Top 5 + sortBy, cold | 100,000 | 37.5 / 36.5 / 36.9 | 36.4 / 36.2 / 36.9 | −0.7 % |
+| `signField` on 2 measures, cold | 100,000 | 36.8 / 35.7 / 35.9 | 36.2 / 35.9 / 36.0 | +0.5 % |
+| Date columns (`orderDate:year` → quarter), cold | 100,000 | 51.0 / 51.5 / 51.4 | 52.3 / 51.3 / 51.1 | +0.2 % |
+| Calculated measure as a 4th value, cold | 100,000 | 37.3 / 36.2 / 36.5 | 36.9 / 36.7 / 37.1 | +1.6 % |
+| View-only change (builder, cube reused) | 100,000 | 0.7 / 0.7 / 0.4 | 0.7 / 0.7 / 0.5 | ±0.1 ms |
+| Filter change: slicer click (builder) | 100,000 | 6.2 / 6.1 / 6.2 | 6.2 / 6.2 / 6.2 | +0.9 % |
+| Base spec, cold | 500,000 | 162.8 / 161.5 / 153.8 | 156.9 / 162.0 / 151.0 | −1.8 % |
+| Filters + facets + Top 5 + sortBy, cold | 500,000 | 178.6 / 178.2 / 177.5 | 178.6 / 178.4 / 182.4 | +0.5 % |
+| `signField` on 2 measures, cold | 500,000 | 163.7 / 176.2 / 172.0 | 174.0 / 164.9 / 178.2 | +0.7 % |
+| Date columns, cold | 500,000 | 251.4 / 246.6 / 248.2 | 248.3 / 260.4 / 249.8 | +0.7 % |
+| Calculated measure as a 4th value, cold | 500,000 | 155.3 / 155.9 / 155.0 | 154.3 / 154.9 / 155.2 | −0.5 % |
+| View-only change (builder, cube reused) | 500,000 | 0.5 / 0.6 / 0.6 | 0.6 / 0.6 / 0.6 | ±0.1 ms |
+| Filter change: slicer click (builder) | 500,000 | 27.2 / 28.1 / 28.7 | 28.3 / 28.7 / 28.6 | +4.1 % |
+
+The sub-millisecond view-only rows move by a tenth of a millisecond, and the 500k slicer row did not reproduce in a
+second run with 20 runs × 5 rounds (26.0 → 26.2 ms, +0.5 %; view-only 0.7 → 0.7 ms). The view stage alone
+(`pivotModelFromCube` on a prebuilt cube, min of 300 × 5 rounds) is 5.25 → 5.36 ms for the base spec (343 rows,
++1.9 %) and 3.30 → 3.31 ms for the filtered spec (216 rows, +0.3 %). No scenario reaches the 5 % budget.
+
+**Cost of calculated items** (this tree, min of N, 3 rounds; 2 items on region and 2 on department = 14 item rows of
+39 columns; "view" is `pivotModelFromCube` on a prebuilt cube, min of 200):
+
+| Scenario | 100k cold | 100k view | 500k cold | 500k view |
+|---|---|---|---|---|
+| Reference: base spec | 34.9 / 33.5 / 33.2 | 5.41 / 5.31 / 5.42 | 149.5 / 157.4 / 153.8 | 6.13 / 6.25 / 6.04 |
+| + 4 calculated items (14 item rows) | 34.7 / 34.2 / 33.8 | 5.95 / 5.93 / 5.83 | 153.0 / 152.9 / 153.9 | 6.81 / 6.65 / 6.58 |
+| + items, one with `includeInTotals` | 34.6 / 35.0 / 34.6 | 6.57 / 6.34 / 6.25 | 152.3 / 155.0 / 157.9 | 7.24 / 7.27 / 7.39 |
+| Reference: calculated measure as a 4th value | 37.1 / 36.7 / 37.0 | 7.49 / 7.52 / 7.54 | 157.4 / 153.8 / 158.0 | 7.93 / 7.67 / 7.76 |
+| Calculated measure + items | 37.3 / 37.5 / 37.4 | 8.24 / 8.10 / 8.30 | 159.1 / 163.2 / 157.2 | 8.12 / 8.04 / 8.55 |
+
+Items cost about 0.04 ms per item row of 39 cells (0.5 ms for 14 rows), independent of the record count: the cold
+builds differ by noise only. `includeInTotals` adds ~0.4 ms here (the region and grand totals re-read the included items
+for every measure and bucket, memoized per node). Scaling, view stage at 100k: 20 items under each of 6 regions (120
+item rows) 8.8 ms vs 5.4 ms, 20 chained items (each reads the previous one) 8.7 ms (memoized), 100 items × 6 regions
+(600 item rows) 24 ms. Validation adds one parse per item formula (bounded by the 1000-character limit).
+
+The harness was a temporary script (min-of-N, interleaved, both trees' `build-model.ts` bundled into one process);
+`bench/pivot-items.bench.ts` keeps the feature scenarios for `pnpm bench`.

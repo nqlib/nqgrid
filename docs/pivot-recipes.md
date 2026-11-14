@@ -4,7 +4,7 @@ Complete, tested specs for reports that need more than one feature working toget
 shape, the full spec, what every piece does, the result, and what the engine cannot do. The figures in each result
 table are asserted by a test (named per recipe), so the doc cannot drift from the engine.
 
-- [Financial statement (P&L / income statement)](#financial-statement-pl--income-statement)
+- [Financial statement (P&L / income statement)](#financial-statement-pl--income-statement): calculated items (Gross margin, EBITDA), per-section subtotal labels; or section subtotals only
 - [Budget vs actual (long format)](#budget-vs-actual-long-format): scenarios as a column, measure filters, variance, YTD, prior year
 - [Balance sheet](#balance-sheet): month-end balances with `closingBalance`
 - [Headcount](#headcount): FTE with `averageOverTime`
@@ -12,14 +12,138 @@ table are asserted by a test (named per recipe), so the doc cannot drift from th
 
 ## Financial statement (P&L / income statement)
 
-Rows **section → line** in statement order, months as columns, signed amounts, a **Gross margin** row after the
-gross-margin lines, **Operating income** at the bottom and a **% of Revenue** column.
+Rows **section → line** in statement order, quarters as columns, signed amounts, a total under each section with its
+own label, formula rows between sections (**Gross margin**, **Gross margin %**, **EBITDA**) and **Operating income**
+at the bottom — from the leaf-grain data as it comes, without adding rows to it.
 
-Golden example: `contract/pivot/v1/examples/planning-statement.*` (spec, rows, model, sheet, HTML). Fixture:
-`generateStatementPivotRows()` / `statementPivotSpec` from `@nqlib/nqgrid/fixtures`. Test:
-`src/core/pivot/statement.test.ts` ("financial statement recipe"). Playground: `?pivot=statement`.
+Golden example: `contract/pivot/v1/examples/planning-income.*` (spec, rows, model, sheet, statement HTML). Fixture:
+`generateIncomePivotRows()` / `incomePivotSpec` from `@nqlib/nqgrid/fixtures`. Test:
+`src/core/pivot/calculated-items.test.ts` ("income statement recipe"). Playground: `?pivot=income`.
+
+A simpler variant without formula rows (every total is a section subtotal or the grand total, plus a % of Revenue
+column, unsigned amounts with a sign column) follows below:
+[Section subtotals only](#simpler-section-subtotals-only).
 
 ### Data shape
+
+Leaf-grain records, one per line × month (× any other key). Amounts are **signed** (costs negative); `LINE_SORT` is the
+line's position in the statement.
+
+| SECTION | LINE | LINE_SORT | PERIOD | AMOUNT |
+|---|---|---:|---|---:|
+| Revenue | Product revenue | 10 | 2026-01-01 | 800 |
+| Revenue | Services revenue | 20 | 2026-01-01 | 200 |
+| Cost of sales | COGS | 30 | 2026-01-01 | -400 |
+| Operating expenses | Salaries | 40 | 2026-01-01 | -250 |
+| Operating expenses | Rent | 50 | 2026-01-01 | -50 |
+| Depreciation & amortization | Depreciation | 60 | 2026-01-01 | -40 |
+| … 12 months (`2026-01-01` … `2026-12-01`), 72 records | | | | |
+
+Unsigned amounts with a `SIGN` column work the same way: add `"signField": "SIGN"` to the amount measure (see the
+variant below).
+
+### Spec
+
+```json
+{
+  "version": 1,
+  "id": "income-statement-items",
+  "title": "Income statement",
+  "subtitle": "FY 2026 · EUR",
+  "layout": "compact",
+  "rows": [
+    {
+      "field": "SECTION", "label": "Section", "subtotal": "end",
+      "subtotalLabels": {
+        "Revenue": "Total revenue",
+        "Cost of sales": "Total cost of sales",
+        "Operating expenses": "Total operating expenses",
+        "Depreciation & amortization": "Total depreciation & amortization"
+      },
+      "sortBy": { "measure": "ord", "direction": "asc" },
+      "calculatedItems": [
+        { "key": "Gross margin", "formula": "[Revenue] + [Cost of sales]", "after": "Cost of sales" },
+        { "key": "Gross margin %", "formula": "[Gross margin] / [Revenue]", "after": "Gross margin",
+          "format": { "style": "percent", "decimals": 1 } },
+        { "key": "EBITDA", "formula": "[Gross margin] + [Operating expenses]", "after": "Operating expenses" }
+      ]
+    },
+    { "field": "LINE", "label": "Line", "sortBy": { "measure": "ord", "direction": "asc" } }
+  ],
+  "columns": { "field": "PERIOD:quarter", "label": "Quarter" },
+  "measures": [
+    { "id": "amount", "label": "Amount", "field": "AMOUNT", "format": { "decimals": 0, "negative": "parentheses" } },
+    { "id": "ord", "label": "Line order", "field": "LINE_SORT", "aggregate": "min" }
+  ],
+  "values": ["amount"],
+  "totals": { "grandTotalLabel": "Operating income", "rowTotal": true, "rowTotalLabel": "FY 2026" }
+}
+```
+
+### What each piece does
+
+| Piece | Effect |
+|---|---|
+| `calculatedItems` on SECTION | Formula rows over keys of SECTION ([Calculated items](./pivot-headless.md#calculated-items-rowsicalculateditems)). On the outermost row field a key's value is the section total, so `[Revenue] + [Cost of sales]` is the gross margin in every quarter and in the FY column (the formula over the year totals). |
+| `Gross margin %` = `[Gross margin] / [Revenue]` | An item may reference other items (cycles are rejected). Its `format` makes it a percent row in a currency statement: `59.7%`, and in the XLSX the cell keeps the ratio with `#,##0.0%`. The FY value is 8,190 / 13,980 = 58.6 %, not the average of the quarters. |
+| `EBITDA` = `[Gross margin] + [Operating expenses]` | A cascading total over an item and a section. |
+| `after` | Each item sits right after that key's whole block (the section heading, its lines and its subtotal row), whatever `sortBy` does to the sections. `Gross margin %` is anchored to the `Gross margin` item. |
+| Items stay out of totals | `includeInTotals` defaults to false: Operating income (the grand total) adds the four sections only, not Gross margin and EBITDA again. Excel adds calculated items into totals, which double counts statement rows. |
+| `subtotal: "end"` + `subtotalLabels` | A total row after each section's lines, named per section (`Total revenue`, `Total operating expenses`); sections without an entry fall back to `subtotalLabel` / `totals.subtotalLabel`. |
+| Hidden measure `ord` + `sortBy` on both levels | `min(LINE_SORT)` orders lines and sections (a section by its smallest line number); the fixture emits costs first on purpose. |
+| `totals.grandTotalLabel: "Operating income"` | The grand total of all signed amounts is the operating income. |
+| `columns: { "field": "PERIOD:quarter" }`, `rowTotal` | Quarters of the ISO dates (`Q1` … `Q4`) and the year total. |
+
+### Result
+
+| Section / Line | Q1 | Q2 | Q3 | Q4 | FY 2026 |
+|---|---:|---:|---:|---:|---:|
+| **Revenue** | | | | | |
+| &nbsp;&nbsp;Product revenue | 2,460 | 2,640 | 2,820 | 3,000 | 10,920 |
+| &nbsp;&nbsp;Services revenue | 630 | 720 | 810 | 900 | 3,060 |
+| **Total revenue** | **3,090** | **3,360** | **3,630** | **3,900** | **13,980** |
+| **Cost of sales** | | | | | |
+| &nbsp;&nbsp;COGS | (1,245) | (1,380) | (1,515) | (1,650) | (5,790) |
+| **Total cost of sales** | **(1,245)** | **(1,380)** | **(1,515)** | **(1,650)** | **(5,790)** |
+| **Gross margin** | **1,845** | **1,980** | **2,115** | **2,250** | **8,190** |
+| **Gross margin %** | **59.7%** | **58.9%** | **58.3%** | **57.7%** | **58.6%** |
+| **Operating expenses** | | | | | |
+| &nbsp;&nbsp;Salaries | (750) | (750) | (750) | (750) | (3,000) |
+| &nbsp;&nbsp;Rent | (150) | (150) | (150) | (150) | (600) |
+| **Total operating expenses** | **(900)** | **(900)** | **(900)** | **(900)** | **(3,600)** |
+| **EBITDA** | **945** | **1,080** | **1,215** | **1,350** | **4,590** |
+| **Depreciation & amortization** | | | | | |
+| &nbsp;&nbsp;Depreciation | (120) | (120) | (120) | (120) | (480) |
+| **Total depreciation & amortization** | **(120)** | **(120)** | **(120)** | **(120)** | **(480)** |
+| **Operating income** | **825** | **960** | **1,095** | **1,230** | **4,110** |
+
+The three item rows are `kind: "calculated"` in the model (with their `formula`); the statement print profile and the
+XLSX statement rules print them bold with a rule above, like subtotals. Drill-through on Gross margin lists the
+Revenue and Cost of sales records.
+
+**Editing in the app.** The Section chip in the field list lists the calculated items; "Calculated item…" opens an
+editor with the formula checked as you type (syntax with position, cycles, a taken name), an insert-item picker, the
+position (after / before a key, start, end), the format and "Add to totals". Keys the data does not have (a typo in
+`[Cost of sale]`) are not validation errors — a validator does not see the data — but come back in
+`model.diagnostics` as `itemKeyNotFound` (and from the Python client's `export_report`).
+
+**Alternatives inside the same report.** A leaf-level item works too (`calculatedItems` on LINE: `[Product revenue] -
+[Services revenue]` shows under Revenue only, because an item appears only under parents that have at least one key
+it reads). Per-line number formats for data rows (a headcount line in FTE) go in `"itemFormats": { "Headcount":
+{ "decimals": 1, "suffix": " FTE" } }` on the dimension. A % of Revenue column: add `{"id": "pct", "field": "AMOUNT",
+"showAs": "percentOf", "showAsBase": {"field": "SECTION", "item": "Revenue", "scope": "all"}, "percentFormat": {"style":
+"percent", "decimals": 1}}` — every row, the items
+included, gets amount / Revenue (Gross margin 59.7 % in Q1; the Gross margin % row itself then shows a ratio of
+ratios, so leave it out or accept it).
+
+### Simpler: section subtotals only
+
+When every total you need is a section subtotal or the grand total, no items are needed. Golden example:
+`contract/pivot/v1/examples/planning-statement.*`. Fixture: `generateStatementPivotRows()` / `statementPivotSpec`. Test:
+`src/core/pivot/statement.test.ts` ("financial statement recipe"). Playground: `?pivot=statement`. This variant also
+shows a **% of Revenue** column and **unsigned** amounts with a sign column.
+
+#### Data shape
 
 Leaf-grain records, one per line × month (× any other key, here a department). Amounts are **unsigned**; a separate
 `SIGN` column says whether a line adds (`1`) or subtracts (`-1`). `LINE_SORT` is the line's position in the
@@ -40,7 +164,7 @@ statement.
 Signs may be numbers or numeric strings (serialized decimals). If your amounts are **already signed** (costs
 negative, like a `PL_AMOUNT` column), drop `signField` from the spec below; nothing else changes.
 
-### Spec
+#### Spec
 
 ```json
 {
@@ -69,7 +193,7 @@ negative, like a `PL_AMOUNT` column), drop `signField` from the spec below; noth
 }
 ```
 
-### What each piece does
+#### What each piece does
 
 | Piece | Effect |
 |---|---|
@@ -84,7 +208,7 @@ negative, like a `PL_AMOUNT` column), drop `signField` from the spec below; noth
 | `columns: { field: "PERIOD:month" }` | Month of the ISO date, labelled `Jan` … `Dec` and sorted chronologically. For data over several years use `PERIOD:yearMonth` (`Jan 2026`) or add a `PERIOD:year` column level. |
 | `valuesIndex: 0`, `rowTotal: true` | The 12 amount columns come first, then the 12 percentage columns, then the year total of both. |
 
-### Result
+#### Result
 
 Selected columns (the model has 12 amount columns, 12 % of Revenue columns and the two `FY 2026` totals):
 
@@ -144,9 +268,10 @@ validates and sends. Nothing is pushed down to SQL. Practical ceilings (see
 
 | You want | Status | Workaround |
 |---|---|---|
-| A formula row over keys (Excel **calculated item**), e.g. a "Gross margin" line = Revenue − COGS that is not a subtotal, or "EBITDA" between two sections | Not supported | Arrange sections so that every total you need is a **section subtotal** (`subtotal: "end"`) or the **grand total**. Rows that are neither must come from the data (add them as records) or from a second report. |
-| Cascading totals (Gross margin → Operating income → Net income) as rows | Partly | Only one subtotal per section plus the grand total. A second measure on the amount with `"groupShowAs": "runningTotal", "showAsBase": { "field": "SECTION" }` shows the **cumulative** total on each section's subtotal row (for the year: 7,440 on Gross margin, then 4,110 — the operating income — on Operating expenses), in its own column; leaf rows show their plain amounts. |
-| A different subtotal label per section ("Gross margin", but "Total operating expenses") | Not supported | `subtotalLabel` is per **level** (all sections). Name the sections in the data the way the subtotal rows should read. |
+| A formula over lines of **different** sections (`[Revenue › Product revenue] - [Cost of sales › COGS]`) | Not supported | Item formulas reference keys of their own field under one parent. Put the item on the level whose keys you need (sections: SECTION; lines of one section: LINE), or move the lines you combine into one section. |
+| A calculated item on a **column** field (e.g. a "Q1 − Q2" column) | Not supported (rejected) | Use a calculated measure with measure filters (one measure per period) or `showAs: "differenceFrom"` along the column field. |
+| Items **added into** subtotals and the grand total (Excel's default) | Opt-in | `"includeInTotals": true` per item (e.g. an adjustment row); statement rows stay out by default. |
+| A formula row whose inputs may be missing in some columns | Null propagates | `[Revenue] + coalesce([Other income], 0)`. An item whose inputs are all missing (filtered out) is not shown. |
 | Hide the section heading row above the lines (with `subtotal: "end"`) | Not supported | The heading row stays (blank cells; it is the row users expand / collapse). Use `subtotal: "start"` (the default) if the totals may sit on the heading row instead. |
 | "% of Revenue" in the total column only | Not supported | A measure appears in every column. `valuesIndex: 0` groups the percentage columns after the amounts; or export a second spec without columns. |
 | Display costs as positive numbers but still subtract them in totals | Not supported | Totals add what is displayed. Show signed figures (with `negative: "parentheses"`), or keep a separate unsigned report. |

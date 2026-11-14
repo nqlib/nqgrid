@@ -4,6 +4,28 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 
 ## [Unreleased]
 
+### Analyst review, batch C: calculated items, cascading totals, per-group subtotal labels
+
+`PivotSpec` stays `version: 1`; the schema changes are additive (`rows[i].calculatedItems`, `subtotalLabels`,
+`itemFormats`, the `calculatedItem` definition). Specs without them produce byte-identical models, sheets and HTML
+(every existing golden unchanged).
+
+#### Added
+
+- **Pivot core** — `rows[i].calculatedItems` (`PivotCalculatedItem`: `key`, `formula`, `label`, `after` / `before` / `position`, `format`, `includeInTotals`): Excel calculated items, rows computed by a formula over keys of the same field (siblings under the same parent; at the outermost level the field's groups, e.g. P&L sections) per column bucket and measure from aggregated values — the total column is the formula over the totals. Items may reference other items (cascading totals: EBITDA = `[Gross margin] + [Operating expenses]`); the calc grammar and limits are reused, any key may be referenced (`__proto__` included: keys resolve through `Map`s). Anchored placement that survives `sortBy` / `order` / Top N; shown only under parents with at least one key they read; left out of totals unless `includeInTotals: true` (Excel's behaviour, which double counts statement rows). Calculated measures on an item row evaluate over the item's values of their references; `showAs` applies where an item has a base (row-field bases leave the cells empty); no heat, sorting, Top N, KPIs or facets. View-only: not part of `pivotSpecDataKey`, zero cost for specs without items.
+- **Pivot core** — `rows[i].subtotalLabels` / `columns[i].subtotalLabels` (per-group subtotal labels, `{label}` template) and `rows[i].itemFormats` (number format per key; also covers per-line formats in statements). Body rows of `kind: "calculated"` with `formula`, and `format` / `excelNumFmt` on rows with a format override; `pivotCalculatedItemRowId`. Diagnostics `itemKeyNotFound` (keys named by items, anchors, labels or formats that the data does not have) and `itemKeyConflict` (an item key that is also a data key).
+- **Pivot core** — drill-through of an item cell lists the records of every key it reads; sheets write item rows bold with the statement rule and the item's `numFmt`, and keep values instead of `SUBTOTAL` over ranges that contain an item; tabular slots get a `calculated` slot. Helpers `setPivotCalculatedItem` (rename rewrites references and anchors), `removePivotCalculatedItem`, `checkPivotCalculatedItem`, `pivotItemReferencers`, `pivotItemReference`, `parsePivotItemFormula`, `setPivotSubtotalLabel`; `ParsePivotCalcOptions.allowReservedNames`.
+- **`@nqlib/nqgrid/pivot`** — `PivotCalculatedItemForm` (formula validated as you type, insert-item picker, position, format, "Add to totals") opened from a Rows chip, which lists the field's items; reducer actions `setCalculatedItem`, `removeCalculatedItem`, `setSubtotalLabel` and the matching `usePivotGrid` functions; `PivotTable` renders calculated rows like subtotal rows (formula tooltip in interactive mode).
+- **render-static** — `PIVOT_STATIC_STATEMENT_CALCULATED_CSS` (statement profile: item rows bold with a rule above), appended only when the model has calculated rows.
+- **Contract** — schema `calculatedItem`, dimension keys `calculatedItems` / `subtotalLabels` / `itemFormats`; shared validation vectors (placement, duplicates, cycles, oversized / deeply nested formulas, `__proto__` / `constructor` keys) and item-formula calc vectors (`calc-expressions.json` `items`); golden `examples/planning-income.*` (income statement with Gross margin, Gross margin %, EBITDA, per-section labels); fixture `generateIncomePivotRows` / `incomePivotSpec`.
+- **Python** — validation mirror with identical messages, `parse_calc(..., allow_reserved=True)`, `check_calculated_item`, `income_example_spec()` (also in `describe_pivot_spec`), regenerated Pydantic models (`CalculatedItem`), authoring guide section "Calculated items" and a rewritten "Financial statements" section, e2e tests through `nqgrid-export serve` (golden model / sheet / HTML, statement PDF, XLSX with exceljs and openpyxl).
+- **Docs / playground** — the financial-statement recipe now uses calculated items (section subtotals only stays as the simpler variant; Limits table updated); `docs/pivot-headless.md` "Calculated items" and per-key formats; performance notes; `?pivot=income`.
+
+#### Changed (behaviour)
+
+- `stripColumnOnly` (moving a row field into Columns, swapping rows and columns) also drops `calculatedItems` and `itemFormats`, which are row-only.
+- `PivotBodyRow["kind"]` gains `"calculated"`, and `PivotDimensionSlot` a `calculated` variant: exhaustive `switch`es over them in consumer code need a case. `PivotBodyGroup.kind` is now `PivotBodyRow["kind"]`. No public export was removed or renamed.
+
 ### Analyst review, batch B: measure filters, semi-additive aggregates, analyst workbooks
 
 `PivotSpec` stays `version: 1`; the schema changes are additive (`measures[].filter`, the `TimeAggregate` variant, export

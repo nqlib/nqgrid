@@ -69,7 +69,10 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
   `percentDifferenceFrom`, `runningTotal`, `percentRunningTotal`, `rankAscending`, `rankDescending`
   (`showAsBase.scope: "all"` compares every row with one base item). Cells keep both `raw` and the displayed `value`.
 - `rows[i].subtotal` — subtotals at the top (default), bottom (`end`: subtotal rows) or off, labelled per level with
-  `subtotalLabel`; `pivotDrillThrough` lists the records behind a cell.
+  `subtotalLabel` or per group with `subtotalLabels`; `pivotDrillThrough` lists the records behind a cell.
+- `rows[i].calculatedItems` — Excel calculated items: formula rows over keys of the field (Gross margin =
+  `[Revenue] + [Cost of sales]`, EBITDA over an item and a section), see
+  [Calculated items](#calculated-items-rowsicalculateditems). `rows[i].itemFormats` sets a number format per key.
 - `values` — measure ids shown as grid columns; other measures can still feed KPIs/charts.
 - `heat` — discrete levels (default 9) by `scope`: `all`, `column` (each leaf column), `row`, or `group` (siblings).
   Levels — not colors — cross the wire; each renderer maps them to its palette
@@ -695,7 +698,13 @@ HTTP service and the Python validator accept and reject the same specs:
   "PERIOD:month" } }`;
 - `format.scale` with `compact` or percent style;
 - a measure `filter` on a calculated measure (`measures[1]: filter cannot be combined with calculate (filter the
-  measures it references)`), a semi-additive aggregate without `timeField`.
+  measures it references)`), a semi-additive aggregate without `timeField`;
+- calculated items: `calculatedItems` / `itemFormats` on a column dimension (`columns.calculatedItems is only supported
+  on row dimensions`), a duplicate item key, more than one of `after` / `before` / `position`, an item placed relative
+  to itself, an item formula that does not parse (`rows[0].calculatedItems[0].formula: unexpected end of expression
+  (at 11)`) and reference cycles among a field's items (`… reference cycle EBITDA → Gross margin → EBITDA`). Keys of
+  the data are unknown to a validator, so references to keys are **not** checked here: a key the data does not have
+  is an `itemKeyNotFound` diagnostic at build time.
 
 `contract/pivot/v1/invalid-specs.json` holds the shared vectors: both test suites assert that every invalid spec is
 rejected, with identical messages where listed (unknown keys and the checks above) or at the same path (schema
@@ -718,6 +727,8 @@ and problem, with at most 5 samples:
 | `mixedKeyTypes` | A key field mixes JS types (`2024` and `"2024"` are one key, `1` and `"1.0"` two) | `"k" (rows[0].field) mixes number and string values …` |
 | `filterItemsNotFound` | `filters[].include` / `exclude` (or a measure filter's) items no record has (case-sensitive) | `filters[0].include: "x" is not a value of "a" …`, `measures[0].filter.include: "actual" is not a value of "SCENARIO" …` |
 | `baseItemNotFound` | `showAsBase.item` is not a key of its field | `measures[0].showAsBase.item "Revenue " is not a value of "LINE" …` |
+| `itemKeyNotFound` | A key named by a calculated item formula, its `after` / `before`, `subtotalLabels` or `itemFormats` that is neither a value of the field nor a calculated item | `rows[1].calculatedItems[0].formula names "Berlinn", which is not a value of "CITY" nor calculated items …; they read as no value.` |
+| `itemKeyConflict` | A calculated item's `key` is also a value of its field (formulas and anchors naming it mean the item) | `rows[0].calculatedItems[0].key "constructor" is also a value of "K" …` |
 
 Each entry has `code`, `field`, `path`, `message` and, by code, `count`, `samples` (`[{ row, value }]`, 0-based input
 row), `types` or `items`. Accounting and locale formats are **reported, not parsed**: guessing whether `"1.234"` is
@@ -732,9 +743,10 @@ Python client returns them from `export_report(...)` and the MCP tool's `export_
 
 ## Financial statements
 
-Three additions for P&L / income statements (Secolab's "Statement" report). The complete recipe — data shape, spec,
+Additions for P&L / income statements (Secolab's "Statement" report). The complete recipe — data shape, spec,
 result table and an honest list of what does not work — is [pivot-recipes.md](./pivot-recipes.md#financial-statement-pl--income-statement);
-the golden example is `contract/pivot/v1/examples/planning-statement.*`.
+the golden examples are `contract/pivot/v1/examples/planning-income.*` (calculated items) and
+`planning-statement.*` (section subtotals, sign field, % of Revenue).
 
 ```jsonc
 {
@@ -803,10 +815,72 @@ cached correctly. Drill-through returns raw records and lists the sign field in 
 Same `{label}` template as `totals.subtotalLabel`, for that field's `subtotal: "end"` rows (row dimensions) or subtotal
 columns (column dimensions) only; `totals.subtotalLabel` (default `{label} Total`) stays the fallback for the other
 levels. `"{label}"` names a P&L section's subtotal row after the section (`Gross margin`). View-only; travels with the
-dimension between Rows and Columns. Labels are per level, not per group.
+dimension between Rows and Columns.
+
+**Per group:** `rows[i].subtotalLabels` / `columns[i].subtotalLabels` maps a group key to its label (same `{label}`
+template), overriding `subtotalLabel` for that group only: `{ "Revenue": "Total revenue", "Operating expenses":
+"Total operating expenses" }`. Keys compare as case-sensitive strings and are looked up in a `Map` (any key, also
+`__proto__`); keys the data does not have are an `itemKeyNotFound` diagnostic. `setPivotSubtotalLabel(spec, field,
+key, label | null)` / `grid.setSubtotalLabel` edit one entry.
 
 **Not added:** hiding the blank expanded group row of `subtotal: "end"` (it carries the expand / collapse toggle, the
 row spans and the virtualized row index; a hidden-row mode would complicate all three). It reads as the section heading.
+
+### Calculated items (`rows[i].calculatedItems`)
+
+Excel's "Calculated Item…" (a Power BI visual-calculation row): extra rows of a row field computed by a formula over
+other keys of the **same field**, per column bucket and per measure, from the aggregated values.
+
+```jsonc
+{
+  "rows": [
+    { "field": "SECTION", "subtotal": "end",
+      "subtotalLabels": { "Revenue": "Total revenue", "Operating expenses": "Total operating expenses" },
+      "calculatedItems": [
+        { "key": "Gross margin", "formula": "[Revenue] + [Cost of sales]", "after": "Cost of sales" },
+        { "key": "Gross margin %", "formula": "[Gross margin] / [Revenue]", "after": "Gross margin",
+          "format": { "style": "percent", "decimals": 1 } },
+        { "key": "EBITDA", "formula": "[Gross margin] + [Operating expenses]", "after": "Operating expenses" }
+      ] },
+    { "field": "LINE" }
+  ]
+}
+```
+
+| Concern | Behaviour |
+|---|---|
+| Item keys (`key`, `label`) | `key` is the row's `path` entry and its name in other items' formulas; unique per dimension (`validatePivotSpec`). `label` (default `key`) is what the row shows. |
+| References | Keys of the field in brackets (`[Cost of sales]`) or as bare names (`Revenue`). They resolve **under the item's parent row**: other calculated items of the same dimension (cascading totals; an item key shadows a data key of the same name, reported as `itemKeyConflict`) and sibling keys (at the outermost level any key of the field, e.g. P&L section totals). Keys are opaque, case-sensitive strings looked up in `Map`s — `[__proto__]`, `[constructor]` and `[toString]` are plain keys (the parser runs with `allowReservedNames`). Keys of another field or deeper levels (`[Revenue › Product revenue]`) are not supported. |
+| Grammar | `parsePivotCalc`: the same operators, functions, null rules and limits (1000 characters, depth 64, 32 arguments) as calculated measures; no `eval`. Validation checks grammar, duplicate keys, placement and cycles; unknown keys are diagnostics. |
+| Values | Per (item, column bucket, measure): a plain measure evaluates the formula over the referenced keys' aggregated values of that measure; the total column is the formula over the totals (year Gross margin % = year margin / year revenue, not an average). Distinct counts, balances and averages work the same way (the formula over the items' values — well defined, though a sum of two distinct counts is what it says). |
+| Missing keys | A key without a node under the parent (filtered out, cut by Top N, no record) or without data in a bucket reads as no value, and null propagates as in calculated measures: `[Revenue] + coalesce([Cost of sales], 0)` when a key may be missing. |
+| Where it shows | Under every parent where at least one key it reads (directly or through other items) is a child; items reading no key (constants) under every parent. An item whose keys are all filtered out disappears instead of showing an empty row. Items of a collapsed parent are hidden with its children. |
+| Placement | `after` / `before` a key (a data key or another item; the item follows that key's whole block — group row, children and subtotal row), else `position: "start"` / `"end"` (default `end`); several items on one anchor keep spec order. Items keep their anchor whatever `sortBy`, `order` or Top N do to the data keys; a missing anchor sends the item to the end (and an `itemKeyNotFound` diagnostic). |
+| Totals (`includeInTotals`) | Default **false**: an item is not added to its parent's subtotal nor to the grand total. Excel adds calculated items into totals, which double counts statement rows (Operating income would include Gross margin and EBITDA a second time). `true` adds the item's value to its parent and every total above (subtotal rows, collapsed group rows, the grand total, KPIs, header bars and show-as denominators); plain measures add whatever their aggregate, calculated measures re-evaluate over the adjusted totals. Sorting and Top N never see items. |
+| Calculated measures | Evaluated over the **item's values of the measures they reference**: a margin % on the Gross margin row is Gross margin's margin / its revenue — consistent with calculated measures at totals (aggregates first, then the expression), and right for ratios, where applying the item formula to the measure's results (Excel's order for some intersections) would add two percentages. |
+| `showAs` | Applied to the item's values where an item has a base: % of column / row / grand total, % of parent row (the parent's value) and parent column, `percentOf` / differences with `scope: "all"` (Gross margin as % of Revenue), and every kind along a **column** field (YoY, running total over months — along the item's own values). Along a **row** field the item has no position among the data keys, so its cells are empty at or below the base level (above it, running totals show the value as for groups). Leaf-level items use `showAs`, group-level items `groupShowAs ?? showAs`. Combining a ratio item (Gross margin %) with a percentage column gives a ratio of ratios: leave such measures out of `values` or accept the cell. |
+| Formats | `format` on the item (wins), else `itemFormats[key]` of the dimension, replaces the column format of cells shown as values (and differences / running totals); percentage show-as cells keep `percentFormat`, ranks the rank format. The row carries `format` and `excelNumFmt`, so both XLSX writers write the right number format. |
+| Heat, KPIs, facets, sort | Items get no heat level and are not part of heat domains, KPI levels, facets / slicers, `sortBy` or Top N. |
+| Drill-through | `pivotDrillThrough` with a path ending in an item key lists the records of every key the item reads under the same parent (through other items too): Gross margin → Revenue and Cost of sales records. A constant item lists none. `total` then differs from the row's `sourceRowCount`, which is 0. |
+| Model | Body rows of `kind: "calculated"` (`id` `i:<path>` via `pivotCalculatedItemRowId`, `depth` = the field's level, `expandable: false`, `childCount` 0, `formula`, optional `format` / `excelNumFmt`). Tabular slots (`pivotDimensionSlots` → `calculated`), spans, virtualization, `PivotTable` (styled like subtotal rows, the formula as a tooltip), static HTML / PDF (statement profile: bold with a rule above, the CSS is appended only when the model has items, so other statements stay byte-identical) and sheets (bold, statement rule, the item's `numFmt`) handle them. |
+| `subtotalFormulas` | Item rows keep values, and so does any group / grand total whose `SUBTOTAL` range would contain an item row (the formula would add the item; with `includeInTotals` the cached value already includes it). |
+| Cost | View stage only: items are not part of `pivotSpecDataKey`, so adding or editing an item reuses the cached cube, and specs without items skip all of it. Each (item instance, measure, bucket) is evaluated once on first read and memoized; no record is read. See [pivot-performance.md](./pivot-performance.md#batch-c-calculated-items). |
+
+Helpers: `setPivotCalculatedItem(spec, field, item, replaceKey?)` (adds, replaces, and on a rename rewrites references
+and anchors in the field's other items), `removePivotCalculatedItem` (refused while another item's formula reads it),
+`checkPivotCalculatedItem` for inline validation, `pivotItemReferencers`; reducer actions `setCalculatedItem` /
+`removeCalculatedItem` / `setSubtotalLabel` (`usePivotGrid` exposes them). In the field list, a Rows chip lists the
+field's calculated items and opens `PivotCalculatedItemForm` (name, formula validated as you type, insert-item picker
+fed by the field's facet, position, format, "Add to totals"). Moving the field into Columns drops its items and
+`itemFormats` (row-only).
+
+### Per-key formats (`rows[i].itemFormats`)
+
+`{ "Headcount": { "decimals": 1, "suffix": " FTE" } }` formats every row of that key at that level (its group or leaf
+row and its subtotal row) for cells shown as values, replacing the column's format as a whole (repeat
+`"negative": "parentheses"` if the column had it); percentages from `showAs` keep `percentFormat`. Calculated items
+take their own `format` first. Rows only; unknown keys are `itemKeyNotFound` diagnostics. This covers per-line formats
+in a statement without a format column in the data.
 
 ## Planning: measure filters and semi-additive aggregates
 
@@ -1133,7 +1207,10 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
    `format.scale` / `units`, the statement print profile; measure-level filters, `closingBalance` / `openingBalance` /
    `averageOverTime`, analyst workbooks (outline, print setup, preamble, statement rules, optional `SUBTOTAL`
    formulas) and the `planning-fpa` goldens.
-   Next: calculated items (formula rows over keys, e.g. EBITDA between sections), row-level computed fields (latest
-   estimate = actual where closed, else budget), a per-group subtotal label, hiding the section heading row of bottom
-   subtotals, Σ Values in Rows, "% of parent" with a chosen base field, grouping of numeric fields into ranges,
-   sentiment (favourable / unfavourable) flags.
+12. **Calculated items (analyst review, batch C) — done.** `rows[i].calculatedItems` (formula rows over keys, cascading
+   totals, anchored placement, `includeInTotals`), per-group `subtotalLabels`, per-key `itemFormats`, the `calculated`
+   row kind in every renderer, `PivotCalculatedItemForm`, diagnostics for unknown keys, the `planning-income` golden.
+   Next: row-level computed fields (latest estimate = actual where closed, else budget), references to keys of
+   other fields / deeper levels in item formulas, calculated items on column fields, hiding the section heading row
+   of bottom subtotals, Σ Values in Rows, "% of parent" with a chosen base field, grouping of numeric fields into
+   ranges, sentiment (favourable / unfavourable) flags.

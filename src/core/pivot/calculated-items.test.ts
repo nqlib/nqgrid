@@ -88,6 +88,29 @@ describe("income statement recipe (docs/pivot-recipes.md, calculated items)", ()
     expect(model.diagnostics).toBeUndefined();
   });
 
+  it("supports the recipe's alternatives: % of Revenue on every row, a leaf-level item, per-key formats", () => {
+    const rows = generateIncomePivotRows();
+    const pct: PivotSpec = {
+      ...incomePivotSpec,
+      measures: [...incomePivotSpec.measures, { id: "pct", field: "AMOUNT", showAs: "percentOf", showAsBase: { field: "SECTION", item: "Revenue", scope: "all" }, percentFormat: { style: "percent", decimals: 1 } }],
+      values: ["amount", "pct"],
+    };
+    const withPct = buildPivotModel(pct, rows);
+    const col = withPct.columns.findIndex((c) => c.measureId === "pct" && c.columnKey === "Q1");
+    expect(rowOf(withPct, "Gross margin").cells[col]!.text).toBe("59.7%");
+    expect(rowOf(withPct, "EBITDA").cells[col]!.value).toBeCloseTo(945 / 3090, 12);
+    expect(rowOf(withPct, "Operating income").cells[col]!.value).toBeCloseTo(825 / 3090, 12);
+    const leaf: PivotSpec = {
+      ...incomePivotSpec,
+      rows: [incomePivotSpec.rows[0]!, { ...incomePivotSpec.rows[1]!, calculatedItems: [{ key: "Mix", formula: "[Product revenue] - [Services revenue]" }], itemFormats: { Rent: { decimals: 1 } } }],
+    };
+    const leafModel = buildPivotModel(leaf, rows);
+    expect(leafModel.rows.filter((r) => r.label === "Mix").map((r) => r.path)).toEqual([["Revenue", "Mix"]]);
+    expect(values(leafModel, "Mix")).toEqual([1830, 1920, 2010, 2100, 7860]);
+    // An item format replaces the column format (no parentheses unless it asks for them).
+    expect(texts(leafModel, "Rent")[0]).toBe("-150.0");
+  });
+
   it("is view-only: items reuse the cached cube", () => {
     const plain: PivotSpec = { ...incomePivotSpec, rows: [{ ...incomePivotSpec.rows[0]!, calculatedItems: undefined, subtotalLabels: undefined }, incomePivotSpec.rows[1]!] };
     expect(pivotSpecDataKey(plain)).toBe(pivotSpecDataKey(incomePivotSpec));
