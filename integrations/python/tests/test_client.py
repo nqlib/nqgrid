@@ -48,6 +48,19 @@ def test_posts_the_request_json_with_the_format_query() -> None:
     }
 
 
+def test_export_report_reads_the_diagnostics_header() -> None:
+    diagnostics = [{"code": "missingField", "field": "vv", "path": "measures[0].field", "message": "No record …"}]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"%PDF", headers={"x-nqgrid-diagnostics": json.dumps(diagnostics)})
+
+    out = _client(handler).export_report({"version": 1}, [], format="pdf")
+    assert out.data == b"%PDF"
+    assert out.diagnostics == diagnostics
+    plain = _client(lambda r: httpx.Response(200, content=b"%PDF")).export_report({"version": 1}, [])
+    assert plain.diagnostics == []
+
+
 @pytest.mark.parametrize(
     ("status", "payload", "exc", "code"),
     [
@@ -292,6 +305,21 @@ def test_xlsx_opens_with_openpyxl(
     assert ws.cell(row=1, column=1).value == planning_sheet["cells"][0][0]["v"]
     assert ws.cell(row=4, column=3).value == pytest.approx(planning_sheet["cells"][3][2]["v"])
     assert "KPIs" in wb.sheetnames
+
+
+@pytest.mark.e2e
+def test_diagnostics_and_strict_validation_from_the_service(client: NqgridExportClient) -> None:
+    spec = {"version": 1, "rows": [{"field": "a"}], "measures": [{"id": "m", "field": "v"}]}
+    out = client.export_report(spec, [{"a": "X", "v": "(500)"}, {"a": "Y", "v": 2}], format="html")
+    assert isinstance(out.data, str)
+    assert [d["code"] for d in out.diagnostics] == ["unparsedNumbers"]
+    assert out.diagnostics[0]["samples"] == [{"row": 0, "value": '"(500)"'}]
+    unknown = {**spec, "measures": [{"id": "m", "field": "v", "filter": {"field": "s"}}]}
+    with pytest.raises(NqgridInvalidInput) as info:
+        client.export(unknown, [], format="html")
+    # The service now rejects what the Python validator rejects, with the same message.
+    assert info.value.details == ["spec: measures[0]: unknown key(s) ('filter' was unexpected)"]
+    assert "measures[0]: unknown key(s) ('filter' was unexpected)" in validate_pivot_spec(unknown)
 
 
 @pytest.mark.e2e

@@ -2,7 +2,7 @@ import { findPivotCalcCycles, parsePivotCalc, type PivotCalcError } from "./calc
 import { pivotColumnFields } from "./columns";
 import { pivotValueIds } from "./fields";
 import type { PivotDimension, PivotMeasure, PivotNumberFormat, PivotShowAs, PivotShowAsBase, PivotSpec } from "./types";
-import { PIVOT_SHOW_AS_WITH_BASE } from "./validate";
+import { pivotCalcShowAsMessage, PIVOT_SHOW_AS_WITH_BASE } from "./validate";
 
 /**
  * Pure spec helpers for step 4 of Excel parity: calculated measures, "show values as" with a base
@@ -28,7 +28,7 @@ export interface PivotCalculatedMeasurePlan {
   readonly changed: boolean;
   readonly measureId?: string;
   /** Why it was refused: the expression error (with `code` / `position`), or another problem. */
-  readonly error?: PivotCalcError | { readonly code: "idTaken" | "cycle"; readonly message: string; readonly position: number };
+  readonly error?: PivotCalcError | { readonly code: "idTaken" | "cycle" | "showAs"; readonly message: string; readonly position: number };
 }
 
 function omit<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> {
@@ -62,6 +62,14 @@ export function checkPivotCalculatedMeasure(spec: PivotSpec, calculate: string, 
   const ids = id === undefined ? spec.measures.map((m) => m.id) : [...spec.measures.map((m) => m.id), id];
   const parsed = parsePivotCalc(calculate, { references: ids });
   if (!parsed.ok) return parsed.error;
+  // A referenced show-as measure would be read before its show-as (validatePivotSpec rejects it).
+  for (const ref of parsed.references) {
+    const kind = spec.measures.find((x) => x.id === ref && x.id !== id)?.showAs;
+    if (kind !== undefined && kind !== "value") {
+      const message = pivotCalcShowAsMessage("", ref, kind).replace(/^\.calculate: /, "");
+      return { code: "showAs", message, position: Math.max(0, calculate.indexOf(ref)) };
+    }
+  }
   if (id === undefined) return null;
   const refs = new Map<string, readonly string[]>();
   for (const m of spec.measures) {
@@ -152,6 +160,17 @@ export function removePivotMeasure(spec: PivotSpec, measureId: string): PivotSpe
   return next;
 }
 
+/** Ids of the calculated measures whose expression references `measureId`. */
+export function pivotCalcReferencers(spec: PivotSpec, measureId: string): string[] {
+  const out: string[] = [];
+  for (const m of spec.measures) {
+    if (m.calculate === undefined || m.id === measureId) continue;
+    const parsed = parsePivotCalc(m.calculate);
+    if (parsed.ok && parsed.references.includes(measureId)) out.push(m.id);
+  }
+  return out;
+}
+
 /** Show-as kinds that compare with a base item (and so accept `showAsBase.scope`). */
 const ITEM_KINDS: ReadonlySet<string> = new Set(["percentOf", "differenceFrom", "percentDifferenceFrom"]);
 
@@ -161,7 +180,8 @@ const ITEM_KINDS: ReadonlySet<string> = new Set(["percentOf", "differenceFrom", 
  * `percentOf` also needs `base.item`, and `base.scope: "all"` an item and a row field (refused
  * otherwise; running totals and ranks drop `scope`). `scope`:
  * `all` (default) sets `showAs` and clears `groupShowAs`; `leaf` sets `showAs` only; `group` sets
- * `groupShowAs` only.
+ * `groupShowAs` only. A leaf show-as on a measure that a calculated measure references is refused
+ * (the calculation would read the plain values; `validatePivotSpec` rejects that spec).
  */
 export function setPivotMeasureShowAs(
   spec: PivotSpec,
@@ -172,6 +192,8 @@ export function setPivotMeasureShowAs(
 ): PivotSpec {
   const m = spec.measures.find((x) => x.id === measureId);
   if (!m) return spec;
+  // A measure a calculated measure reads keeps its plain values (the calculation would read them before the show-as).
+  if (showAs !== "value" && (options.scope ?? "all") !== "group" && pivotCalcReferencers(spec, measureId).length) return spec;
   const needsBase = PIVOT_SHOW_AS_WITH_BASE.has(showAs);
   const fields = new Set([...spec.rows.map((d) => d.field), ...pivotColumnFields(spec).map((d) => d.field)]);
   if (needsBase && (!base || !fields.has(base.field))) return spec;

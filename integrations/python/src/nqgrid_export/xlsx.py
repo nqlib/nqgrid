@@ -155,6 +155,11 @@ def write_xlsx_from_sheet(
             end_row=m["row"] + m["rowSpan"],
             end_column=m["col"] + m["colSpan"],
         )
+    if sheet.get("units"):
+        # Unit note ("EUR thousands") in the printed page header, like the Node writer.
+        if sheet.get("title"):
+            ws.oddHeader.left.text = str(sheet["title"])
+        ws.oddHeader.right.text = str(sheet["units"])
     if frozen_rows or frozen_cols:
         ws.freeze_panes = ws.cell(row=frozen_rows + 1, column=frozen_cols + 1)
 
@@ -173,6 +178,8 @@ def write_xlsx_from_sheet(
         ss.append(["nqgrid · PivotSpec v1 (rebuild this workbook from the spec and the same rows)"])
         for text in sheet.get("filters") or []:
             ss.append(["filter", str(text)])
+        if sheet.get("units"):
+            ss.append(["units", str(sheet["units"])])
         ss.append([])
         for line in json.dumps(spec, indent=2, ensure_ascii=False).split("\n"):
             ss.append([line])

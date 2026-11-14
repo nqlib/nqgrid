@@ -1,6 +1,7 @@
 import {
   isPivotExportFormat,
   PIVOT_EXPORT_FORMATS,
+  pivotUnknownKeysMessage,
   validatePivotSpec,
   type PivotDataRow,
   type PivotExportFormat,
@@ -49,7 +50,12 @@ function validateOptions(input: unknown, errors: string[]): PivotExportOptions |
     if (!ok) errors.push(message);
   };
   const optionalString = (v: unknown) => v === undefined || v === null || typeof v === "string";
+  const allowed = ["theme", "profile", "page", "title", "subtitle", "units", "generatedAt", "maxColumnsPerPage", "minScale", "kpiPanel", "headerFooter", "locale", "table"];
+  const extra = Object.keys(o).filter((k) => k !== "css" && !allowed.includes(k));
+  if (extra.length) errors.push(pivotUnknownKeysMessage("options", extra));
   check(o.theme === undefined || o.theme === "light" || o.theme === "dark", 'options.theme must be "light" | "dark"');
+  check(o.profile === undefined || o.profile === "report" || o.profile === "statement", 'options.profile must be "report" | "statement"');
+  check(optionalString(o.units), "options.units must be a string or null");
   check(optionalString(o.title), "options.title must be a string or null");
   check(optionalString(o.subtitle), "options.subtitle must be a string or null");
   check(optionalString(o.generatedAt), "options.generatedAt must be a string (pass the timestamp in)");

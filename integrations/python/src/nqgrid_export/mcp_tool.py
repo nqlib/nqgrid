@@ -205,18 +205,25 @@ only describe the layout. The PDF/XLSX matches what users see in the app.
   `{"type": "weightedAvg", "weightField": "units"}`, or
   `{"type": "ratio", "numeratorField": "actual", "denominatorField": "priorYear", "offset": -1}` (offset -1 = growth).
   `field` is required except for `count` and `ratio`. Custom aggregators are not available.
+  `first` / `last` are the first / last **row in input order** (a group total takes one row, not each account's last
+  value), and `avg` averages rows: see "Traps" before using them for balances or headcount.
+  Measure properties (inside a measure, never at the top level):
+  - `format`: `{"style": "currency", "currency": "USD", "compact": true}`, `{"style": "percent", "signDisplay":
+    "exceptZero"}`, `{"style": "decimal", "decimals": 1}`; "in $k": `{"style": "currency", "currency": "USD",
+    "scale": 1000, "decimals": 1, "negative": "parentheses"}` (`scale`: 1000 | 1000000 | 1000000000).
+  - `showAs` / `groupShowAs`: `percentOfColumnTotal | percentOfParentRow | percentOfParentColumn | percentOfRowTotal |
+    percentOfGrandTotal`, or the kinds along a base field (see "Calculated measures and show values as");
+    `percentFormat` formats them.
 
-## Optional
-- `id` (also the file name), `title`, `subtitle`.
+## Optional (top-level keys)
+- `id` (also the file name), `title`, `subtitle`, `units` (unit note printed under the title and in the XLSX page
+  header, e.g. `"units": "USD thousands"`; text only, scale the numbers with `format.scale`).
 - `columns`: one column dimension, e.g. `{"field": "month", "order": ["Nov", "Dec", ...], "keepEmpty": true}`,
-  or a list of them, outermost first (see "Several column fields").
+  or a list of them, outermost first (see "Several column fields"). `keepEmpty` is for column dimensions only.
 - `values`: measure ids shown as grid columns (default: all measures). Other measures can still feed `kpis`.
-- `format`: `{"style": "currency", "currency": "USD", "compact": true}`,
-  `{"style": "percent", "signDisplay": "exceptZero"}`, `{"style": "decimal", "decimals": 1}`.
-- `showAs` / `groupShowAs`: `percentOfColumnTotal | percentOfParentRow | percentOfParentColumn | percentOfRowTotal |
-  percentOfGrandTotal`, or the kinds along a base field (see "Calculated measures and show values as").
 - `totals`: `{"grandTotal": true, "grandTotalPosition": "bottom", "rowTotal": false}` (`rowTotal` = the grand total
-  column; `subtotalLabel`, default `"{label} Total"`, names column subtotals).
+  column). `subtotalLabel` (default `"{label} Total"`) names column subtotals **and** `subtotal: "end"` rows; a
+  dimension's own `subtotalLabel` overrides it for that level.
 - `heat`: `{"measure": "actual", "scope": "all | column | row | group", "applyTo": "leaf | group | all"}`;
   `null` = no heat.
 - `headerCharts`: `{"measure": "actual", "type": "bar", "breakdown": true}` (bars above the column headers).
@@ -291,6 +298,9 @@ Filter in the spec instead of pre-filtering rows: the report header then prints 
   totals are `sum(actual) / sum(plan) - 1` (Excel calculated fields). Division by zero and null operands give an
   empty cell. At most 1000 characters; unknown functions, unknown measures and reference cycles are rejected.
   Calculated measures work in `values`, `heat`, `kpis`, `headerCharts`, `sortBy`, `topN` and `showAs`.
+- A calculated measure may **not** reference a measure that has a `showAs` (it would read the value before the
+  show-as; rejected; a `groupShowAs` alone is fine). Calculate first, then show: YTD variance =
+  `{"id": "ytdVar", "calculate": "actual - budget", "showAs": "runningTotal", "showAsBase": {"field": "PERIOD:month"}}`.
 - Show values as along a field: `"showAs": "percentOf" | "differenceFrom" | "percentDifferenceFrom" | "runningTotal" |
   "percentRunningTotal" | "rankAscending" | "rankDescending"` with `"showAsBase": {"field": "orderDate:year",
   "position": "previous"}` (or `"next"`, or `"item": "2025"` for a fixed base). The base field must be a row or
@@ -331,19 +341,50 @@ Rows SECTION → LINE, months as columns, an amount, a subtotal per section, Ope
   sections other than the grand total. Arrange sections so that each needed total is a section subtotal or the
   grand total, or add such rows to the data.
 - Example: `statement_example_spec` (sections, lines, LINE_SORT, SIGN on unsigned amounts, 12 months).
+- Print it as a statement: render option `"profile": "statement"` (bold totals, a rule above subtotals, a double rule
+  under the grand total, no grey bands). In thousands: `"scale": 1000` in the amount's `format` plus
+  `"units": "EUR thousands"`.
+
+## Traps (believable but wrong numbers)
+- **Balances are not summed over periods.** A balance sheet by quarter with `sum` adds the monthly balances; `last`
+  takes one row of the whole group (input order), not each account's closing balance. Filter to period-end months
+  (`{"field": "PERIOD:month", "include": ["Mar", "Jun", "Sep", "Dec"]}`) with no row total, or send period-end rows.
+- **`avg` averages rows**, not per-period totals: average headcount per department over a quarter needs rows already
+  summed to department × month (do it in SQL), then `avg`.
+- **Calculated measures see aggregated values only.** `coalesce(actual, budget)` ("latest estimate") is right per
+  month but the year total is actual-to-date only. Compute row-level values (LE, YTD, prior year) in SQL as their own
+  columns.
+- **`compact` is not "in thousands"**: it picks k / M per cell (`$950`, `$1.5k`, `$43.2k` in one column). Use
+  `format.scale` + `decimals` for one unit, and say so in `units`.
+- **Scenario as a column dimension adds scenarios up**: the total column and outer subtotals become Actual + Budget,
+  and a calculated measure cannot reference `Actual`. Send scenarios as separate value columns (`ACTUAL`, `BUDGET`,
+  `PY_ACTUAL`, `YTD_ACTUAL`, …) with one measure each; calculated measures then do `actual - budget`.
+- **Variance % on negative bases**: `percentDifferenceFrom` divides by the signed base, so a cost overrun on a signed
+  cost line shows +10 %. Use a calculated measure `(actual - budget) / abs(budget)`.
+- **Currencies are not converted**: rows in EUR and USD are summed as they are. Convert to one reporting currency
+  first and name it in `units`.
+- **Data shape for FP&A**: one row per entity × account × month with signed amounts and one column per scenario
+  (`ACTUAL`, `BUDGET`, `FORECAST`) and per pre-computed comparison (`PY_ACTUAL`, `YTD_ACTUAL`, `LE`). That avoids every
+  trap above.
 
 ## Rules
 - Every `field` must exist in the rows (see `datasets[].fields`), including filter fields (for `orderDate:year`
   the rows need `orderDate`); every measure id you reference (also in `sortBy` / `topN`) must be defined.
   `sortBy` / `topN` go on `rows` dimensions only.
-- Unknown keys are rejected. Never put HTML or CSS anywhere: styling is built in.
-- Render `options` (separate argument): `theme` (`light | dark`), `page` (`size` A4 | A3 | Letter | Legal | Tabloid,
-  `orientation`), `title` / `subtitle`, `maxColumnsPerPage`, `kpiPanel`, `locale`.
+- Unknown keys and invalid values are rejected (by this server's validator and by nqgrid-export itself, with the same
+  messages, e.g. `measures[0]: unknown key(s) ('filter' was unexpected)`). There is no measure-level `filter`, no
+  per-row format and no value filter: do not invent keys. Never put HTML or CSS anywhere: styling is built in.
+- Render `options` (separate argument): `theme` (`light | dark`), `profile` (`report | statement`), `page` (`size`
+  A4 | A3 | Letter | Legal | Tabloid, `orientation`), `title` / `subtitle` / `units`, `maxColumnsPerPage`, `kpiPanel`,
+  `locale`.
 
 ## Workflow
 1. Call `describe_pivot_spec` and pick a dataset and its fields.
 2. Call `export_pivot_report(spec=..., dataset=..., format="pdf", email_to=[...])`.
 3. If `ok` is false, read `validation_errors`, fix the spec and call again.
+4. If `diagnostics` is not empty (the report was still made), read the messages: amounts that are not numbers
+   (`"1,234.50"`, `"(500)"`, `"$12"` are not parsed and are left out of totals), fields no row has, invalid dates,
+   filter items or `showAsBase.item`s that match nothing. Fix the data or the spec and export again if they matter.
 """
 
 
@@ -360,6 +401,12 @@ class ExportPivotReportResult(BaseModel):
     recipients: list[str] = Field(default_factory=list)
     emailed: bool = False
     validation_errors: list[str] = Field(default_factory=list, description="Fix these in the spec / options and retry")
+    diagnostics: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Data problems found while building the report (the file was still made): amounts that are "
+        "not numbers, fields no row has, invalid dates, filter / base items that match nothing. Each has code, field, "
+        "path, message and samples; fix the data or spec if they matter.",
+    )
     error: str | None = Field(default=None, description="Non-validation failure (exporter down, email failed, …)")
     bytes: int | None = Field(default=None, description="File size")
 
@@ -570,7 +617,10 @@ class PivotReportService:
 
         # Export.
         try:
-            data = self.exporter.export(spec_dict, row_list, format, merged_options)
+            output = self.exporter.export_report(spec_dict, row_list, format, merged_options)
+            data = output.data
+            assert isinstance(data, bytes)
+            result.diagnostics = output.diagnostics
         except NqgridInvalidInput as e:
             result.validation_errors = e.details or [e.message]
             return result

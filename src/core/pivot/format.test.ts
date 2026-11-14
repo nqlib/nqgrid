@@ -69,6 +69,39 @@ describe("toExcelNumFmt", () => {
     );
     expect(toExcelNumFmt({ style: "currency", currency: "USD" })).toBe('"$"#,##0');
     expect(toExcelNumFmt({ decimals: 2, negative: "parentheses" })).toBe("#,##0.00;(#,##0.00)");
-    expect(toExcelNumFmt(usdCompact)).toBe('[>=1000000]"$"#,##0.0,,"M";[>=1000]"$"#,##0,"k";"$"#,##0');
+    expect(toExcelNumFmt(usdCompact)).toBe('[>=1000]"$"#,##0,"k";[<=-1000]-"$"#,##0,"k";"$"#,##0');
+  });
+
+  it("keeps compact negatives scaled, with their parentheses", () => {
+    expect(toExcelNumFmt({ ...usdCompact, negative: "parentheses" })).toBe('[>=1000]"$"#,##0,"k";[<=-1000]("$"#,##0,"k");"$"#,##0');
+    expect(toExcelNumFmt({ compact: true, decimals: 1 })).toBe('[>=1000]#,##0.0,"k";[<=-1000]-#,##0.0,"k";#,##0.0');
+  });
+
+  it("maps format.scale to Excel's scaling commas (sign and parentheses kept)", () => {
+    expect(toExcelNumFmt({ style: "currency", currency: "USD", scale: 1000, decimals: 1, negative: "parentheses" })).toBe(
+      '"$"#,##0.0,;("$"#,##0.0,)',
+    );
+    expect(toExcelNumFmt({ scale: 1_000_000, decimals: 2, suffix: "m" })).toBe('#,##0.00,,"m"');
+    expect(toExcelNumFmt({ scale: 1_000_000_000, decimals: 0, signDisplay: "exceptZero" })).toBe("+#,##0,,,;-#,##0,,,;#,##0,,,");
+  });
+});
+
+describe("format.scale", () => {
+  it("divides displayed values, then applies decimals, currency and negatives", () => {
+    const k = { style: "currency", currency: "USD", scale: 1000, decimals: 1, negative: "parentheses" } as const;
+    expect(formatPivotNumber(950, k)).toBe("$1.0");
+    expect(formatPivotNumber(43_200, k)).toBe("$43.2");
+    expect(formatPivotNumber(2_070, k)).toBe("$2.1");
+    expect(formatPivotNumber(-629, k)).toBe("($0.6)");
+    expect(formatPivotNumber(-12_345, k)).toBe("($12.3)");
+    expect(formatPivotNumber(-40, k)).toBe("$0.0");
+    expect(formatPivotNumber(1_234_567, { scale: 1_000_000, decimals: 2 })).toBe("1.23");
+    expect(formatPivotNumber(7_500_000_000, { scale: 1_000_000_000 })).toBe("7.5");
+    expect(formatPivotNumber(12_345_678, { scale: 1000, decimals: 0 })).toBe("12,346");
+  });
+
+  it("is ignored by percent style and compact (validatePivotSpec rejects both combinations)", () => {
+    expect(formatPivotNumber(0.25, { style: "percent", scale: 1000 })).toBe("25%");
+    expect(formatPivotNumber(12_345, { compact: true, scale: 1000 })).toBe("12.3k");
   });
 });

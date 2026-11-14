@@ -100,6 +100,10 @@ class NumberFormat(BaseModel):
     groupSeparator: str | None = None
     decimalSeparator: str | None = None
     empty: str | None = None
+    scale: Literal[1000, 1000000, 1000000000] | None = None
+    """
+    Divide displayed values by 1000 (thousands), 1000000 (millions) or 1000000000 (billions) before formatting with the usual decimals, sign and currency rules; aggregation, sorting and XLSX cell values are unchanged (Excel shows them scaled with #,##0, / #,##0,, ). Not with compact or percent style (validatePivotSpec).
+    """
 
 
 class SortBy(BaseModel):
@@ -259,7 +263,7 @@ class Dimension(BaseModel):
     sort: Literal["asc", "desc", "none"] | None = None
     keepEmpty: bool | None = None
     """
-    Column dimensions: keep order keys without data; date-grouped fields also fill gaps between the first and last period with data.
+    Column dimensions only (rejected on rows by validatePivotSpec): keep order keys without data; date-grouped fields also fill gaps between the first and last period with data.
     """
     blankLabel: str | None = None
     attributes: list[Attribute] | None = None
@@ -283,7 +287,7 @@ class Measure(BaseModel):
     field: Annotated[str | None, Field(min_length=1)] = None
     calculate: Annotated[str | None, Field(max_length=1000, min_length=1)] = None
     """
-    Calculated measure: an expression over other measure ids, evaluated per cell over their aggregated values, e.g. "actual / plan - 1" or "[prior year] * 1.05". Operators + - * / % ^, comparisons, and / or / not, null; functions abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull. Division by zero gives no value. Excludes field and aggregate. Grammar: docs/pivot-headless.md; test vectors: calc-expressions.json.
+    Calculated measure: an expression over other measure ids, evaluated per cell over their aggregated values, e.g. "actual / plan - 1" or "[prior year] * 1.05". Operators + - * / % ^, comparisons, and / or / not, null; functions abs, sqrt, floor, ceil, round, min, max, if, coalesce, ifnull. Division by zero gives no value. Referenced measures are read before their showAs, so referencing a measure whose showAs is not value is rejected (put showAs on the calculated measure; a groupShowAs alone is fine). Excludes field and aggregate. Grammar: docs/pivot-headless.md; test vectors: calc-expressions.json.
     """
     label: str | None = None
     aggregate: (
@@ -431,12 +435,20 @@ class Options(BaseModel):
         extra="forbid",
     )
     theme: Literal["light", "dark"] | None = None
+    profile: Literal["report", "statement"] | None = None
+    """
+    Print profile. report (default) prints like the app; statement prints finance-statement emphasis: bold totals in the full text colour, a rule above subtotal values, a double rule under the grand total, no grey bands, denser 28 px rows (unless table.rowHeight).
+    """
     page: Page | None = None
     title: str | None = None
     """
     Report title (default spec.title); null hides the report header.
     """
     subtitle: str | None = None
+    units: str | None = None
+    """
+    Unit note under the title (default: spec.units); null hides it.
+    """
     generatedAt: str | None = None
     """
     Printed verbatim (the exporter never reads the clock).
@@ -461,7 +473,7 @@ class Columns(RootModel[list[Dimension]]):
 
 class PivotSpec(BaseModel):
     """
-    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field, percentOf needing showAsBase.item, showAsBase.scope "all" needing an item and a row field, signField only on value aggregates) are done by validatePivotSpec().
+    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field, percentOf needing showAsBase.item, showAsBase.scope "all" needing an item and a row field, signField only on value aggregates, keepEmpty only on column dimensions, showAsBase only with a showAs kind that reads it, calculated measures not referencing measures with showAs, format.scale not with compact or percent) are done by validatePivotSpec().
     """
 
     model_config = ConfigDict(
@@ -471,6 +483,10 @@ class PivotSpec(BaseModel):
     id: str | None = None
     title: str | None = None
     subtitle: str | None = None
+    units: str | None = None
+    """
+    Unit note printed verbatim under the title of the PDF / HTML report and in the XLSX print header, e.g. "EUR thousands" or "($ in thousands)". It never changes numbers: scale values with format.scale.
+    """
     rows: Annotated[list[Dimension], Field(min_length=1)]
     columns: Dimension | Columns | None = None
     """

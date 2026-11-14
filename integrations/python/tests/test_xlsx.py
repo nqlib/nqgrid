@@ -49,7 +49,7 @@ def test_number_formats_present(workbook: Any, planning_sheet: dict[str, Any]) -
     }
     assert actual == expected
     assert "#,##0%" in actual
-    assert any(f.startswith("[>=1000000]") for f in actual)  # compact currency
+    assert any(f.startswith("[>=1000]") and ";[<=-1000]" in f for f in actual)  # compact currency, negatives scaled
 
 
 def test_merges(workbook: Any, planning_sheet: dict[str, Any]) -> None:

@@ -60,8 +60,9 @@ const kpiFormats = (spec: PivotSpec | undefined) => {
 
 /**
  * Workbook from `pivotModelToSheet`: the pivot sheet (numeric values + numFmt, merges, frozen panes,
- * bold subtotals, heat fills, column widths), a `KPIs` sheet and a hidden `Spec` sheet. Active
- * filters (`model.filters`) are listed under the KPIs and on the Spec sheet.
+ * bold subtotals, heat fills, column widths; `model.units` in the printed page header), a `KPIs` sheet
+ * (only when the spec has KPIs) and a hidden `Spec` sheet. Active filters (`model.filters`) are listed
+ * under the KPIs and on the Spec sheet, as are the units and `model.diagnostics`.
  */
 export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOptions = {}): Promise<Uint8Array> {
   const sheet = pivotModelToSheet(model);
@@ -88,6 +89,11 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
     ws.getRow(r + 1).height = r < sheet.frozenRows ? 20 : 18;
   });
   for (const m of sheet.merges) ws.mergeCells(m.row + 1, m.col + 1, m.row + m.rowSpan, m.col + m.colSpan);
+  // Unit note ("EUR thousands"): printed page header, title left and units right (`&` escaped as `&&`).
+  if (model.units) {
+    const esc = (s: string) => s.replace(/&/g, "&&");
+    ws.headerFooter.oddHeader = `${model.title ? `&L${esc(model.title)}` : ""}&R${esc(model.units)}`;
+  }
   for (let c = 0; c < sheet.columnCount; c++) {
     const texts =
       c < sheet.rowHeaderColumnCount
@@ -137,6 +143,8 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
     ss.addRow(["nqgrid-export · PivotSpec v1 (rebuild this workbook from the spec and the same rows)"]);
     ss.addRow(["generatedAt", options.generatedAt ?? null]);
     for (const text of sheet.filters ?? []) ss.addRow(["filter", text]);
+    if (model.units) ss.addRow(["units", model.units]);
+    for (const d of model.diagnostics ?? []) ss.addRow(["diagnostic", d.message]);
     ss.addRow([]);
     for (const line of JSON.stringify(options.spec, null, 2).split("\n")) ss.addRow([line]);
     ss.getColumn(1).width = 100;

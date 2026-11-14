@@ -71,6 +71,13 @@
             "dark"
           ]
         },
+        "profile": {
+          "enum": [
+            "report",
+            "statement"
+          ],
+          "description": "Print profile. report (default) prints like the app; statement prints finance-statement emphasis: bold totals in the full text colour, a rule above subtotal values, a double rule under the grand total, no grey bands, denser 28 px rows (unless table.rowHeight)."
+        },
         "page": {
           "type": "object",
           "additionalProperties": false,
@@ -123,6 +130,13 @@
             "string",
             "null"
           ]
+        },
+        "units": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Unit note under the title (default: spec.units); null hides it."
         },
         "generatedAt": {
           "description": "Printed verbatim (the exporter never reads the clock).",

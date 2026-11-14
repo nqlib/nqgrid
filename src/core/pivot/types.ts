@@ -49,6 +49,14 @@ export interface PivotNumberFormat {
   readonly decimalSeparator?: string;
   /** Text for null / non-numeric values (default empty string). */
   readonly empty?: string;
+  /**
+   * Divide the displayed value by `1000` (thousands), `1_000_000` (millions) or `1_000_000_000`
+   * (billions) before formatting, so a column reads in one unit (`$12,345` → `$12.3` with
+   * `decimals: 1`). Display only: aggregation, sorting, heat and XLSX cell values keep the real
+   * number (Excel shows it scaled through `#,##0,`). Not with `compact` or `style: "percent"`.
+   * Pair with `PivotSpec.units` to print the unit ("EUR thousands").
+   */
+  readonly scale?: 1000 | 1_000_000 | 1_000_000_000;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,7 +72,8 @@ export interface PivotDimension {
   /** Default `none` (first-seen order). */
   readonly sort?: "asc" | "desc" | "none";
   /**
-   * Column dimensions only: keep keys from `order` even when no record has them (e.g. fiscal months).
+   * Column dimensions only (`validatePivotSpec` rejects it on rows): keep keys from `order` even when no
+   * record has them (e.g. fiscal months).
    * Date-grouped fields also fill gaps: every period between the first and last key with data
    * (every month / quarter for `month` / `quarter`), nested consistently under date parents.
    */
@@ -218,6 +227,9 @@ export interface PivotFieldSpec {
 /**
  * `distinctCount` counts distinct non-blank keys of `field` (compared as strings, like dimension
  * keys); group and grand totals count distinct keys of all their records (not the sum of children).
+ * `first` / `last` take the first / last record **in input order** that has a value; a group or total
+ * takes one record of all of its records (not each account's last value summed), so they are not
+ * opening / closing balances. `avg` averages records, not per-period sums.
  */
 export type PivotBuiltInAggregate = "sum" | "avg" | "min" | "max" | "count" | "first" | "last" | "distinctCount";
 
@@ -289,8 +301,11 @@ export interface PivotMeasure {
   /**
    * Calculated measure (Excel's calculated field): an expression over other measure ids, e.g.
    * `actual / plan - 1` or `[prior year] * 1.05`, evaluated per cell over the referenced measures'
-   * aggregated values (so totals are `sum(actual) / sum(plan) - 1`, not a sum of ratios). Excludes
-   * `field` / `aggregate`. Grammar, functions and null rules: `parsePivotCalc` / `compilePivotCalc`.
+   * aggregated values (so totals are `sum(actual) / sum(plan) - 1`, not a sum of ratios). Referenced
+   * measures are read **before** their `showAs`, so referencing a measure whose `showAs` is not
+   * `value` is rejected by `validatePivotSpec`: put the `showAs` on the calculated measure instead (a
+   * `groupShowAs` alone is fine: group rows read the group's aggregate).
+   * Excludes `field` / `aggregate`. Grammar, functions and null rules: `parsePivotCalc` / `compilePivotCalc`.
    */
   readonly calculate?: string;
   readonly label?: string;
@@ -379,6 +394,12 @@ export interface PivotSpec {
   readonly id?: string;
   readonly title?: string;
   readonly subtitle?: string;
+  /**
+   * Unit note printed verbatim under the title of static HTML / PDF reports and in the XLSX print
+   * header, e.g. `"EUR thousands"` or `"($ in thousands)"`. Text only: scale values with
+   * `format.scale`.
+   */
+  readonly units?: string;
   /** Row hierarchy, outermost first. Every level but the last becomes a collapsible group. */
   readonly rows: readonly PivotDimension[];
   /**
@@ -604,6 +625,8 @@ export interface PivotModel {
   readonly id?: string;
   readonly title?: string;
   readonly subtitle?: string;
+  /** `spec.units`, when set. */
+  readonly units?: string;
   readonly layout: "tabular" | "compact";
   readonly rowDimensions: readonly PivotModelDimension[];
   /** The column field (with several, the outermost; see `columnDimensions`). */
@@ -639,4 +662,43 @@ export interface PivotModel {
   readonly recordCount?: { readonly total: number; readonly matched: number };
   /** Slicer data for `spec.facets` (present when requested). */
   readonly facets?: readonly PivotFacet[];
+  /**
+   * Non-fatal data / spec problems that leave cells empty or totals short (present when any):
+   * unparsable amounts, fields no record has, invalid dates, keys of mixed types, filter items and
+   * `showAsBase.item`s that match nothing. Bounded: one entry per field and problem, ≤ 5 samples each.
+   */
+  readonly diagnostics?: readonly PivotDiagnostic[];
+}
+
+/** Kinds of `PivotDiagnostic`. */
+export type PivotDiagnosticCode =
+  /** No record has the field (a typo?): its dimension is all `(blank)`, its measure empty. */
+  | "missingField"
+  /** Non-blank measure values that are not numbers or plain numeric strings (`"1,234.50"`, `"(500)"`, `"$12"`, `"0x10"`): left out of every total. */
+  | "unparsedNumbers"
+  /** Non-blank values of a date-grouped field that are not ISO-8601 dates or epoch ms: grouped as `(blank)`. */
+  | "invalidDates"
+  /** A key field mixes value types (`2024` and `"2024"` are one key, `1` and `"1.0"` two). */
+  | "mixedKeyTypes"
+  /** `filters[].include` / `exclude` items that no record has (keys compare as case-sensitive strings). */
+  | "filterItemsNotFound"
+  /** A `showAsBase.item` that is not a key of its field: the measure's cells are empty. */
+  | "baseItemNotFound";
+
+/** One entry of `PivotModel.diagnostics` (plain JSON; `message` is ready to show to a user or an agent). */
+export interface PivotDiagnostic {
+  readonly code: PivotDiagnosticCode;
+  /** Record field concerned (for derived date fields, the source field holding the dates). */
+  readonly field: string;
+  /** Spec path that reads the field first, e.g. `measures[0].field` or `filters[1].include`. */
+  readonly path: string;
+  /** Records affected (`missingField`: all of them). */
+  readonly count?: number;
+  /** Up to 5 examples: input record index (0-based) and the value as JSON-ish text. */
+  readonly samples?: readonly { readonly row: number; readonly value: string }[];
+  /** `mixedKeyTypes`: JS types seen, first one first. */
+  readonly types?: readonly string[];
+  /** `filterItemsNotFound` / `baseItemNotFound`: the items that match nothing (≤ 10). */
+  readonly items?: readonly string[];
+  readonly message: string;
 }

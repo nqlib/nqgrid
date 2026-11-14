@@ -48,12 +48,15 @@ export function pivotCurrencySymbol(fmt: PivotNumberFormat): string {
   return CURRENCY_SYMBOLS[code] ?? `${code} `;
 }
 
-/** Coerce finite numbers and numeric strings; everything else is `null`. */
+/** Coerce finite numbers and numeric strings (not radix literals such as `0x10`); everything else is `null`. */
 export function toPivotNumber(v: unknown): number | null {
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  if (typeof v === "string" && v.trim() !== "") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t === "") return null;
+    const n = Number(t);
+    // Radix literals (`0x10`) are not amounts: same rule as the record encoding.
+    return Number.isFinite(n) && !(t.length > 2 && t.charCodeAt(0) === 48 && /^0[xbo]/i.test(t)) ? n : null;
   }
   return null;
 }
@@ -109,7 +112,7 @@ export function formatPivotNumber(value: unknown, fmt: PivotNumberFormat = {}): 
   if (n === null) return fmt.empty ?? "";
 
   const style = fmt.style ?? "decimal";
-  const v = style === "percent" ? n * 100 : n;
+  const v = style === "percent" ? n * 100 : fmt.scale && !fmt.compact ? n / fmt.scale : n;
   let abs = Math.abs(v);
   let unit = "";
 
@@ -163,9 +166,18 @@ function excelLiteral(s: string): string {
   return s === "" ? "" : `"${s.replace(/"/g, "")}"`;
 }
 
+/** Excel's thousands-scaling commas for `format.scale` (`#,##0,` = thousands, `#,##0,,` = millions). */
+const excelScaleCommas = (scale: number | undefined): string =>
+  scale === 1_000_000_000 ? ",,," : scale === 1_000_000 ? ",," : scale === 1000 ? "," : "";
+
 /**
- * Best-effort Excel `numFmt` for a pivot format, so XLSX exports keep numbers numeric.
- * Compact formats use Excel's thousands-scaling commas and only abbreviate positive values.
+ * Best-effort Excel `numFmt` for a pivot format, so XLSX exports keep numbers numeric (the cell holds
+ * the real value; `format.scale` becomes Excel's scaling commas, `#,##0.0,` for thousands).
+ *
+ * Compact formats use the scaling commas too. Excel allows two conditions per format, so the XLSX
+ * abbreviates thousands for both signs (`[>=1000]$#,##0,"k";[<=-1000]($#,##0,"k");$#,##0`):
+ * negatives keep their sign / parentheses, and millions read `$4,760k` where the PDF prints `$4.76M`.
+ * Use `scale` when a column must read in one unit everywhere.
  */
 export function toExcelNumFmt(fmt: PivotNumberFormat = {}): string {
   const style = fmt.style ?? "decimal";
@@ -176,15 +188,14 @@ export function toExcelNumFmt(fmt: PivotNumberFormat = {}): string {
 
   if (fmt.compact && style !== "percent") {
     const units = fmt.compactUnits ?? DEFAULT_COMPACT_UNITS;
-    const d = fmt.decimals ?? 1;
-    return [
-      `[>=1000000]${pre}${digits(d)},,${excelLiteral(units[1])}${post}`,
-      `[>=1000]${pre}${digits(fmt.decimals ?? 0)},${excelLiteral(units[0])}${post}`,
-      `${pre}${digits(fmt.decimals ?? 0)}${post}`,
-    ].join(";");
+    const k = `${pre}${digits(fmt.decimals ?? 0)},${excelLiteral(units[0])}${post}`;
+    // The second (negative) section shows the absolute value: add the sign / parentheses back.
+    const negativeK = fmt.signDisplay === "never" ? k : fmt.negative === "parentheses" ? `(${k})` : `-${k}`;
+    return [`[>=1000]${k}`, `[<=-1000]${negativeK}`, `${pre}${digits(fmt.decimals ?? 0)}${post}`].join(";");
   }
 
-  const base = `${pre}${digits(decimals)}${post}`;
+  const scaleCommas = style === "percent" ? "" : excelScaleCommas(fmt.scale);
+  const base = `${pre}${digits(decimals)}${scaleCommas}${post}`;
   const neg = fmt.negative === "parentheses" ? `(${base})` : `-${base}`;
   switch (fmt.signDisplay ?? "auto") {
     case "always":

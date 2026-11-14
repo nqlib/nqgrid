@@ -30,10 +30,14 @@ NOW = dt.datetime(2026, 10, 30, 9, 0, tzinfo=dt.timezone.utc)
 
 class FakeExporter(PivotExporter):
     def __init__(
-        self, result: bytes = b"%PDF-1.7\n/Type /Page\n/Type /Page\n/Type /Pages\n", error: Exception | None = None
+        self,
+        result: bytes = b"%PDF-1.7\n/Type /Page\n/Type /Page\n/Type /Pages\n",
+        error: Exception | None = None,
+        diagnostics: list[dict[str, Any]] | None = None,
     ) -> None:
         self.result = result
         self.error = error
+        self.diagnostics = diagnostics
         self.calls: list[tuple[dict[str, Any], ExportFormat]] = []
 
     def _export_bytes(self, body: bytes, fmt: ExportFormat) -> bytes:
@@ -41,6 +45,11 @@ class FakeExporter(PivotExporter):
         if self.error:
             raise self.error
         return self.result
+
+    def _export_bytes_with_diagnostics(self, body: bytes, fmt: ExportFormat) -> tuple[bytes, list[dict[str, Any]]]:
+        if self.diagnostics is None:
+            return super()._export_bytes_with_diagnostics(body, fmt)
+        return self._export_bytes(body, fmt), self.diagnostics
 
     def health(self) -> dict[str, Any]:
         return {"ok": True}
@@ -216,6 +225,19 @@ def test_validation_errors_are_returned_not_raised(
     assert expected in result.validation_errors
     assert exporter.calls == []
     assert result.path is None
+
+
+def test_diagnostics_are_returned_with_the_report(
+    tmp_path: Path, provider: DictRowProvider, planning_spec: dict[str, Any]
+) -> None:
+    diagnostics = [{"code": "unparsedNumbers", "field": "actual", "count": 3, "message": "3 values of …"}]
+    service = make_service(tmp_path, FakeExporter(diagnostics=diagnostics), provider)
+    result = service.export_pivot_report(spec=planning_spec, dataset="planning-fy26")
+    assert result.ok
+    assert result.diagnostics == diagnostics
+    clean_service = make_service(tmp_path, FakeExporter(), provider)
+    clean = clean_service.export_pivot_report(spec=planning_spec, dataset="planning-fy26")
+    assert clean.ok and clean.diagnostics == []
 
 
 def test_unknown_dataset_and_field_typos(

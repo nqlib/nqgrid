@@ -51,10 +51,14 @@ export interface PivotExportTableOptions {
 /** JSON-safe render options (`renderPivotHtml` options minus `css`, plus the PDF-only `headerFooter`). */
 export interface PivotExportOptions {
   readonly theme?: "light" | "dark";
+  /** `report` (default) or `statement` (finance-statement emphasis, see `renderPivotHtml`). */
+  readonly profile?: "report" | "statement";
   readonly page?: PivotExportPageOptions;
   /** Default `spec.title`; `null` hides the report header. */
   readonly title?: string | null;
   readonly subtitle?: string | null;
+  /** Unit note under the title (default `spec.units`); `null` hides it. */
+  readonly units?: string | null;
   /** Printed verbatim (the exporter never reads the clock). */
   readonly generatedAt?: string | null;
   readonly maxColumnsPerPage?: number;
@@ -105,7 +109,7 @@ function pick(input: unknown, keys: readonly string[], nested: Record<string, re
   return Object.keys(out).length ? out : undefined;
 }
 
-const OPTION_KEYS = ["theme", "page", "title", "subtitle", "generatedAt", "maxColumnsPerPage", "minScale", "kpiPanel", "headerFooter", "locale", "table"] as const;
+const OPTION_KEYS = ["theme", "profile", "page", "title", "subtitle", "units", "generatedAt", "maxColumnsPerPage", "minScale", "kpiPanel", "headerFooter", "locale", "table"] as const;
 const NESTED_OPTION_KEYS: Record<string, readonly string[]> = {
   page: ["size", "orientation", "margins"],
   margins: ["top", "right", "bottom", "left"],

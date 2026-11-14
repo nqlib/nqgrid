@@ -34,8 +34,11 @@ describe("reducePivotGridSpec: step-4 actions", () => {
     const calc = reducePivotGridSpec(base, m, { type: "setCalculatedMeasure", measure: { id: "vs", label: "vs Plan", calculate: "actual / plan - 1" } });
     expect(calc.values).toEqual(["actual", "vs"]);
     expect(reducePivotGridSpec(base, m, { type: "setCalculatedMeasure", measure: { calculate: "actual /" } })).toBe(base);
-    const showAs = reducePivotGridSpec(calc, m, { type: "setMeasureShowAs", measureId: "actual", showAs: "runningTotal", base: { field: "month" } });
+    const showAs = reducePivotGridSpec(base, m, { type: "setMeasureShowAs", measureId: "actual", showAs: "runningTotal", base: { field: "month" } });
     expect(showAs.measures[0]).toMatchObject({ showAs: "runningTotal", showAsBase: { field: "month" } });
+    // "vs" reads actual: a leaf show-as on actual is refused (the calculation would read the plain values).
+    expect(reducePivotGridSpec(calc, m, { type: "setMeasureShowAs", measureId: "actual", showAs: "runningTotal", base: { field: "month" } })).toBe(calc);
+    expect(reducePivotGridSpec(showAs, m, { type: "setCalculatedMeasure", measure: { id: "vs", calculate: "actual / plan - 1" } })).toBe(showAs);
     expect(reducePivotGridSpec(base, m, { type: "setSubtotal", field: "department", position: "end" }).rows[0]!.subtotal).toBe("end");
     expect(reducePivotGridSpec(calc, m, { type: "removeMeasure", measureId: "vs" }).values).toEqual(["actual"]);
   });

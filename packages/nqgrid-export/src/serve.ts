@@ -2,7 +2,14 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 
 import { PivotExportError, invalidInput, toPivotExportError } from "./errors";
-import { PIVOT_EXPORT_CONTENT_TYPES, PIVOT_EXPORT_EXTENSIONS, createPivotExporter, type PivotExporter } from "./exporter";
+import {
+  PIVOT_DIAGNOSTICS_HEADER,
+  PIVOT_EXPORT_CONTENT_TYPES,
+  PIVOT_EXPORT_EXTENSIONS,
+  createPivotExporter,
+  pivotDiagnosticsHeaderValue,
+  type PivotExporter,
+} from "./exporter";
 import { isPivotExportFormat, parsePivotExportRequest, PIVOT_EXPORT_FORMATS } from "./request";
 import { NQGRID_EXPORT_VERSION } from "./version";
 
@@ -80,7 +87,8 @@ const sendJson = (res: ServerResponse, status: number, body: unknown, headers: R
 /**
  * HTTP export service (plain `node:http`) keeping one Chromium warm:
  * - `GET /healthz` → `{ ok, version, browser, formats }`
- * - `POST /export?format=pdf|xlsx|html|model|sheet` with `{ spec, rows, options? }` → the file.
+ * - `POST /export?format=pdf|xlsx|html|model|sheet` with `{ spec, rows, options? }` → the file, plus
+ *   `x-nqgrid-diagnostics: [...]` (JSON, `model.diagnostics`) when the data has problems worth reporting.
  * Errors are `{ error: { code, message, details? } }` with 400 / 404 / 405 / 413 / 415 / 500.
  */
 export async function startPivotExportServer(options: PivotExportServerOptions = {}): Promise<PivotExportServer> {
@@ -116,10 +124,10 @@ export async function startPivotExportServer(options: PivotExportServerOptions =
       const queryFormat = url.searchParams.get("format");
       if (queryFormat !== null && !isPivotExportFormat(queryFormat)) throw invalidInput(`format must be one of ${PIVOT_EXPORT_FORMATS.join(", ")}`);
       const request = parsePivotExportRequest(json, queryFormat ?? undefined);
-      const run = () => exporter.export(request);
+      const run = () => exporter.exportDetailed(request);
       // PDF (Chromium pages) and XLSX (workbooks are built asynchronously, up to ~1 KB of memory per cell)
       // share the concurrency limit; html / model / sheet are synchronous.
-      const result = request.format === "pdf" || request.format === "xlsx" ? await limit(run) : await run();
+      const { data: result, diagnostics } = request.format === "pdf" || request.format === "xlsx" ? await limit(run) : await run();
       const bytes = typeof result === "string" ? Buffer.from(result, "utf8") : Buffer.from(result.buffer, result.byteOffset, result.byteLength);
       const name = `${(request.spec.id ?? "pivot").replace(/[^\w.-]+/g, "_")}.${PIVOT_EXPORT_EXTENSIONS[request.format]}`;
       status = 200;
@@ -128,6 +136,7 @@ export async function startPivotExportServer(options: PivotExportServerOptions =
         "content-length": bytes.length,
         "content-disposition": `attachment; filename="${name}"`,
         "cache-control": "no-store",
+        ...(diagnostics.length ? { [PIVOT_DIAGNOSTICS_HEADER]: pivotDiagnosticsHeaderValue(diagnostics) } : {}),
       });
       res.end(bytes);
     } catch (error) {

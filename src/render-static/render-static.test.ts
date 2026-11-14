@@ -16,6 +16,7 @@ import { pivotBodyGroups, pivotKpiPanelHeight } from "../pivot/layout";
 import { PIVOT_SERIES_COLORS } from "../styles";
 import {
   PIVOT_STATIC_CSS,
+  PIVOT_STATIC_STATEMENT_CSS,
   mixHexColors,
   pivotColumnChunks,
   pivotColumnsPerPage,
@@ -212,6 +213,52 @@ describe("renderPivotHtml", () => {
     expect(plain).not.toContain("data-nqg-kpi-panel");
     expect(plain).not.toContain('<header class="nqg-report-header"');
     expect(plain).toMatch(/>Camp<\/span><span class="nqg-pivot-delta nqg-pivot-up" title="Growth on FY25">\+1%/);
+  });
+});
+
+describe("statement profile, units and print pagination", () => {
+  const statementRows = generateStatementPivotRows();
+  const statement = buildPivotModel(statementPivotSpec, statementRows);
+
+  it("profile: statement appends the statement CSS and uses 28 px rows; report stays byte-identical", () => {
+    const report = renderPivotHtml(statement, { generatedAt });
+    const printed = renderPivotHtml(statement, { generatedAt, profile: "statement" });
+    expect(report).not.toContain(PIVOT_STATIC_STATEMENT_CSS);
+    expect(printed).toContain(PIVOT_STATIC_STATEMENT_CSS);
+    expect(printed).toContain('style="height:28px"');
+    expect(printed).not.toContain('style="height:36px"><td');
+    expect(renderPivotHtml(statement, { generatedAt, profile: "statement", table: { rowHeight: 32 } })).toContain('data-kind="leaf" data-depth="1" style="height:32px"');
+    // Statement CSS: totals in the full text colour and bold, rules above subtotals, double rule under the grand total.
+    expect(PIVOT_STATIC_STATEMENT_CSS).toContain(".nqg-pivot .nqg-pivot-group-value { color: var(--nqg-fg); }");
+    expect(PIVOT_STATIC_STATEMENT_CSS).toContain('tr[data-kind="subtotal"] > .nqg-pivot-value { border-top: 1px solid var(--nqg-fg); }');
+    expect(PIVOT_STATIC_STATEMENT_CSS).toContain("inset 0 -3px 0 var(--nqg-fg)");
+    // Print output drops the interactive affordances: no child-count badges, no sort arrows.
+    expect(printed).not.toContain('class="nqg-pivot-count"');
+    expect(printed).not.toContain("data-nqg-indicator");
+  });
+
+  it("prints spec.units under the title (escaped); options.units overrides, null hides", () => {
+    const withUnits = buildPivotModel({ ...statementPivotSpec, units: "EUR thousands <net>" }, statementRows);
+    expect(withUnits.units).toBe("EUR thousands <net>");
+    const out = renderPivotHtml(withUnits, { generatedAt });
+    expect(out).toContain('<p class="nqg-report-subtitle nqg-report-units" data-nqg-units="">EUR thousands &lt;net&gt;</p>');
+    expect(renderPivotHtml(withUnits, { generatedAt, units: "($ in millions)" })).toContain(">($ in millions)</p>");
+    expect(renderPivotHtml(withUnits, { generatedAt, units: null })).not.toContain("data-nqg-units");
+    expect(renderPivotHtml(statement, { generatedAt })).not.toContain("data-nqg-units");
+  });
+
+  it("splits a section longer than a page with its label repeated, and never leaves page 1 empty", () => {
+    const rows = [];
+    for (let s = 0; s < 2; s++) for (let l = 0; l < 45; l++) rows.push({ SECTION: `Section ${s}`, LINE: `Account ${s}-${String(l).padStart(2, "0")}`, ACT: 1000 + l });
+    const spec: PivotSpec = { version: 1, title: "Long P&L", layout: "compact", rows: [{ field: "SECTION", subtotal: "end" }, { field: "LINE" }], measures: [{ id: "a", field: "ACT" }] };
+    const out = renderPivotHtml(buildPivotModel(spec, rows), { generatedAt });
+    const bodies = out.split("<tbody").slice(1);
+    // The first section starts on page 1 (no page break before its first rows).
+    expect(bodies[0]).toContain("Account 0-00");
+    expect(bodies[0]).not.toContain("data-nqg-page-break");
+    expect(bodies.filter((b) => b.includes("data-nqg-continued")).length).toBeGreaterThanOrEqual(2);
+    expect(out).toContain("Section 0 (cont.)</span>");
+    expect(renderPivotHtml(buildPivotModel(spec, rows), { generatedAt, locale: { continued: "(suite)" } })).toContain("Section 1 (suite)");
   });
 });
 

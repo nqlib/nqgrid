@@ -523,8 +523,9 @@ function omitKeys<T extends object, K extends keyof T>(obj: T, ...keys: K[]): Om
 }
 
 /**
- * A dimension on its way into Columns (no `sortBy` / `topN`). `subtotal` is valid in both areas
- * (row groups: `start` / `end` / `none` rows, column groups: subtotal columns), so it travels.
+ * A dimension on its way into Columns (no `sortBy` / `topN`; `keepEmpty` is dropped on the way into
+ * Rows). `subtotal` is valid in both areas (row groups: `start` / `end` / `none` rows, column groups:
+ * subtotal columns), so it travels.
  */
 const stripColumnOnly = (d: PivotDimension): PivotDimension => omitKeys(d, "sortBy", "topN");
 const clamp = (i: number | undefined, max: number) => (i === undefined ? max : Math.max(0, Math.min(max, Math.floor(i))));
@@ -812,7 +813,9 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   // Measure references: value-based sort / Top N on a measure that left Values are dropped (like
   // Excel); heat and header charts follow the first remaining value.
   const rows = layout.rows.map((d) => {
-    let out = d;
+    // `keepEmpty` is column-only (validatePivotSpec rejects it on rows); like `sortBy` / `topN` on the
+    // way into Columns, it does not travel into Rows.
+    let out = d.keepEmpty !== undefined ? omitKeys(d, "keepEmpty") : d;
     if (d.sortBy && removed.has(d.sortBy.measure)) out = omitKeys(out, "sortBy");
     if (d.topN && removed.has(d.topN.measure)) out = omitKeys(out, "topN");
     return out;

@@ -2,11 +2,40 @@
 
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Any, Literal, overload
 
 from .formats import ExportFormat, ExportResult, ReportFormat, check_format, decode_result
 from .request import OptionsInput, Rows, SpecInput, build_export_request, dumps_request
+
+DIAGNOSTICS_HEADER = "x-nqgrid-diagnostics"
+"""Response header of ``POST /export`` with ``model.diagnostics`` (JSON array)."""
+
+
+@dataclass(frozen=True)
+class ExportOutput:
+    """:meth:`PivotExporter.export_report` result: the file plus nqgrid's ``model.diagnostics``.
+
+    Each diagnostic is a dict with ``code`` (``unparsedNumbers``, ``missingField``, ``invalidDates``,
+    ``mixedKeyTypes``, ``filterItemsNotFound``, ``baseItemNotFound``), ``field``, ``path``, ``message`` and,
+    depending on the code, ``count``, ``samples`` (``[{"row", "value"}]``), ``types`` or ``items``.
+    """
+
+    data: ExportResult
+    diagnostics: list[dict[str, Any]] = field(default_factory=list)
+
+
+def parse_diagnostics(text: str | None) -> list[dict[str, Any]]:
+    """A diagnostics JSON array (header value or CLI stderr payload) → list of dicts (``[]`` if malformed)."""
+    if not text:
+        return []
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    return [d for d in value if isinstance(d, dict)] if isinstance(value, list) else []
 
 
 class PivotExporter(ABC):
@@ -45,6 +74,20 @@ class PivotExporter(ABC):
         fmt = check_format(format)
         body = dumps_request(build_export_request(spec, rows, options=options))
         return decode_result(fmt, self._export_bytes(body, fmt))
+
+    def export_report(
+        self, spec: SpecInput, rows: Rows, format: ExportFormat = "pdf", options: OptionsInput | None = None
+    ) -> ExportOutput:
+        """Like :meth:`export`, plus the model's ``diagnostics``: data problems that leave cells empty or
+        totals short (amounts that are not numbers, fields no row has, invalid dates, …). ``[]`` when none."""
+        fmt = check_format(format)
+        body = dumps_request(build_export_request(spec, rows, options=options))
+        data, diagnostics = self._export_bytes_with_diagnostics(body, fmt)
+        return ExportOutput(decode_result(fmt, data), diagnostics)
+
+    def _export_bytes_with_diagnostics(self, body: bytes, fmt: ExportFormat) -> tuple[bytes, list[dict[str, Any]]]:
+        """``_export_bytes`` plus diagnostics; exporters that cannot report them return ``[]``."""
+        return self._export_bytes(body, fmt), []
 
     @abstractmethod
     def _export_bytes(self, body: bytes, fmt: ExportFormat) -> bytes:

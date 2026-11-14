@@ -35,6 +35,7 @@ import {
   type PivotCell,
   type PivotHeaderSeriesPoint,
   type PivotDataRow,
+  type PivotDiagnostic,
   type PivotDimension,
   type PivotFacet,
   type PivotFacetSpec,
@@ -929,6 +930,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(spec.id !== undefined ? { id: spec.id } : {}),
     ...(spec.title !== undefined ? { title: spec.title } : {}),
     ...(spec.subtitle !== undefined ? { subtitle: spec.subtitle } : {}),
+    ...(spec.units !== undefined ? { units: spec.units } : {}),
     layout: spec.layout ?? "tabular",
     rowDimensions,
     columnDimension: columnDimensions[0] ?? null,
@@ -945,7 +947,28 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     ...(activeFilters.length ? { filters: activeFilters } : {}),
     ...(anyFilter ? { recordCount: cube.recordCount } : {}),
     ...(facets ? { facets } : {}),
+    ...diagnosticsOf(cube, spec),
   };
+}
+
+/** `cube.diagnostics` plus `showAsBase.item`s that are not keys of their field (view state, so not cached in the cube). */
+function diagnosticsOf(cube: PivotCube, spec: PivotSpec): { diagnostics?: readonly PivotDiagnostic[] } {
+  let out: PivotDiagnostic[] | null = null;
+  if (cube.recordCount.total > 0) {
+    spec.measures.forEach((m, i) => {
+      const base = m.showAsBase;
+      if (base?.item === undefined || cube.hasKey(base.field, base.item)) return;
+      (out ??= []).push({
+        code: "baseItemNotFound",
+        field: base.field,
+        path: `measures[${i}].showAsBase.item`,
+        items: [base.item],
+        message: `measures[${i}].showAsBase.item ${JSON.stringify(base.item)} is not a value of "${base.field}" (keys compare as case-sensitive strings); the measure's cells are empty.`,
+      });
+    });
+  }
+  if (!out) return cube.diagnostics.length ? { diagnostics: cube.diagnostics } : {};
+  return { diagnostics: [...cube.diagnostics, ...(out as PivotDiagnostic[])] };
 }
 
 function toPivotFacet(spec: PivotSpec, f: PivotCubeFacet, facetSpec: PivotFacetSpec): PivotFacet {

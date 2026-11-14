@@ -20,7 +20,7 @@ from .errors import (
     NqgridPayloadTooLarge,
     NqgridUnavailable,
 )
-from .exporter import PivotExporter
+from .exporter import ExportOutput, PivotExporter
 from .formats import EXPORT_FORMATS, ExportFormat, ExportResult, ReportFormat, export_filename, pdf_page_count
 from .models import PivotExportRequest, PivotSpec
 from .request import build_export_request
@@ -46,6 +46,7 @@ __all__ = [
     "AsyncNqgridExportClient",
     "CalcError",
     "ExportFormat",
+    "ExportOutput",
     "ExportResult",
     "NqgridExportClient",
     "NqgridExportError",

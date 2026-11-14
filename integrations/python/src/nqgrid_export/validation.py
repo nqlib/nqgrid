@@ -11,8 +11,13 @@ Three layers, cheapest first:
    :mod:`nqgrid_export.calc`, unknown references, reference cycles), ``showAsBase`` (required by
    ``percentOf`` and the difference / running-total / rank kinds of ``showAs``, must name a row or column
    field; ``percentOf`` needs an ``item``; ``scope: "all"`` needs an item, a row field and an item kind),
-   ``signField`` (not with counts, distinct counts or calculated measures), and custom aggregators (not
-   available in nqgrid-export).
+   ``signField`` (not with counts, distinct counts or calculated measures), ``keepEmpty`` only on column
+   dimensions, ``showAsBase`` only where a ``showAs`` kind reads it, no calculated measure over a show-as measure,
+   ``format.scale`` not with ``compact`` / percent style, and custom aggregators (not available in nqgrid-export).
+
+nqgrid's ``validatePivotSpec`` runs the same checks (layers 1 and 2), so both accept and reject the same specs;
+``contract/pivot/v1/invalid-specs.json`` is run by both test suites (identical messages for unknown keys and the
+referential checks above, identical paths for schema enums and types).
 3. nqgrid-export itself (authoritative): ``NqgridInvalidInput.details``.
 
 Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
@@ -211,6 +216,8 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
     for i, d in enumerate(spec.get("rows") or []):
         if not isinstance(d, dict):
             continue
+        if isinstance(d.get("keepEmpty"), bool):
+            errors.append(f"{prefix}rows[{i}].keepEmpty is only supported on column dimensions")
         for key in ("sortBy", "topN"):
             if isinstance(d.get(key), dict):
                 ref(d[key].get("measure"), f"rows[{i}].{key}.measure")
@@ -247,6 +254,38 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
                 errors.append(f"{prefix}fields[{i}].source must differ from field")
     row_fields = {f for f, where in used.items() if where.startswith("rows[")}
     errors += _measure_errors(spec, prefix, ids, set(used), row_fields)
+    errors += _format_errors(spec, prefix)
+    return errors
+
+
+FORMAT_SCALES = (1000, 1_000_000, 1_000_000_000)
+"""``format.scale`` values (Excel scales by powers of 1000: ``#,##0,`` / ``#,##0,,`` / ``#,##0,,,``)."""
+
+
+def _number_formats(spec: dict[str, Any]) -> list[tuple[str, Any]]:
+    out: list[tuple[str, Any]] = []
+    for i, m in enumerate(spec.get("measures") or []):
+        if isinstance(m, dict):
+            out += [(f"measures[{i}].{k}", m.get(k)) for k in ("format", "percentFormat")]
+    for i, k in enumerate(spec.get("kpis") or []):
+        if isinstance(k, dict):
+            out += [(f"kpis[{i}].{key}", k.get(key)) for key in ("format", "deltaFormat")]
+    for i, f in enumerate(spec.get("fields") or []):
+        if isinstance(f, dict):
+            out.append((f"fields[{i}].format", f.get("format")))
+    return out
+
+
+def _format_errors(spec: dict[str, Any], prefix: str) -> list[str]:
+    """``format.scale`` combinations the schema cannot express (same messages as nqgrid)."""
+    errors: list[str] = []
+    for where, f in _number_formats(spec):
+        if not isinstance(f, dict) or f.get("scale") not in FORMAT_SCALES or isinstance(f.get("scale"), bool):
+            continue
+        if f.get("compact") is True:
+            errors.append(f"{prefix}{where}: scale cannot be combined with compact (pick one)")
+        elif f.get("style") == "percent":
+            errors.append(f"{prefix}{where}: scale does not apply to percent style")
     return errors
 
 
@@ -262,6 +301,11 @@ def _show_as_base_errors(m: dict[str, Any], where: str, layout_fields: set[str],
             errors.append(f"{where}.showAsBase is required by its showAs / groupShowAs")
         return errors
     if not isinstance(base, dict) or not isinstance(base.get("field"), str):
+        return errors
+    if not any(k in SHOW_AS_WITH_BASE for k in kinds):
+        used = [k for k in kinds if isinstance(k, str)]
+        by = "showAs " + " / ".join(f'"{k}"' for k in used) if used else "a measure without showAs"
+        errors.append(f"{where}.showAsBase is not used by {by} (only {', '.join(SHOW_AS_WITH_BASE)} read it)")
         return errors
     field = base["field"]
     if field not in layout_fields:
@@ -287,6 +331,13 @@ def _measure_errors(
     errors: list[str] = []
     refs: dict[str, list[str]] = {}
     where_of: dict[str, str] = {}
+    # Leaf ``showAs`` other than "value" (a ``groupShowAs`` alone is fine: group rows read the aggregate).
+    show_as_of = {
+        m["id"]: m["showAs"]
+        for m in spec.get("measures") or []
+        if isinstance(m, dict) and isinstance(m.get("id"), str) and isinstance(m.get("showAs"), str)
+        if m["showAs"] != "value"
+    }
     for i, m in enumerate(spec.get("measures") or []):
         if not isinstance(m, dict) or not isinstance(m.get("id"), str):
             continue
@@ -309,9 +360,24 @@ def _measure_errors(
             continue
         refs[m["id"]] = list(parsed.references)
         where_of.setdefault(m["id"], where)
+        for ref in parsed.references:
+            kind = show_as_of.get(ref)
+            if kind:
+                errors.append(calc_show_as_message(where, ref, kind))
     for cycle in find_cycles(refs):
         errors.append(f"{where_of.get(cycle[0], prefix + 'measures')}.calculate: reference cycle {' → '.join(cycle)}")
     return errors
+
+
+def calc_show_as_message(where: str, ref: str, kind: str) -> str:
+    """A calculated measure referencing a measure with ``showAs``: it would read the value before the
+    show-as (a "YTD variance" over two running totals gives the monthly variance). Mirrors
+    ``pivotCalcShowAsMessage``."""
+    return (
+        f'{where}.calculate: references "{ref}", which has showAs "{kind}"; calculated measures read aggregated '
+        "values before showAs. Reference the plain measure and put showAs on the calculated measure instead "
+        f'(e.g. calculate "actual - budget" with showAs "{kind}")'
+    )
 
 
 def check_calculated_measure(spec: Mapping[str, Any], calculate: Any, measure_id: str | None = None) -> str | None:
@@ -322,6 +388,10 @@ def check_calculated_measure(spec: Mapping[str, Any], calculate: Any, measure_id
     parsed = parse_calc(calculate, ids)
     if parsed.error is not None:
         return str(parsed.error)
+    for ref in parsed.references:
+        kind = next((m.get("showAs") for m in measures if m["id"] == ref and m["id"] != measure_id), None)
+        if isinstance(kind, str) and kind != "value":
+            return calc_show_as_message("", ref, kind).removeprefix(".calculate: ")
     if measure_id is None:
         return None
     refs = {

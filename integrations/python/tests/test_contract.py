@@ -510,3 +510,29 @@ def test_statement_spec_round_trips_and_mirrors_ts_validation() -> None:
     assert validate_pivot_spec(
         {**base, "measures": [{"id": "m", "field": "v"}, {"id": "c", "calculate": "m", "signField": "s"}]}
     ) == ["measures[1]: signField cannot be combined with calculate (sign the measures it references)"]
+
+
+# Shared with src/core/pivot/validate.test.ts: same rejections, same messages (errors) or paths (paths).
+VECTORS = json.loads((CONTRACT / "invalid-specs.json").read_text())
+
+
+def _has_error_at(errors: list[str], path: str) -> bool:
+    return any(e.startswith(path) and e[len(path) : len(path) + 1] in (":", " ", ".", "[") for e in errors)
+
+
+@pytest.mark.parametrize("vector", VECTORS["invalid"], ids=lambda v: v["name"])
+def test_shared_invalid_vectors(vector: dict[str, Any]) -> None:
+    errors = validate_pivot_spec(vector["spec"])
+    assert errors
+    for message in vector.get("errors", []):
+        assert message in errors
+    for path in vector.get("paths", []):
+        assert _has_error_at(errors, path), (path, errors)
+    assert spec_validator.is_valid(vector["spec"]) is bool(vector.get("schemaValid"))
+
+
+@pytest.mark.parametrize("vector", VECTORS["valid"], ids=lambda v: v["name"])
+def test_shared_valid_vectors(vector: dict[str, Any]) -> None:
+    assert validate_pivot_spec(vector["spec"]) == []
+    assert spec_validator.is_valid(vector["spec"])
+    PivotSpec.model_validate(vector["spec"])

@@ -11,7 +11,7 @@ import {
 import { createPivotRowEncoding, pivotSpecEncoding, type PivotFieldCodes, type PivotRowEncoding } from "./encode";
 import { compilePivotFilters, runPivotFilterPass, type PivotFacetCounts } from "./filter";
 import { toPivotNumber } from "./format";
-import type { PivotDataRow, PivotDimension, PivotFacetSpec, PivotMeasure, PivotSpec } from "./types";
+import type { PivotDataRow, PivotDiagnostic, PivotDimension, PivotFacetSpec, PivotMeasure, PivotSpec } from "./types";
 
 /**
  * Key of the Top-N "Other" row (a control character, so it never collides with real keys).
@@ -167,6 +167,10 @@ export interface PivotCube {
    * `createPivotModelBuilder` budgets its cube cache with it.
    */
   readonly byteSize: number;
+  /** Data-quality problems of the fields this cube read (see `PivotModel.diagnostics`), in spec order. */
+  readonly diagnostics: readonly PivotDiagnostic[];
+  /** Whether some record (before filters) has `key` for `field` (derived date fields resolved). */
+  hasKey(field: string, key: string): boolean;
 }
 
 export interface PivotCubeFacet {
@@ -1319,8 +1323,150 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     keyTotal,
     recordCount: { total: n, matched: root.rowCount },
     facets,
+    diagnostics: pivotCubeDiagnostics(spec, enc),
+    hasKey: (field, key) => enc.codes(field).index.has(key),
     byteSize: nodes.length * ((buckets + 1) * S * 8 + NODE_BYTES) + (custom ? root.rowCount * (leafDepth + 2) * 2 * 8 : 0),
   };
+}
+
+const MAX_DIAGNOSTIC_ITEMS = 10;
+
+const sampleList = (samples: readonly { row: number; value: string }[]) => samples.map((s) => `${s.value} (row ${s.row})`).join(", ");
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Diagnostics from the statistics the encoding gathered while the cube read its fields (no extra
+ * pass over the records): one entry per field and problem, in spec order.
+ */
+function pivotCubeDiagnostics(spec: PivotSpec, enc: PivotRowEncoding): PivotDiagnostic[] {
+  const n = enc.length;
+  if (n === 0) return [];
+  const out: PivotDiagnostic[] = [];
+  const done = new Set<string>();
+  const once = (code: string, field: string) => {
+    const id = `${code}\u0000${field}`;
+    if (done.has(id)) return false;
+    done.add(id);
+    return true;
+  };
+  const missing = (field: string, path: string): boolean => {
+    const st = enc.stats(field);
+    if (!st || st.missing !== n) return false;
+    if (once("missingField", field)) {
+      out.push({ code: "missingField", field, path, count: n, message: `No record has the field "${field}" (${path}); check the spelling. Its cells are empty or (blank).` });
+    }
+    return true;
+  };
+  const keyField = (field: string, path: string) => {
+    const def = resolvePivotDateField(spec, field);
+    if (def) {
+      enc.days(def.source, def.timeZoneOffsetMinutes);
+      if (missing(def.source, path)) return;
+      const dates = enc.stats(def.source)?.dates;
+      if (dates && dates.invalid > 0 && once("invalidDates", def.source)) {
+        out.push({
+          code: "invalidDates",
+          field: def.source,
+          path,
+          count: dates.invalid,
+          samples: dates.samples,
+          message:
+            `${plural(dates.invalid, "value")} of "${def.source}" (${path}) ${dates.invalid === 1 ? "is not a date" : "are not dates"} and grouped as (blank), ` +
+            `e.g. ${sampleList(dates.samples)}. Send ISO 8601 dates ("2026-12-31") or epoch milliseconds.`,
+        });
+      }
+      return;
+    }
+    enc.codes(field);
+    if (missing(field, path)) return;
+    const keys = enc.stats(field)?.keys;
+    if (keys && keys.mixed > 0 && once("mixedKeyTypes", field)) {
+      out.push({
+        code: "mixedKeyTypes",
+        field,
+        path,
+        count: keys.mixed,
+        types: keys.types,
+        samples: keys.samples,
+        message:
+          `"${field}" (${path}) mixes ${keys.types.join(" and ")} values (${plural(keys.mixed, "record")} differ from the first value's type, e.g. ${sampleList(keys.samples)}). ` +
+          `Keys compare as strings: 2024 and "2024" are one key, 1 and "1.0" are two.`,
+      });
+    }
+  };
+  const numberField = (field: string | undefined, path: string) => {
+    if (!field) return;
+    enc.numbers(field);
+    if (missing(field, path)) return;
+    const nums = enc.stats(field)?.numbers;
+    if (nums && nums.unparsed > 0 && once("unparsedNumbers", field)) {
+      out.push({
+        code: "unparsedNumbers",
+        field,
+        path,
+        count: nums.unparsed,
+        samples: nums.samples,
+        message:
+          `${plural(nums.unparsed, "value")} of "${field}" (${path}) ${nums.unparsed === 1 ? "is not a number" : "are not numbers"} and left out of every total, ` +
+          `e.g. ${sampleList(nums.samples)}. Send plain numbers or numeric strings ("-500", "1234.50"); thousands separators, currency symbols, ` +
+          `accounting parentheses and radix literals are not parsed.`,
+      });
+    }
+  };
+  const presentField = (field: string, path: string) => {
+    enc.present(field);
+    missing(field, path);
+  };
+
+  spec.rows.forEach((d, i) => keyField(d.field, `rows[${i}].field`));
+  const columns = spec.columns === undefined ? [] : Array.isArray(spec.columns) ? spec.columns : [spec.columns];
+  const columnPath = (i: number) => (Array.isArray(spec.columns) ? `columns[${i}].field` : "columns.field");
+  columns.forEach((d: PivotDimension, i: number) => keyField(d.field, columnPath(i)));
+  spec.measures.forEach((m, i) => {
+    if (m.calculate !== undefined) return;
+    const where = `measures[${i}]`;
+    const agg = m.aggregate ?? "sum";
+    if (agg === "count") {
+      if (m.field) presentField(m.field, `${where}.field`);
+    } else if (agg === "distinctCount") {
+      if (m.field) keyField(m.field, `${where}.field`);
+    } else if (typeof agg === "string") {
+      numberField(m.field, `${where}.field`);
+    } else if (agg.type === "weightedAvg") {
+      numberField(m.field, `${where}.field`);
+      numberField(agg.weightField, `${where}.aggregate.weightField`);
+    } else if (agg.type === "ratio") {
+      numberField(agg.numeratorField, `${where}.aggregate.numeratorField`);
+      numberField(agg.denominatorField, `${where}.aggregate.denominatorField`);
+    }
+    if (m.signField) {
+      enc.numbers(m.signField);
+      missing(m.signField, `${where}.signField`);
+    }
+  });
+  (spec.filters ?? []).forEach((f, i) => {
+    keyField(f.field, `filters[${i}].field`);
+    const def = resolvePivotDateField(spec, f.field);
+    if (enc.stats(def ? def.source : f.field)?.missing === n) return;
+    const index = enc.codes(f.field).index;
+    for (const key of ["include", "exclude"] as const) {
+      const absent = (f[key] ?? []).filter((item) => !index.has(item));
+      if (!absent.length) continue;
+      const items = absent.slice(0, MAX_DIAGNOSTIC_ITEMS);
+      out.push({
+        code: "filterItemsNotFound",
+        field: f.field,
+        path: `filters[${i}].${key}`,
+        count: absent.length,
+        items,
+        message:
+          `filters[${i}].${key}: ${items.map((x) => JSON.stringify(x)).join(", ")}${absent.length > items.length ? ", …" : ""} ` +
+          `${absent.length === 1 ? "is not a value" : "are not values"} of "${f.field}" (keys compare as case-sensitive strings).`,
+      });
+    }
+  });
+  (spec.facets ?? []).forEach((f, i) => keyField(pivotFacetField(f), `facets[${i}]`));
+  return out;
 }
 
 /** Rough per-node overhead besides the accumulators (node object, path, child map, views). */

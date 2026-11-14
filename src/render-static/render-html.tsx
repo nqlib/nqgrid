@@ -6,7 +6,7 @@ import { pivotTableGeometry } from "../pivot/layout";
 import { PivotHeaderSummary } from "../pivot/pivot-header-chart";
 import { PivotTable, type PivotTableProps } from "../pivot/pivot-table";
 import { PIVOT_STATIC_PALETTE, type PivotStaticTheme } from "./color";
-import { PIVOT_STATIC_CSS, PIVOT_STATIC_NESTED_HEADER_CSS } from "./css";
+import { PIVOT_STATIC_CSS, PIVOT_STATIC_NESTED_HEADER_CSS, PIVOT_STATIC_STATEMENT_CSS, PIVOT_STATIC_STATEMENT_ROW_HEIGHT } from "./css";
 import {
   pivotColumnChunks,
   pivotColumnsPerPage,
@@ -57,9 +57,21 @@ export type PivotStaticTableOptions = Pick<
   | "kpiCaptionAttribute"
 >;
 
+/**
+ * Print profile: `report` (default) prints like the app (grey group bands, muted group values);
+ * `statement` prints finance-statement emphasis (`PIVOT_STATIC_STATEMENT_CSS`): bold totals in the full
+ * text colour, a rule above subtotals, a double rule under the grand total, no grey bands, and denser
+ * 28 px rows unless `table.rowHeight` is set.
+ */
+export type PivotStaticProfile = "report" | "statement";
+
 export interface RenderPivotHtmlOptions {
   /** Default `light`. Dark prints the dark surfaces and the dark series steps. */
   readonly theme?: PivotStaticTheme;
+  /** Default `report`; `statement` for P&L-style emphasis (see `PivotStaticProfile`). */
+  readonly profile?: PivotStaticProfile;
+  /** Unit note under the title (default `model.units`, i.e. `spec.units`); `null` hides it. */
+  readonly units?: string | null;
   /** Page box for print / PDF (default A4 landscape). */
   readonly page?: PivotStaticPageOptions;
   /** Report title (default `model.title`); `null` hides the report header. */
@@ -112,6 +124,24 @@ const tableGeometryOptions = (options: RenderPivotHtmlOptions) => ({
   valueWidth: options.table?.valueWidth ?? PIVOT_STATIC_VALUE_WIDTH,
 });
 
+/** Body row height the static table uses (`table.rowHeight`, else 28 for statements, else 36). */
+const staticRowHeight = (options: RenderPivotHtmlOptions) =>
+  options.table?.rowHeight ?? (options.profile === "statement" ? PIVOT_STATIC_STATEMENT_ROW_HEIGHT : undefined);
+
+/** Print pagination is planned for page heights a little below the real one (row borders, rounding). */
+const PAGE_SAFETY = 0.97;
+
+/**
+ * Height the report header takes on the first page, in page px (estimated from the printed lines: the
+ * stylesheet fixes their line heights; long filter lines wrap at about 6.5 px per character).
+ */
+function reportHeaderHeight(lines: { title: boolean; subtitle: boolean; units: boolean; filters: string | null; meta: boolean }, widthPx: number): number {
+  if (!lines.title && !lines.filters && !lines.meta) return 0;
+  const filterLines = lines.filters ? Math.max(1, Math.ceil((lines.filters.length * 6.5) / Math.max(200, widthPx * 0.75))) : 0;
+  const text = (lines.title ? 24 : 0) + (lines.subtitle ? 18 : 0) + (lines.units ? 18 : 0) + filterLines * 18;
+  return Math.max(text, lines.meta ? 16 : 0) + 10 + 1 + 12;
+}
+
 /** Page, column chunks and zoom `renderPivotHtml` will use (pure; exposed for exporters and tests). */
 export function pivotStaticLayout(model: PivotModel, options: RenderPivotHtmlOptions = {}): PivotStaticLayout {
   const page = resolvePivotStaticPage(options.page);
@@ -146,6 +176,7 @@ function PivotStaticReport({ model, options, layout }: { model: PivotModel; opti
   const labels = { ...PIVOT_STATIC_LABELS, ...options.locale };
   const title = options.title === undefined ? model.title : options.title;
   const subtitle = options.subtitle === undefined ? model.subtitle : options.subtitle;
+  const units = options.units === undefined ? model.units : options.units;
   const generatedAt = options.generatedAt ? formatPivotGeneratedAt(options.generatedAt) : null;
   const geometry = tableGeometryOptions(options);
   const multi = layout.chunks.length > 1;
@@ -155,14 +186,24 @@ function PivotStaticReport({ model, options, layout }: { model: PivotModel; opti
   const dimension = measuresOuter ? undefined : model.columnDimension?.label;
   const summary = model.headerSeries ? <PivotHeaderSummary model={model} /> : undefined;
   const filters = pivotFiltersText(model);
+  const showHeader = title !== null && Boolean(title || generatedAt || filters);
+  const headerPx = showHeader
+    ? reportHeaderHeight({ title: Boolean(title), subtitle: Boolean(subtitle), units: Boolean(units), filters, meta: Boolean(generatedAt) }, layout.page.contentWidthPx)
+    : 0;
+  const rowHeight = staticRowHeight(options);
 
   return (
     <main className="nqg-report" data-nqg-report="">
-      {title !== null && (title || generatedAt || filters) ? (
+      {showHeader ? (
         <header className="nqg-report-header">
           <div>
             {title ? <h1 className="nqg-report-title">{title}</h1> : null}
             {subtitle ? <p className="nqg-report-subtitle">{subtitle}</p> : null}
+            {units ? (
+              <p className="nqg-report-subtitle nqg-report-units" data-nqg-units="">
+                {units}
+              </p>
+            ) : null}
             {filters ? (
               // Reuses the subtitle styling, so reports without filters keep a byte-identical stylesheet.
               <p className="nqg-report-subtitle nqg-report-filters" data-nqg-filters="">
@@ -180,6 +221,8 @@ function PivotStaticReport({ model, options, layout }: { model: PivotModel; opti
       {layout.chunks.map((chunk) => {
         const sub = slicePivotModelColumns(model, chunk.start, chunk.end);
         const range = chunk.firstLabel === chunk.lastLabel ? chunk.firstLabel : `${chunk.firstLabel} – ${chunk.lastLabel}`;
+        // Page px above this chunk's table on its first page: the report header (first chunk) and the chunk caption.
+        const abovePx = (chunk.index === 0 ? headerPx : 0) + (multi ? 22 : 0);
         return (
           <section key={chunk.index} className="nqg-report-chunk" data-nqg-chunk={chunk.index}>
             {multi ? (
@@ -199,8 +242,11 @@ function PivotStaticReport({ model, options, layout }: { model: PivotModel; opti
                 mode="static"
                 {...options.table}
                 {...geometry}
+                {...(rowHeight !== undefined ? { rowHeight } : {})}
                 kpiPanel={options.kpiPanel ?? true}
                 headerSummary={summary}
+                pagination={{ pageHeight: (layout.page.contentHeightPx * PAGE_SAFETY) / layout.scale, firstPageOffset: abovePx / layout.scale }}
+                continuedLabel={labels.continued}
               />
             </div>
           </section>
@@ -225,7 +271,8 @@ export function renderPivotHtml(model: PivotModel, options: RenderPivotHtmlOptio
   // The page background also covers the margins (Chromium otherwise paints its default canvas there).
   const pageCss = `${layout.page.css}\n@page { background: ${PIVOT_STATIC_PALETTE[theme].page}; }`;
   const nested = model.columnDimensions ? PIVOT_STATIC_NESTED_HEADER_CSS : "";
-  const css = `${PIVOT_STATIC_CSS}${pageCss}\n${nested}${options.css ? `${options.css}\n` : ""}`;
+  const statement = options.profile === "statement" ? PIVOT_STATIC_STATEMENT_CSS : "";
+  const css = `${PIVOT_STATIC_CSS}${pageCss}\n${nested}${statement}${options.css ? `${options.css}\n` : ""}`;
   return [
     "<!DOCTYPE html>",
     `<html lang="${escapeHtml(lang)}" data-theme="${theme}"${theme === "dark" ? ' class="dark"' : ""}>`,

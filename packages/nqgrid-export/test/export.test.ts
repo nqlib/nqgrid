@@ -335,3 +335,54 @@ describe("financial statement: sign field, % of with a global base, section subt
     expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
   }, 60_000);
 });
+
+describe("units, format.scale and diagnostics (batch A)", async () => {
+  const spec: PivotSpec = {
+    version: 1,
+    title: "P&L",
+    units: "EUR thousands",
+    rows: [{ field: "a" }],
+    measures: [{ id: "m", field: "v", format: { style: "currency", currency: "EUR", scale: 1000, decimals: 1, negative: "parentheses" } }],
+  };
+  const rows: PivotDataRow[] = [{ a: "X", v: 12_345 }, { a: "Y", v: -629 }, { a: "Z", v: "1,234.50" }];
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load((await exportPivot({ spec, rows, format: "xlsx" })) as unknown as ArrayBuffer);
+  const ws = wb.worksheets[0]!;
+
+  it("keeps real values in cells with Excel scaling commas, and prints the units in the page header", () => {
+    expect(ws.getCell(2, 2).value).toBe(12_345);
+    expect(ws.getCell(2, 2).numFmt).toBe('"€"#,##0.0,;("€"#,##0.0,)');
+    expect(ws.headerFooter.oddHeader).toBe("&LP&&L&REUR thousands");
+  });
+
+  it("lists the units and diagnostics on the hidden Spec sheet", () => {
+    const ss = wb.getWorksheet("Spec")!;
+    const pairs: [unknown, unknown][] = [];
+    ss.eachRow((row) => pairs.push([row.getCell(1).value, row.getCell(2).value]));
+    expect(pairs).toContainEqual(["units", "EUR thousands"]);
+    expect(pairs.find(([k]) => k === "diagnostic")?.[1]).toMatch(/^1 value of "v" \(measures\[0\]\.field\) is not a number/);
+  });
+
+  it("html prints the scaled text and the units line", async () => {
+    const html = (await exportPivot({ spec, rows, format: "html" })) as string;
+    expect(html).toContain(">€12.3</td>");
+    expect(html).toContain(">(€0.6)</td>");
+    expect(html).toContain('data-nqg-units="">EUR thousands</p>');
+  });
+});
+
+describe("pivotDiagnosticsHeaderValue", () => {
+  it("escapes non-ASCII and stays under the header budget (samples dropped first, then entries)", async () => {
+    const { pivotDiagnosticsHeaderValue } = await import("../src/exporter");
+    const d = { code: "unparsedNumbers" as const, field: "Montant €", path: "measures[0].field", count: 3, samples: [{ row: 1, value: '"1 234,50"' }], message: "3 valeurs de « Montant € » …" };
+    const one = pivotDiagnosticsHeaderValue([d]);
+    expect(one).toMatch(/^[\x20-\x7e]+$/);
+    expect(JSON.parse(one)).toEqual([d]);
+    const many = Array.from({ length: 200 }, (_, i) => ({ ...d, field: `f${i}` }));
+    const text = pivotDiagnosticsHeaderValue(many, 2000);
+    expect(text.length).toBeLessThanOrEqual(2000);
+    const parsed = JSON.parse(text) as { samples?: unknown }[];
+    expect(parsed.length).toBeGreaterThan(0);
+    expect(parsed.every((x) => x.samples === undefined)).toBe(true);
+  });
+});

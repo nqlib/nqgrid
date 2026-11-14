@@ -27,6 +27,8 @@ export interface PivotSheetMerge {
  */
 export interface PivotSheet {
   readonly title?: string;
+  /** `model.units` (the spec's unit note, e.g. "EUR thousands"), when set: writers print it in the page header. */
+  readonly units?: string;
   /** Active filters as printable lines (`model.filters[].text`), when any. */
   readonly filters?: readonly string[];
   readonly cells: readonly (readonly PivotSheetCell[])[];
@@ -135,6 +137,7 @@ export function pivotModelToSheet(model: PivotModel, options: PivotModelToSheetO
 
   return {
     ...(model.title !== undefined ? { title: model.title } : {}),
+    ...(model.units !== undefined ? { units: model.units } : {}),
     ...(model.filters?.length ? { filters: model.filters.map((f) => f.text) } : {}),
     cells,
     merges,
