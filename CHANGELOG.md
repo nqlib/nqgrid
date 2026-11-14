@@ -2,7 +2,20 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
-## [Unreleased]
+## [0.4.0] - Unreleased
+
+The next release, a **minor** bump. `PivotSpec` stays `version: 1`, but 0.3 users must check
+three changes before they upgrade (details under each "Changed (behaviour)" below):
+
+- **Stricter validation:** `validatePivotSpec` now rejects unknown keys and invalid values that
+  0.3.0 accepted and half-ignored.
+- **Sheet and XLSX layout:** labels carry `indent` instead of leading spaces, and the table starts
+  below the title rows, so cell addresses move.
+- **New row kind:** `PivotBodyRow["kind"]` gains `"calculated"`, so an exhaustive `switch` needs a
+  case.
+
+Every change on `dev` goes in this section until 0.4.0 is published; then set the date and tag
+`v0.4.0`.
 
 ### Analyst review, batch C: calculated items, cascading totals, per-group subtotal labels
 
