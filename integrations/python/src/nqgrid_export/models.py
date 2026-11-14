@@ -253,6 +253,24 @@ class Table(BaseModel):
     kpiCaptionAttribute: str | None = None
 
 
+class Xlsx(BaseModel):
+    """
+    XLSX only (ignored by the other formats; format=sheet takes them too, for the Python openpyxl writer).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    rowLabels: Literal["repeat", "first", "merge"] | None = None
+    """
+    Tabular layout: repeat (default) writes a group's label on every row of the group so AutoFilter and sort keep each row's context; first writes it once (Excel's pivot default); merge merges the cells like the PDF (breaks filtering and sorting).
+    """
+    subtotalFormulas: bool | None = None
+    """
+    Write group, subtotal and grand-total cells of plain sum / count measures (no showAs, not calculated) as SUBTOTAL(9, ...) formulas over their detail rows, with the computed value cached. Default false: values only. The Python openpyxl writer cannot store cached values, so its formulas show their result only after Excel / LibreOffice recalculates.
+    """
+
+
 class Kpi(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -479,6 +497,10 @@ class Options(BaseModel):
     """
     locale: Locale | None = None
     table: Table | None = None
+    xlsx: Xlsx | None = None
+    """
+    XLSX only (ignored by the other formats; format=sheet takes them too, for the Python openpyxl writer).
+    """
 
 
 class Columns(RootModel[list[Dimension]]):

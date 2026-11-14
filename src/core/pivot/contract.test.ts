@@ -12,7 +12,7 @@ import {
 import { generateStatementPivotRows, statementPivotSpec } from "../../fixtures/statement-pivot-mock";
 import { buildPivotModel } from "./build-model";
 import { inferPivotFields, pivotFieldListState, resolvePivotFields } from "./fields";
-import { pivotModelToSheet } from "./to-sheet";
+import { buildPivotSheet } from "./to-sheet";
 
 /**
  * Golden files under `contract/pivot/v1/examples` are the cross-language contract:
@@ -33,7 +33,7 @@ describe("pivot golden contract", () => {
 
   it("planning example outputs", async () => {
     await expect(json(model)).toMatchFileSnapshot(`${dir}/planning.model.json`);
-    await expect(json(pivotModelToSheet(model))).toMatchFileSnapshot(`${dir}/planning.sheet.json`);
+    await expect(json(buildPivotSheet(planningPivotSpec, rows).sheet)).toMatchFileSnapshot(`${dir}/planning.sheet.json`);
   });
 
   it("model is plain JSON (round-trips losslessly)", () => {
@@ -46,7 +46,7 @@ describe("pivot golden contract", () => {
   it("planning-filtered example (filters, Top N, sort by value, facets)", async () => {
     await expect(json(planningFilteredPivotSpec)).toMatchFileSnapshot(`${dir}/planning-filtered.spec.json`);
     await expect(json(filtered)).toMatchFileSnapshot(`${dir}/planning-filtered.model.json`);
-    await expect(json(pivotModelToSheet(filtered))).toMatchFileSnapshot(`${dir}/planning-filtered.sheet.json`);
+    await expect(json(buildPivotSheet(planningFilteredPivotSpec, rows).sheet)).toMatchFileSnapshot(`${dir}/planning-filtered.sheet.json`);
     expect(JSON.parse(JSON.stringify(filtered))).toEqual(filtered);
   });
 
@@ -59,7 +59,7 @@ describe("pivot golden contract", () => {
     await expect(json(planningFieldsPivotSpec)).toMatchFileSnapshot(`${dir}/planning-fields.spec.json`);
     await expect(json(fieldsRows)).toMatchFileSnapshot(`${dir}/planning-fields.rows.json`);
     await expect(json(fieldsModel)).toMatchFileSnapshot(`${dir}/planning-fields.model.json`);
-    await expect(json(pivotModelToSheet(fieldsModel))).toMatchFileSnapshot(`${dir}/planning-fields.sheet.json`);
+    await expect(json(buildPivotSheet(planningFieldsPivotSpec, fieldsRows).sheet)).toMatchFileSnapshot(`${dir}/planning-fields.sheet.json`);
     // What a producer gets from inference (Python mirrors inferPivotFields) and the field-list state.
     const catalog = {
       inferred: inferPivotFields(fieldsRows),
@@ -76,7 +76,7 @@ describe("pivot golden contract", () => {
   it("planning-multicol example (column hierarchy, subtotals, percentOfParentColumn)", async () => {
     await expect(json(planningMultiColumnPivotSpec)).toMatchFileSnapshot(`${dir}/planning-multicol.spec.json`);
     await expect(json(multiModel)).toMatchFileSnapshot(`${dir}/planning-multicol.model.json`);
-    await expect(json(pivotModelToSheet(multiModel))).toMatchFileSnapshot(`${dir}/planning-multicol.sheet.json`);
+    await expect(json(buildPivotSheet(planningMultiColumnPivotSpec, fieldsRows).sheet)).toMatchFileSnapshot(`${dir}/planning-multicol.sheet.json`);
     expect(JSON.parse(JSON.stringify(multiModel))).toEqual(multiModel);
   });
 
@@ -89,7 +89,7 @@ describe("pivot golden contract", () => {
     await expect(json(planningDatesPivotSpec)).toMatchFileSnapshot(`${dir}/planning-dates.spec.json`);
     await expect(json(datesRows)).toMatchFileSnapshot(`${dir}/planning-dates.rows.json`);
     await expect(json(datesModel)).toMatchFileSnapshot(`${dir}/planning-dates.model.json`);
-    await expect(json(pivotModelToSheet(datesModel))).toMatchFileSnapshot(`${dir}/planning-dates.sheet.json`);
+    await expect(json(buildPivotSheet(planningDatesPivotSpec, datesRows).sheet)).toMatchFileSnapshot(`${dir}/planning-dates.sheet.json`);
     expect(JSON.parse(JSON.stringify(datesModel))).toEqual(datesModel);
   });
 
@@ -101,7 +101,7 @@ describe("pivot golden contract", () => {
   it("planning-calc example (calculated measure, show-as differences, running total, distinct count, subtotal rows)", async () => {
     await expect(json(planningCalcPivotSpec)).toMatchFileSnapshot(`${dir}/planning-calc.spec.json`);
     await expect(json(calcModel)).toMatchFileSnapshot(`${dir}/planning-calc.model.json`);
-    await expect(json(pivotModelToSheet(calcModel))).toMatchFileSnapshot(`${dir}/planning-calc.sheet.json`);
+    await expect(json(buildPivotSheet(planningCalcPivotSpec, datesRows).sheet)).toMatchFileSnapshot(`${dir}/planning-calc.sheet.json`);
     expect(JSON.parse(JSON.stringify(calcModel))).toEqual(calcModel);
     expect(calcModel.rows.filter((r) => r.kind === "subtotal").map((r) => r.label)).toEqual(["Camp Total", "Packs Total"]);
   });
@@ -117,7 +117,7 @@ describe("pivot golden contract", () => {
     await expect(json(statementPivotSpec)).toMatchFileSnapshot(`${dir}/planning-statement.spec.json`);
     await expect(json(statementRows)).toMatchFileSnapshot(`${dir}/planning-statement.rows.json`);
     await expect(json(statementModel)).toMatchFileSnapshot(`${dir}/planning-statement.model.json`);
-    await expect(json(pivotModelToSheet(statementModel))).toMatchFileSnapshot(`${dir}/planning-statement.sheet.json`);
+    await expect(json(buildPivotSheet(statementPivotSpec, statementRows).sheet)).toMatchFileSnapshot(`${dir}/planning-statement.sheet.json`);
     expect(JSON.parse(JSON.stringify(statementModel))).toEqual(statementModel);
     expect(statementModel.rows.filter((r) => r.kind === "subtotal").map((r) => r.label)).toEqual(["Gross margin", "Operating expenses"]);
   });

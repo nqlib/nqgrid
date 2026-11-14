@@ -244,7 +244,19 @@ describe("pivotModelToSheet", () => {
       { ...base, measures: [{ id: "sales", field: "sales", groupShowAs: "percentOfColumnTotal" }] },
       data,
     );
-    const sheet = pivotModelToSheet(m);
+    // Default: labels repeated on every row of their group, no merges in the body (AutoFilter / sort work).
+    expect(pivotSheetToMatrix(pivotModelToSheet(m))).toEqual([
+      ["Department", "Line", "Nov", "Dec"],
+      ["Camp", null, 0.4, 400 / 650],
+      ["Camp", "Tents", 300, 400],
+      ["Camp", "Chairs", 100, null],
+      ["Footwear", null, 0.6, 250 / 650],
+      ["Footwear", "Boots", 600, 250],
+      ["Grand Total", null, 1, 1],
+    ]);
+    expect(pivotModelToSheet(m).merges).toEqual([]);
+    expect(pivotSheetToMatrix(pivotModelToSheet(m, { rowLabels: "first" }))[2]).toEqual([null, "Tents", 300, 400]);
+    const sheet = pivotModelToSheet(m, { rowLabels: "merge" });
     expect(pivotSheetToMatrix(sheet)).toEqual([
       ["Department", "Line", "Nov", "Dec"],
       ["Camp", null, 0.4, 400 / 650],

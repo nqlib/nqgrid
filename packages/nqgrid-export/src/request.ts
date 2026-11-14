@@ -5,6 +5,7 @@ import {
   validatePivotSpec,
   type PivotDataRow,
   type PivotExportFormat,
+  type PivotExportXlsxOptions,
   type PivotSpec,
 } from "@nqlib/nqgrid/core";
 import { PIVOT_PAGE_SIZES_MM, type RenderPivotHtmlOptions } from "@nqlib/nqgrid/render-static";
@@ -23,6 +24,8 @@ export type PivotExportOptions = Omit<RenderPivotHtmlOptions, "css" | "generated
   readonly generatedAt?: string | null;
   /** PDF: print the running header (title) and footer (generated · page X of Y). Default true. */
   readonly headerFooter?: boolean;
+  /** XLSX (and `format=sheet`): tabular row labels and `SUBTOTAL` formulas. */
+  readonly xlsx?: PivotExportXlsxOptions;
 };
 
 /**
@@ -50,7 +53,7 @@ function validateOptions(input: unknown, errors: string[]): PivotExportOptions |
     if (!ok) errors.push(message);
   };
   const optionalString = (v: unknown) => v === undefined || v === null || typeof v === "string";
-  const allowed = ["theme", "profile", "page", "title", "subtitle", "units", "generatedAt", "maxColumnsPerPage", "minScale", "kpiPanel", "headerFooter", "locale", "table"];
+  const allowed = ["theme", "profile", "page", "title", "subtitle", "units", "generatedAt", "maxColumnsPerPage", "minScale", "kpiPanel", "headerFooter", "locale", "table", "xlsx"];
   const extra = Object.keys(o).filter((k) => k !== "css" && !allowed.includes(k));
   if (extra.length) errors.push(pivotUnknownKeysMessage("options", extra));
   check(o.theme === undefined || o.theme === "light" || o.theme === "dark", 'options.theme must be "light" | "dark"');
@@ -96,6 +99,16 @@ function validateOptions(input: unknown, errors: string[]): PivotExportOptions |
       for (const k of ["valueWidth", "rowHeight", "headRowHeight", "chartHeight"] as const) check(positive(t[k]), `options.table.${k} must be a positive number`);
       check(t.headerChart === undefined || typeof t.headerChart === "boolean", "options.table.headerChart must be a boolean");
       for (const k of ["kpiHeadlineId", "kpiCaptionAttribute"] as const) check(t[k] === undefined || typeof t[k] === "string", `options.table.${k} must be a string`);
+    }
+  }
+  if (o.xlsx !== undefined) {
+    if (!isObject(o.xlsx)) errors.push("options.xlsx must be an object");
+    else {
+      const x = o.xlsx;
+      const extraX = Object.keys(x).filter((k) => k !== "rowLabels" && k !== "subtotalFormulas");
+      if (extraX.length) errors.push(pivotUnknownKeysMessage("options.xlsx", extraX));
+      check(x.rowLabels === undefined || x.rowLabels === "repeat" || x.rowLabels === "first" || x.rowLabels === "merge", 'options.xlsx.rowLabels must be "repeat" | "first" | "merge"');
+      check(x.subtotalFormulas === undefined || typeof x.subtotalFormulas === "boolean", "options.xlsx.subtotalFormulas must be a boolean");
     }
   }
   if ("css" in o) errors.push("options.css is not accepted by nqgrid-export (the stylesheet is built in)");

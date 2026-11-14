@@ -1,5 +1,17 @@
 {
   "title": "Plan attainment by fiscal year",
+  "subtitle": "Calculated measure · % difference from previous year · running total · distinct count",
+  "preamble": [
+    {
+      "text": "Plan attainment by fiscal year",
+      "role": "title"
+    },
+    {
+      "text": "Calculated measure · % difference from previous year · running total · distinct count",
+      "role": "subtitle"
+    }
+  ],
+  "tableRow": 3,
   "cells": [
     [
       {
@@ -177,6 +189,640 @@
         "bold": true
       },
       {
+        "v": null,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Socks",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 2083840,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.008449760610735213,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.13232444915560168,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 2252188,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.015655207526765746,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 8
+      },
+      {
+        "v": 0.0807873925061425,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.13338527738978984,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4336028,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.003926075769534743,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.13287334203194573,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Approach Shoes",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 2584244,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.010775634471704487,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 6
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.2964246985911,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 2740334,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.0031288480811659802,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 0.06040064328290982,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.29568088092318595,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 5324578,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.003571489827125074,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.29603983306239423,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Hiking Boots",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 3758291,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.007288390241222409,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.5350772757282388,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3982761,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.011757721434673796,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 7
+      },
+      {
+        "v": 0.05972661510244949,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.5315589163102126,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 7741052,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.0024203737691101956,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.5332568090789415,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Sandals",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 3203436,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.00604044592648334,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.7384963981681689,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3501306,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.004874014304574015,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": 0.09298453285784389,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.7389228983741147,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 6704742,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.0003110706694375853,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.7387170775555177,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Trail Runners",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 4118148,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.008615204619234484,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4408243,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.004512995284426946,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 0.07044307295415318,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 8526391,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.0018709087041738348,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear Total",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
         "v": 15747959,
         "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
         "role": "group",
@@ -270,6 +916,746 @@
     [
       {
         "v": "Apparel",
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "role": "group",
+        "depth": 0,
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      },
+      {
+        "v": null,
+        "numFmt": "#,##0.00",
+        "role": "group",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Pants",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 3376243,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.014161798229369804,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 7
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.14985704019292884,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3655462,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.0014396443818118776,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 0.0827010970478132,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.15086622172740505,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 7031705,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.007508055244477063,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.15037997665633587,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Fleece",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 4752686,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.010125728898603192,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 6
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.36080851996685803,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 5228316,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.003501679055490925,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 0.10007604121122246,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.3666464106383934,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 9981002,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.006645005464383846,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.3638335910737271,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Base Layers",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 4017521,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.012948184902891069,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 0
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.5391291580171808,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4545298,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.018606216743398907,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 8
+      },
+      {
+        "v": 0.13136882171866682,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.5542374554598498,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 8562819,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.003553942897124518,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.5469579572597985,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Shirts",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 2697382,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.003763151548011101,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.6588544511283942,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 2719364,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.0004970542819331403,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 0.00814938336505545,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.666469554215499,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 5416746,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.001628949067971286,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.6628004360090208,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Accessories",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 1847909,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.008339907161447835,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.740875257476123,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1953999,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.002872483961241623,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 0.05741083570673664,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.7471139286855736,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3801908,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.005537422987446194,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.7441080045559859,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Jackets",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 5838018,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 0.0005314557173650147,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 6127385,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.021226720253279763,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false,
+        "heat": 0
+      },
+      {
+        "v": 0.049565965709595275,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 11965403,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": -0.010730218557183147,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": null,
+        "numFmt": "+#,##0.0%;-#,##0.0%;#,##0.0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1,
+        "numFmt": "#,##0%",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4,
+        "numFmt": "#,##0.00",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel Total",
         "role": "group",
         "depth": 0,
         "bold": true
@@ -477,7 +1863,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -583,7 +1969,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -689,7 +2075,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -795,7 +2181,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -901,7 +2287,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1215,7 +2601,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1321,7 +2707,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1427,7 +2813,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1533,7 +2919,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1639,7 +3025,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1745,7 +3131,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -2088,28 +3474,184 @@
       "col": 1,
       "rowSpan": 2,
       "colSpan": 1
-    },
-    {
-      "row": 19,
-      "col": 0,
-      "rowSpan": 1,
-      "colSpan": 2
-    },
-    {
-      "row": 4,
-      "col": 0,
-      "rowSpan": 6,
-      "colSpan": 1
-    },
-    {
-      "row": 11,
-      "col": 0,
-      "rowSpan": 7,
-      "colSpan": 1
     }
   ],
   "frozenRows": 2,
   "frozenCols": 2,
   "rowHeaderColumnCount": 2,
-  "columnCount": 17
+  "columnCount": 17,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0,
+      "collapsed": true
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0,
+      "collapsed": true
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": true,
+  "outlineLevels": 1
 }

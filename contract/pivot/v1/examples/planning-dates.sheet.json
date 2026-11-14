@@ -1,5 +1,17 @@
 {
   "title": "Sales by fiscal quarter",
+  "subtitle": "Order date grouped by fiscal year and quarter",
+  "preamble": [
+    {
+      "text": "Sales by fiscal quarter",
+      "role": "title"
+    },
+    {
+      "text": "Order date grouped by fiscal year and quarter",
+      "role": "subtitle"
+    }
+  ],
+  "tableRow": 3,
   "cells": [
     [
       {
@@ -147,6 +159,306 @@
     ],
     [
       {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Trail Runners",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 4118148,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1114851,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 1029418,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 1208593,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 1055381,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 4408243,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 8526391,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Hiking Boots",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 3758291,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1204345,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 821856,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": 1029003,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 927557,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": 3982761,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 7741052,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Sandals",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 3203436,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 944189,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": 685554,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 994307,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 877256,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": 3501306,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 6704742,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Approach Shoes",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 2584244,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 778530,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 583985,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": 748903,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 628916,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 2740334,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 5324578,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Footwear",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Socks",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 2083840,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 616122,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 439185,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": 646324,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 550557,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": 2252188,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 4336028,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
         "v": "Apparel",
         "role": "group",
         "depth": 0,
@@ -199,6 +511,366 @@
         "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
         "role": "group",
         "bold": true
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Jackets",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 5838018,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1542878,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 7
+      },
+      {
+        "v": 1205913,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 1893254,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 8
+      },
+      {
+        "v": 1485340,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 6
+      },
+      {
+        "v": 6127385,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 11965403,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Fleece",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 4752686,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1340144,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 1104303,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 1451348,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 6
+      },
+      {
+        "v": 1332521,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 5228316,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 9981002,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Base Layers",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 4017521,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 1205117,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 914662,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": 1316494,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 5
+      },
+      {
+        "v": 1109025,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 4545298,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 8562819,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Pants",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 3376243,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 999120,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 692814,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 1104930,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 4
+      },
+      {
+        "v": 858598,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 3
+      },
+      {
+        "v": 3655462,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 7031705,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Shirts",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 2697382,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 713856,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 590144,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": 764112,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 651252,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 2
+      },
+      {
+        "v": 2719364,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 5416746,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "v": "Apparel",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": "Accessories",
+        "role": "leaf",
+        "depth": 1,
+        "bold": false
+      },
+      {
+        "v": 1847909,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 494515,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": 410593,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 0
+      },
+      {
+        "v": 526030,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": 522861,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false,
+        "heat": 1
+      },
+      {
+        "v": 1953999,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
+      },
+      {
+        "v": 3801908,
+        "numFmt": "[>=1000]\"$\"#,##0,\"k\";[<=-1000]-\"$\"#,##0,\"k\";\"$\"#,##0",
+        "role": "leaf",
+        "bold": false
       }
     ],
     [
@@ -259,7 +931,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -319,7 +991,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -379,7 +1051,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -439,7 +1111,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -499,7 +1171,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -615,7 +1287,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -675,7 +1347,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -735,7 +1407,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -795,7 +1467,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -855,7 +1527,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -915,7 +1587,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1066,28 +1738,162 @@
       "col": 1,
       "rowSpan": 2,
       "colSpan": 1
-    },
-    {
-      "row": 17,
-      "col": 0,
-      "rowSpan": 1,
-      "colSpan": 2
-    },
-    {
-      "row": 4,
-      "col": 0,
-      "rowSpan": 6,
-      "colSpan": 1
-    },
-    {
-      "row": 10,
-      "col": 0,
-      "rowSpan": 7,
-      "colSpan": 1
     }
   ],
   "frozenRows": 2,
   "frozenCols": 2,
   "rowHeaderColumnCount": 2,
-  "columnCount": 9
+  "columnCount": 9,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0,
+      "collapsed": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0,
+      "collapsed": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1,
+      "hidden": true
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": false,
+  "outlineLevels": 1
 }

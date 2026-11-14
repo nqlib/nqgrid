@@ -1,4 +1,4 @@
-import { buildPivotModel, pivotModelToSheet, type PivotDataRow, type PivotDiagnostic, type PivotSpec } from "@nqlib/nqgrid/core";
+import { buildPivotModel, buildPivotSheet, type PivotDataRow, type PivotDiagnostic, type PivotModel, type PivotSheet, type PivotSpec } from "@nqlib/nqgrid/core";
 import { renderPivotHtml, type RenderPivotHtmlOptions } from "@nqlib/nqgrid/render-static";
 
 import { PivotExportError, toPivotExportError } from "./errors";
@@ -130,19 +130,33 @@ export function createPivotExporter(options: CreatePivotExporterOptions = {}): P
 
   const run = async (input: ExportPivotInput): Promise<{ data: Uint8Array | string; diagnostics: readonly PivotDiagnostic[] }> => {
     const req = parsePivotExportRequest({ spec: input.spec, rows: input.rows, options: input.options }, input.format);
+    // Workbooks (and the sheet JSON Python paints them from) also write collapsed groups' rows, hidden.
+    if (req.format === "xlsx" || req.format === "sheet") {
+      const o = req.options;
+      const { model, sheet } = buildPivotSheet(req.spec, req.rows, {
+        validate: false,
+        profile: o?.profile,
+        rowLabels: o?.xlsx?.rowLabels,
+        subtotalFormulas: o?.xlsx?.subtotalFormulas,
+        ...(o?.title !== undefined ? { title: o.title } : {}),
+        ...(o?.subtitle !== undefined ? { subtitle: o.subtitle } : {}),
+        ...(o?.units !== undefined ? { units: o.units } : {}),
+      });
+      return { data: await render(req, model, sheet), diagnostics: model.diagnostics ?? [] };
+    }
     const model = buildPivotModel(req.spec, req.rows, { validate: false });
     return { data: await render(req, model), diagnostics: model.diagnostics ?? [] };
   };
-  const render = async (req: ReturnType<typeof parsePivotExportRequest>, model: ReturnType<typeof buildPivotModel>): Promise<Uint8Array | string> => {
+  const render = async (req: ReturnType<typeof parsePivotExportRequest>, model: PivotModel, sheet?: PivotSheet): Promise<Uint8Array | string> => {
     switch (req.format) {
       case "model":
         return `${JSON.stringify(model, null, 2)}\n`;
       case "sheet":
-        return `${JSON.stringify(pivotModelToSheet(model), null, 2)}\n`;
+        return `${JSON.stringify(sheet, null, 2)}\n`;
       case "html":
         return renderPivotHtml(model, htmlOptions(req.options));
       case "xlsx":
-        return writePivotXlsx(model, { spec: req.spec, generatedAt: req.options?.generatedAt ?? null });
+        return writePivotXlsx(model, { spec: req.spec, sheet, generatedAt: req.options?.generatedAt ?? null });
       case "pdf": {
         const html = renderPivotHtml(model, htmlOptions(req.options));
         const o = req.options;

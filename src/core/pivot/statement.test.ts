@@ -158,7 +158,8 @@ describe("percentOf (Excel % Of)", () => {
     const model = buildPivotModel(statementPivotSpec, generateStatementPivotRows());
     const sheet = pivotModelToSheet(model);
     const pctCol = model.columns.findIndex((c) => c.measureId === "pctRevenue");
-    const revenue = sheet.cells.find((r) => r[0]!.v === "  Revenue")!;
+    const revenue = sheet.cells.find((r) => r[0]!.v === "Revenue")!;
+    expect(revenue[0]).toMatchObject({ indent: 1 });
     expect(model.columns[pctCol]!.excelPercentNumFmt).toBe("#,##0.0%;(#,##0.0%)");
     expect(revenue[1 + pctCol]).toMatchObject({ v: 1, numFmt: "#,##0.0%;(#,##0.0%)" });
   });

@@ -1,10 +1,26 @@
 {
   "title": "FY26 Sales Plan",
+  "subtitle": "Camp & Packs · top 3 lines",
   "filters": [
     "Department = Camp, Packs",
     "Line does not contain \"kids\"",
     "Line: Top 3 by Actual, rest as Other"
   ],
+  "preamble": [
+    {
+      "text": "FY26 Sales Plan",
+      "role": "title"
+    },
+    {
+      "text": "Camp & Packs · top 3 lines",
+      "role": "subtitle"
+    },
+    {
+      "text": "Filters: Department = Camp, Packs · Line does not contain \"kids\" · Line: Top 3 by Actual, rest as Other",
+      "role": "filters"
+    }
+  ],
+  "tableRow": 4,
   "cells": [
     [
       {
@@ -166,7 +182,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -264,7 +280,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -362,7 +378,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -460,7 +476,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Camp",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -644,7 +660,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -742,7 +758,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -840,7 +856,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -938,7 +954,7 @@
     ],
     [
       {
-        "v": null,
+        "v": "Packs",
         "role": "leaf",
         "depth": 1,
         "bold": false
@@ -1121,28 +1137,68 @@
       }
     ]
   ],
-  "merges": [
-    {
-      "row": 11,
-      "col": 0,
-      "rowSpan": 1,
-      "colSpan": 2
-    },
-    {
-      "row": 1,
-      "col": 0,
-      "rowSpan": 5,
-      "colSpan": 1
-    },
-    {
-      "row": 6,
-      "col": 0,
-      "rowSpan": 5,
-      "colSpan": 1
-    }
-  ],
+  "merges": [],
   "frozenRows": 1,
   "frozenCols": 2,
   "rowHeaderColumnCount": 2,
-  "columnCount": 14
+  "columnCount": 14,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": false,
+  "outlineLevels": 1
 }

@@ -301,9 +301,11 @@ def test_xlsx_opens_with_openpyxl(
     wb = openpyxl.load_workbook(io.BytesIO(data))
     ws = wb.worksheets[0]
     assert ws.title == "FY26 Sales Plan"
-    assert ws.freeze_panes == "C2"
-    assert ws.cell(row=1, column=1).value == planning_sheet["cells"][0][0]["v"]
-    assert ws.cell(row=4, column=3).value == pytest.approx(planning_sheet["cells"][3][2]["v"])
+    top = planning_sheet["tableRow"]
+    assert ws.cell(row=1, column=1).value == planning_sheet["title"]
+    assert ws.freeze_panes == f"C{top + 2}"
+    assert ws.cell(row=top + 1, column=1).value == planning_sheet["cells"][0][0]["v"]
+    assert ws.cell(row=top + 4, column=3).value == pytest.approx(planning_sheet["cells"][3][2]["v"])
     assert "KPIs" in wb.sheetnames
 
 

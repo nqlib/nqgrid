@@ -1,5 +1,17 @@
 {
   "title": "Income statement",
+  "subtitle": "FY 2026 · EUR",
+  "preamble": [
+    {
+      "text": "Income statement",
+      "role": "title"
+    },
+    {
+      "text": "FY 2026 · EUR",
+      "role": "subtitle"
+    }
+  ],
+  "tableRow": 3,
   "cells": [
     [
       {
@@ -418,10 +430,11 @@
     ],
     [
       {
-        "v": "  Revenue",
+        "v": "Revenue",
         "role": "leaf",
         "depth": 1,
-        "bold": false
+        "bold": false,
+        "indent": 1
       },
       {
         "v": 1000,
@@ -582,10 +595,11 @@
     ],
     [
       {
-        "v": "  COGS",
+        "v": "COGS",
         "role": "leaf",
         "depth": 1,
-        "bold": false
+        "bold": false,
+        "indent": 1
       },
       {
         "v": -600,
@@ -1074,10 +1088,11 @@
     ],
     [
       {
-        "v": "  Salaries",
+        "v": "Salaries",
         "role": "leaf",
         "depth": 1,
-        "bold": false
+        "bold": false,
+        "indent": 1
       },
       {
         "v": -180,
@@ -1238,10 +1253,11 @@
     ],
     [
       {
-        "v": "  Rent",
+        "v": "Rent",
         "role": "leaf",
         "depth": 1,
-        "bold": false
+        "bold": false,
+        "indent": 1
       },
       {
         "v": -50,
@@ -1402,10 +1418,11 @@
     ],
     [
       {
-        "v": "  Marketing",
+        "v": "Marketing",
         "role": "leaf",
         "depth": 1,
-        "bold": false
+        "bold": false,
+        "indent": 1
       },
       {
         "v": -20,
@@ -1922,5 +1939,59 @@
   "frozenRows": 2,
   "frozenCols": 1,
   "rowHeaderColumnCount": 1,
-  "columnCount": 27
+  "columnCount": 27,
+  "bodyRows": [
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "group",
+      "depth": 0,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "leaf",
+      "depth": 1,
+      "outlineLevel": 1
+    },
+    {
+      "kind": "subtotal",
+      "depth": 0,
+      "outlineLevel": 0
+    },
+    {
+      "kind": "grandTotal",
+      "depth": -1,
+      "outlineLevel": 0
+    }
+  ],
+  "summaryBelow": true,
+  "outlineLevels": 1
 }

@@ -48,6 +48,14 @@ export interface PivotExportTableOptions {
   readonly kpiCaptionAttribute?: string;
 }
 
+/** XLSX-only options (`format=sheet` takes them too, for writers that paint the sheet, e.g. openpyxl). */
+export interface PivotExportXlsxOptions {
+  /** Tabular layout: `repeat` (default) a group's label on every row, `first` once, `merge` merged cells. */
+  readonly rowLabels?: "repeat" | "first" | "merge";
+  /** `SUBTOTAL(9, …)` formulas (cached values kept) on totals of plain `sum` / `count` measures. Default false. */
+  readonly subtotalFormulas?: boolean;
+}
+
 /** JSON-safe render options (`renderPivotHtml` options minus `css`, plus the PDF-only `headerFooter`). */
 export interface PivotExportOptions {
   readonly theme?: "light" | "dark";
@@ -68,6 +76,8 @@ export interface PivotExportOptions {
   readonly headerFooter?: boolean;
   readonly locale?: PivotExportLocale;
   readonly table?: PivotExportTableOptions;
+  /** XLSX workbook options (see `PivotExportXlsxOptions`). */
+  readonly xlsx?: PivotExportXlsxOptions;
 }
 
 export interface PivotExportRequest {
@@ -109,11 +119,12 @@ function pick(input: unknown, keys: readonly string[], nested: Record<string, re
   return Object.keys(out).length ? out : undefined;
 }
 
-const OPTION_KEYS = ["theme", "profile", "page", "title", "subtitle", "units", "generatedAt", "maxColumnsPerPage", "minScale", "kpiPanel", "headerFooter", "locale", "table"] as const;
+const OPTION_KEYS = ["theme", "profile", "page", "title", "subtitle", "units", "generatedAt", "maxColumnsPerPage", "minScale", "kpiPanel", "headerFooter", "locale", "table", "xlsx"] as const;
 const NESTED_OPTION_KEYS: Record<string, readonly string[]> = {
   page: ["size", "orientation", "margins"],
   margins: ["top", "right", "bottom", "left"],
   locale: ["lang", "generated", "continued", "columns", "of", "page"],
+  xlsx: ["rowLabels", "subtotalFormulas"],
   table: ["dimensionWidths", "valueWidth", "rowHeight", "headRowHeight", "headerChart", "chartHeight", "kpiHeadlineId", "kpiCaptionAttribute"],
 };
 
