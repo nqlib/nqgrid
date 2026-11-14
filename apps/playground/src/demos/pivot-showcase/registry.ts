@@ -1,53 +1,44 @@
-import { balanceHeadcountScenario } from "./scenarios/balance-headcount";
-import { bigDataScenario } from "./scenarios/big-data";
-import { budgetVsActualScenario } from "./scenarios/budget-vs-actual";
-import { calculatedMeasuresScenario } from "./scenarios/calculated-measures";
-import { columnHierarchyScenario } from "./scenarios/column-hierarchy";
-import { fieldListScenario } from "./scenarios/field-list";
-import { incomeStatementScenario } from "./scenarios/income-statement";
-import { percentOfRevenueScenario } from "./scenarios/percent-of-revenue";
-import { planningGridScenario } from "./scenarios/planning-grid";
-import { sliceFilterScenario } from "./scenarios/slice-filter";
-import type { PivotScenario, PivotScenarioVariant } from "./types";
+import { financeExample } from "./examples/finance";
+import { salesWorkbenchExample } from "./examples/sales-workbench";
+import { scaleExample } from "./examples/scale";
+import type { PivotExample, PivotExampleView } from "./types";
 
-/** The guided pivot showcase, in reading order. */
-export const PIVOT_SCENARIOS: readonly PivotScenario[] = [
-  planningGridScenario,
-  sliceFilterScenario,
-  fieldListScenario,
-  columnHierarchyScenario,
-  calculatedMeasuresScenario,
-  incomeStatementScenario,
-  percentOfRevenueScenario,
-  budgetVsActualScenario,
-  balanceHeadcountScenario,
-  bigDataScenario,
-];
+/**
+ * The pivot showcase: as few examples as cover every feature. Each feature is explained one by one
+ * in the docs (`docs.ts`); the examples link there.
+ */
+export const PIVOT_EXAMPLES: readonly PivotExample[] = [salesWorkbenchExample, financeExample, scaleExample];
 
-/** `?pivot=` ids of the former "Planning pivot" preset dropdown; each is a scenario or variant id. */
-export const LEGACY_PIVOT_IDS = ["planning", "dates", "calc", "statement", "income", "fpa", "balance"] as const;
-
-/** Extra spellings that resolve to a scenario. */
+/** `?pivot=` ids of the former "Planning pivot" presets and showcase scenarios → example or view id. */
 export const LEGACY_PIVOT_ALIASES: Readonly<Record<string, string>> = {
-  multicol: "columns",
-  bigdata: "big",
+  planning: "sales",
+  dates: "sales",
+  calc: "sales",
+  filter: "sales",
+  fields: "sales",
+  columns: "sales",
+  statement: "income",
+  fpa: "finance",
+  big: "scale",
+  "big-250k": "scale-250k",
+  "big-500k": "scale-500k",
 };
 
 export interface PivotLinkTarget {
-  readonly scenario: PivotScenario;
-  readonly variant: PivotScenarioVariant;
+  readonly example: PivotExample;
+  readonly view: PivotExampleView;
 }
 
 const byLinkId = new Map<string, PivotLinkTarget>();
-for (const scenario of PIVOT_SCENARIOS) {
-  for (const variant of scenario.variants) byLinkId.set(variant.id, { scenario, variant });
-  if (!byLinkId.has(scenario.id)) byLinkId.set(scenario.id, { scenario, variant: scenario.variants[0] });
+for (const example of PIVOT_EXAMPLES) {
+  for (const view of example.views) byLinkId.set(view.id, { example, view });
+  if (!byLinkId.has(example.id)) byLinkId.set(example.id, { example, view: example.views[0] });
 }
 
-/** Resolve a `?pivot=` value (scenario id, variant id or legacy alias); unknown → `null`. */
+/** Resolve a `?pivot=` value (example id, view id or legacy alias); unknown → `null`. */
 export function resolvePivotLink(id: string | null | undefined): PivotLinkTarget | null {
   if (!id) return null;
-  return byLinkId.get(id) ?? byLinkId.get(LEGACY_PIVOT_ALIASES[id] ?? "") ?? null;
+  return byLinkId.get(id) ?? (Object.hasOwn(LEGACY_PIVOT_ALIASES, id) ? (byLinkId.get(LEGACY_PIVOT_ALIASES[id]!) ?? null) : null);
 }
 
-export const DEFAULT_PIVOT_LINK: PivotLinkTarget = { scenario: PIVOT_SCENARIOS[0]!, variant: PIVOT_SCENARIOS[0]!.variants[0] };
+export const DEFAULT_PIVOT_LINK: PivotLinkTarget = { example: PIVOT_EXAMPLES[0]!, view: PIVOT_EXAMPLES[0]!.views[0] };

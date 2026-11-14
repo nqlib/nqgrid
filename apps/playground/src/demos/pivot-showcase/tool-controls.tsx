@@ -46,9 +46,19 @@ export function ToolPopover({
   );
 }
 
-/** Row of scenario controls above the table. */
+/** Row of example controls above the table. */
 export function ToolRow({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("flex flex-wrap items-center gap-x-5 gap-y-3", className)}>{children}</div>;
+}
+
+/** A labelled cluster of related controls inside a `ToolRow` (role="group" names it for assistive tech). */
+export function ToolGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="text-xs font-medium text-foreground/80">{label}</span>
+      {children}
+    </div>
+  );
 }
 
 /** Labelled switch (the label is clickable and names the switch). */

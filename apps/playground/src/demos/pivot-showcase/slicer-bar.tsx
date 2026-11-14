@@ -26,33 +26,30 @@ export function SlicerBar({ grid, fields }: { grid: PivotGridState; fields: read
         {slicer(fields[0], 2, "w-full shadow-none md:w-64 md:shrink-0")}
         {slicer(fields[1], wide ? 5 : 2, "min-w-0 flex-1 shadow-none", "max-h-[4.5rem] overflow-y-auto pr-1")}
       </div>
-      <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        {filters.length ? (
-          <>
-            <span>Filters</span>
-            {filters.map((f, i) => (
-              <Badge key={`${f.field}:${i}`} variant="secondary" className="font-normal">
-                {f.text}
-              </Badge>
-            ))}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2"
-              onClick={() => grid.setSpec((s) => clearPivotFilters(s.rows.reduce((acc, d) => setPivotTopN(acc, d.field, null), s)))}
-            >
-              Clear all
-            </Button>
-          </>
-        ) : (
-          <span>Click a slicer value to filter; ⌘/Ctrl-click or the multi-select button picks several.</span>
-        )}
-        {counts ? (
-          <span className="ml-auto tabular-nums">
-            {counts.matched.toLocaleString()} of {counts.total.toLocaleString()} records
-          </span>
-        ) : null}
-      </div>
+      {/* Only while something is filtered: what is active, how much is left, and a way out. */}
+      {filters.length ? (
+        <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+          <span>Filters</span>
+          {filters.map((f, i) => (
+            <Badge key={`${f.field}:${i}`} variant="secondary" className="font-normal">
+              {f.text}
+            </Badge>
+          ))}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2"
+            onClick={() => grid.setSpec((s) => clearPivotFilters(s.rows.reduce((acc, d) => setPivotTopN(acc, d.field, null), s)))}
+          >
+            Clear all
+          </Button>
+          {counts ? (
+            <span className="ml-auto tabular-nums">
+              {counts.matched.toLocaleString()} of {counts.total.toLocaleString()} records
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

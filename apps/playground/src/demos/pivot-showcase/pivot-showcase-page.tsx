@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from "@nqlib/nqui";
-import { DEFAULT_PIVOT_LINK, PIVOT_SCENARIOS, resolvePivotLink, type PivotLinkTarget } from "./registry";
-import { ScenarioView } from "./scenario-view";
+import { ToggleGroup, ToggleGroupItem } from "@nqlib/nqui";
+import { ExampleView } from "./example-view";
+import { DEFAULT_PIVOT_LINK, PIVOT_EXAMPLES, resolvePivotLink, type PivotLinkTarget } from "./registry";
 
 const PARAM = "pivot";
 
@@ -9,7 +9,7 @@ function readLink(): PivotLinkTarget {
   return resolvePivotLink(new URLSearchParams(window.location.search).get(PARAM)) ?? DEFAULT_PIVOT_LINK;
 }
 
-/** Keep `?pivot=<variant id>` in the address bar (other params untouched) so every view is linkable. */
+/** Keep `?pivot=<view id>` in the address bar (other params untouched) so every view is linkable. */
 function writeLink(id: string) {
   const url = new URL(window.location.href);
   url.searchParams.set(PARAM, id);
@@ -17,8 +17,9 @@ function writeLink(id: string) {
 }
 
 /**
- * Guided pivot showcase: a scenario list (a select on narrow screens) and the current scenario.
- * `?pivot=<id>` deep-links a scenario or one of its variants; the old preset ids still work.
+ * Pivot showcase: three examples that together exercise every pivot feature (each feature is
+ * explained one by one in the docs the examples link to). `?pivot=<id>` deep-links an example or one
+ * of its views; ids of the former presets and scenarios still resolve.
  */
 export function PivotShowcasePage() {
   const [link, setLink] = useState<PivotLinkTarget>(readLink);
@@ -27,82 +28,33 @@ export function PivotShowcasePage() {
     const next = resolvePivotLink(id);
     if (!next) return;
     setLink(next);
-    writeLink(next.variant.id);
+    writeLink(next.view.id);
   };
-  const index = PIVOT_SCENARIOS.indexOf(link.scenario);
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
-      <nav aria-label="Pivot scenarios" className="lg:sticky lg:top-4 lg:w-60 lg:shrink-0">
-        <div className="lg:hidden">
-          <Select value={link.scenario.id} onValueChange={go}>
-            <SelectTrigger aria-label="Scenario" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PIVOT_SCENARIOS.map((s, i) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {i + 1}. {s.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <ol className="hidden flex-col gap-0.5 lg:flex">
-          {PIVOT_SCENARIOS.map((s, i) => {
-            const current = s === link.scenario;
-            return (
-              <li key={s.id}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-current={current ? "page" : undefined}
-                  onClick={() => go(s.id)}
-                  className={cn(
-                    "h-auto w-full justify-start gap-2.5 px-2.5 py-2 text-left font-normal whitespace-normal",
-                    current ? "bg-muted font-medium text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] tabular-nums",
-                      current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                    )}
-                    aria-hidden
-                  >
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0">{s.title}</span>
-                </Button>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
-
-      <div className="min-w-0 flex-1">
-        <ScenarioView
-          key={`${link.variant.id}:${resetCount}`}
-          scenario={link.scenario}
-          variant={link.variant}
-          onVariantChange={go}
-          onReset={() => setResetCount((n) => n + 1)}
-        />
-        <div className="mt-4 flex justify-between gap-2">
-          {index > 0 ? (
-            <Button variant="outline" size="sm" onClick={() => go(PIVOT_SCENARIOS[index - 1]!.id)}>
-              ← {PIVOT_SCENARIOS[index - 1]!.title}
-            </Button>
-          ) : (
-            <span />
-          )}
-          {index < PIVOT_SCENARIOS.length - 1 ? (
-            <Button variant="outline" size="sm" onClick={() => go(PIVOT_SCENARIOS[index + 1]!.id)}>
-              {PIVOT_SCENARIOS[index + 1]!.title} →
-            </Button>
-          ) : null}
-        </div>
-      </div>
+    <div className="flex min-w-0 flex-col gap-4">
+      <ToggleGroup
+        type="single"
+        variant="segmented"
+        size="lg"
+        value={link.example.id}
+        aria-label="Pivot example"
+        onValueChange={(v: string) => v && go(v)}
+        className="w-full sm:w-fit"
+      >
+        {PIVOT_EXAMPLES.map((e) => (
+          <ToggleGroupItem key={e.id} value={e.id} className="flex-1 px-4 sm:flex-none">
+            {e.title}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      <ExampleView
+        key={`${link.view.id}:${resetCount}`}
+        example={link.example}
+        view={link.view}
+        onViewChange={go}
+        onReset={() => setResetCount((n) => n + 1)}
+      />
     </div>
   );
 }
