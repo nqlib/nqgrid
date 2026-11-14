@@ -508,3 +508,37 @@ describe("FP&A goldens: measure filters, closing balance, average over time (pla
     expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
   }, 60_000);
 });
+
+describe("income statement golden: calculated items (planning-income)", async () => {
+  const rows = JSON.parse(readExample("planning-income.rows.json")) as PivotDataRow[];
+  const spec = JSON.parse(readExample("planning-income.spec.json")) as PivotSpec;
+
+  it("model / sheet / html (statement profile) match the golden files", async () => {
+    expect(await exportPivot({ spec, rows, format: "model" })).toBe(readExample("planning-income.model.json"));
+    expect(await exportPivot({ spec, rows, format: "sheet" })).toBe(readExample("planning-income.sheet.json"));
+    expect(await exportPivot({ spec, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT, profile: "statement" } })).toBe(readExample("planning-income.html"));
+  });
+
+  it("statement xlsx: calculated rows bold with a rule, percent numFmt on Gross margin %, values (no SUBTOTAL over items)", async () => {
+    const wb = new ExcelJS.Workbook();
+    const options = { profile: "statement" as const, xlsx: { subtotalFormulas: true }, generatedAt: GOLDEN_GENERATED_AT };
+    await wb.xlsx.load((await exportPivot({ spec, rows, format: "xlsx", options })) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    const sheet = JSON.parse((await exportPivot({ spec, rows, format: "sheet", options })) as string) as PivotSheet;
+    const rowOf = (label: string) => sheet.tableRow + sheet.cells.findIndex((r) => r[0]!.v === label) + 1;
+    const gm = rowOf("Gross margin");
+    expect(ws.getCell(gm, 2).value).toBe(1845);
+    expect(ws.getCell(gm, 2).font?.bold).toBe(true);
+    expect(ws.getCell(gm, 2).border?.top?.style).toBe("thin");
+    const pct = rowOf("Gross margin %");
+    expect(ws.getCell(pct, 6).value).toBeCloseTo(8190 / 13980, 12);
+    expect(ws.getCell(pct, 6).numFmt).toBe("#,##0.0%");
+    expect(ws.getCell(rowOf("EBITDA"), 6).value).toBe(4590);
+    // Section subtotals keep SUBTOTAL formulas; the grand total (items at its level) keeps its value.
+    expect(ws.getCell(rowOf("Total revenue"), 2).value).toMatchObject({ formula: expect.stringMatching(/^SUBTOTAL\(9,/), result: 3090 });
+    expect(ws.getCell(rowOf("Operating income"), 6).value).toBe(4110);
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec, rows, format: "pdf", options: { profile: "statement", generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBe(1);
+  }, 60_000);
+});

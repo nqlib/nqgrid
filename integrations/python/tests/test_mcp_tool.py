@@ -121,9 +121,17 @@ def test_describe_pivot_spec(tmp_path: Path, provider: DictRowProvider, planning
         "closingBalance",
         "averageOverTime",
         "fpa_balance_example_spec",
+        "## Calculated items (formula rows over keys: Gross margin, EBITDA, Growth)",
+        '"includeInTotals": true',
+        "subtotalLabels",
+        "itemFormats",
+        "income_example_spec",
     ):
         assert topic in info["guide"]
     assert "There is no measure-level `filter`" not in info["guide"]
+    assert "Not possible: formula rows over keys" not in info["guide"]
+    items = info["income_example_spec"]["rows"][0]["calculatedItems"]
+    assert [it["key"] for it in items] == ["Gross margin", "Gross margin %", "EBITDA"]
 
 
 def test_describe_pivot_spec_field_catalog(tmp_path: Path, provider: DictRowProvider) -> None:

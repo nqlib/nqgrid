@@ -12,6 +12,7 @@ import {
   planningPivotSpec,
 } from "../fixtures/planning-pivot-mock";
 import { fpaBalancePivotSpec, fpaPivotSpec, generateFpaPivotRows } from "../fixtures/fpa-pivot-mock";
+import { generateIncomePivotRows, incomePivotSpec } from "../fixtures/income-pivot-mock";
 import { generateStatementPivotRows, statementPivotSpec } from "../fixtures/statement-pivot-mock";
 import { pivotBodyGroups, pivotKpiPanelHeight } from "../pivot/layout";
 import { PIVOT_SERIES_COLORS } from "../styles";
@@ -92,6 +93,17 @@ describe("renderPivotHtml", () => {
     expect(out).toContain("USD thousands");
     const bs = renderPivotHtmlFromSpec(fpaBalancePivotSpec, rows, { generatedAt });
     await expect(bs).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-fpa-bs.html");
+  });
+
+  it("renders an income statement with calculated items (golden planning-income.html, statement profile)", async () => {
+    const out = renderPivotHtmlFromSpec(incomePivotSpec, generateIncomePivotRows(), { generatedAt, profile: "statement" });
+    await expect(out).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-income.html");
+    expect(count(out, /<tr data-kind="calculated"/g)).toBe(3);
+    expect(out).toContain('tr[data-kind="calculated"] > .nqg-pivot-value { border-top');
+    expect(out).toContain(">Total operating expenses<");
+    // Without calculated rows the statement stylesheet stays as before.
+    const plain = renderPivotHtmlFromSpec(statementPivotSpec, generateStatementPivotRows(), { generatedAt, profile: "statement" });
+    expect(plain).not.toContain('data-kind="calculated"');
   });
 
   it("renders a financial statement (golden planning-statement.html: % of Revenue, section subtotals, Operating income)", async () => {

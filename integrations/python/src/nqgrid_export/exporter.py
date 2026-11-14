@@ -19,7 +19,8 @@ class ExportOutput:
     """:meth:`PivotExporter.export_report` result: the file plus nqgrid's ``model.diagnostics``.
 
     Each diagnostic is a dict with ``code`` (``unparsedNumbers``, ``missingField``, ``invalidDates``,
-    ``mixedKeyTypes``, ``filterItemsNotFound``, ``baseItemNotFound``), ``field``, ``path``, ``message`` and,
+    ``mixedKeyTypes``, ``filterItemsNotFound``, ``baseItemNotFound``, ``itemKeyNotFound``, ``itemKeyConflict``),
+    ``field``, ``path``, ``message`` and,
     depending on the code, ``count``, ``samples`` (``[{"row", "value"}]``), ``types`` or ``items``.
     """
 

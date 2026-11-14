@@ -121,6 +121,12 @@ def fpa_balance_example_spec() -> dict[str, Any]:
     return _load("planning-fpa-bs.spec.json")
 
 
+def income_example_spec() -> dict[str, Any]:
+    """The golden ``planning-income.spec.json`` example (income statement with calculated items: Gross margin,
+    Gross margin % and EBITDA on SECTION, per-section subtotal labels, Operating income as the grand total)."""
+    return _load("planning-income.spec.json")
+
+
 SHOW_AS_WITH_BASE = (
     "percentOf",
     "differenceFrom",

@@ -10,6 +10,7 @@ import {
   planningPivotSpec,
 } from "../../fixtures/planning-pivot-mock";
 import { fpaBalancePivotSpec, fpaPivotSpec, generateFpaPivotRows } from "../../fixtures/fpa-pivot-mock";
+import { generateIncomePivotRows, incomePivotSpec } from "../../fixtures/income-pivot-mock";
 import { generateStatementPivotRows, statementPivotSpec } from "../../fixtures/statement-pivot-mock";
 import { buildPivotModel } from "./build-model";
 import { inferPivotFields, pivotFieldListState, resolvePivotFields } from "./fields";
@@ -142,5 +143,21 @@ describe("pivot golden contract", () => {
     expect(JSON.parse(JSON.stringify(fpaModel))).toEqual(fpaModel);
     expect(fpaModel.diagnostics).toBeUndefined();
     expect(fpaBalanceModel.diagnostics).toBeUndefined();
+  });
+
+  // Income statement with calculated items (docs/pivot-recipes.md): Gross margin, Gross margin % and
+  // EBITDA as calculated items on SECTION, per-section subtotal labels, Operating income as the grand
+  // total (rows: generateIncomePivotRows()).
+  const incomeRows = generateIncomePivotRows();
+  const incomeModel = buildPivotModel(incomePivotSpec, incomeRows);
+
+  it("planning-income example (calculated items, cascading totals, per-group subtotal labels)", async () => {
+    await expect(json(incomePivotSpec)).toMatchFileSnapshot(`${dir}/planning-income.spec.json`);
+    await expect(json(incomeRows)).toMatchFileSnapshot(`${dir}/planning-income.rows.json`);
+    await expect(json(incomeModel)).toMatchFileSnapshot(`${dir}/planning-income.model.json`);
+    await expect(json(buildPivotSheet(incomePivotSpec, incomeRows).sheet)).toMatchFileSnapshot(`${dir}/planning-income.sheet.json`);
+    expect(JSON.parse(JSON.stringify(incomeModel))).toEqual(incomeModel);
+    expect(incomeModel.diagnostics).toBeUndefined();
+    expect(incomeModel.rows.filter((r) => r.kind === "calculated").map((r) => r.label)).toEqual(["Gross margin", "Gross margin %", "EBITDA"]);
   });
 });

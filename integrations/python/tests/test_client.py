@@ -322,6 +322,74 @@ def test_fpa_planning_pack_from_python(chromium: ExportService) -> None:
 
 
 @pytest.mark.e2e
+def test_income_statement_with_calculated_items_from_python(chromium: ExportService) -> None:
+    """Calculated items (Gross margin, Gross margin %, EBITDA) and per-section subtotal labels, computed by nqgrid:
+    the golden model / sheet / statement HTML, a statement PDF and an analyst workbook (Node and openpyxl)."""
+    openpyxl = pytest.importorskip("openpyxl")
+    spec = load_example("planning-income.spec.json")
+    rows = load_example("planning-income.rows.json")
+    assert validate_pivot_spec(spec) == []
+    options = {**OPTIONS, "profile": "statement"}
+    with NqgridExportClient(chromium.url) as c:
+        out = c.export_report(spec, rows, format="model")
+        model = out.data
+        assert out.diagnostics == []
+        assert model == load_example("planning-income.model.json")
+        assert c.export(spec, rows, format="sheet") == load_example("planning-income.sheet.json")
+        html = c.export(spec, rows, format="html", options=options)
+        assert html == (EXAMPLES / "planning-income.html").read_text("utf-8")
+        labels = [(r["kind"], r["label"]) for r in model["rows"]]
+        assert labels[3] == ("subtotal", "Total revenue")
+        assert [label for kind, label in labels if kind == "calculated"] == ["Gross margin", "Gross margin %", "EBITDA"]
+        cells = {r["label"]: r["cells"] for r in model["rows"]}
+        assert [c["value"] for c in cells["EBITDA"]] == [945, 1080, 1215, 1350, 4590]
+        assert cells["Gross margin %"][-1]["value"] == pytest.approx(8190 / 13980)
+        assert model["grandTotal"]["cells"][-1]["value"] == 4110  # items stay out of Operating income
+        # A typo in a formula is a diagnostic (the data decides which keys exist), not a validation error.
+        typo = {
+            **spec,
+            "rows": [
+                {**spec["rows"][0], "calculatedItems": [{"key": "GM", "formula": "[Revenue] + [Cost of sale]"}]},
+                spec["rows"][1],
+            ],
+        }
+        assert validate_pivot_spec(typo) == []
+        warned = c.export_report(typo, rows, format="model")
+        assert [d["code"] for d in warned.diagnostics] == ["itemKeyNotFound"]
+        assert warned.diagnostics[0]["items"] == ["Cost of sale"]
+        # A reference cycle is rejected by both validators with the same message.
+        loop = {
+            **spec,
+            "rows": [{**spec["rows"][0], "calculatedItems": [{"key": "X", "formula": "[X] + 1"}]}, spec["rows"][1]],
+        }
+        assert validate_pivot_spec(loop) == ["rows[0].calculatedItems[0].formula: reference cycle X → X"]
+        with pytest.raises(NqgridInvalidInput) as err:
+            c.export(loop, rows, format="model")
+        assert err.value.details == ["spec: rows[0].calculatedItems[0].formula: reference cycle X → X"]
+        pdf = c.export(spec, rows, format="pdf", options=options)
+        assert pdf[:4] == b"%PDF" and pdf_page_count(pdf) == 1
+        data = c.export(spec, rows, format="xlsx", options={**options, "xlsx": {"subtotalFormulas": True}})
+        sheet = c.export(spec, rows, format="sheet", options={**options, "xlsx": {"subtotalFormulas": True}})
+    ws = openpyxl.load_workbook(io.BytesIO(data)).worksheets[0]
+    top = sheet["tableRow"]
+    row_of = {r[0]["v"]: top + i + 1 for i, r in enumerate(sheet["cells"])}
+    gm, pct = row_of["Gross margin"], row_of["Gross margin %"]
+    assert ws.cell(row=gm, column=2).value == 1845
+    assert ws.cell(row=gm, column=2).font.bold is True
+    assert ws.cell(row=gm, column=2).border.top.style == "thin"
+    assert ws.cell(row=pct, column=6).number_format == "#,##0.0%"
+    assert str(ws.cell(row=row_of["Total revenue"], column=2).value).startswith("=SUBTOTAL(9,")
+    assert ws.cell(row=row_of["Operating income"], column=6).value == 4110
+    py = openpyxl.load_workbook(io.BytesIO(write_xlsx_from_sheet(sheet, spec=spec, generated_at=GOLDEN_GENERATED_AT)))
+    pws = py.worksheets[0]
+    for r in (gm, pct, row_of["EBITDA"], row_of["Operating income"]):
+        assert [pws.cell(row=r, column=c).value for c in range(1, 7)] == [
+            ws.cell(row=r, column=c).value for c in range(1, 7)
+        ]
+        assert pws.cell(row=r, column=6).number_format == ws.cell(row=r, column=6).number_format
+
+
+@pytest.mark.e2e
 def test_html(client: NqgridExportClient, planning_spec: dict[str, Any], planning_rows: list[dict[str, Any]]) -> None:
     html = client.export(planning_spec, planning_rows, format="html", options=OPTIONS)
     assert isinstance(html, str)

@@ -1,0 +1,1060 @@
+{
+  "version": 1,
+  "id": "income-statement-items",
+  "title": "Income statement",
+  "subtitle": "FY 2026 · EUR",
+  "layout": "compact",
+  "rowDimensions": [
+    {
+      "field": "SECTION",
+      "label": "Section",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    },
+    {
+      "field": "LINE",
+      "label": "Line",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    }
+  ],
+  "columnDimension": {
+    "field": "PERIOD:quarter",
+    "label": "Quarter"
+  },
+  "columnKeys": [
+    {
+      "key": "Q1",
+      "label": "Q1"
+    },
+    {
+      "key": "Q2",
+      "label": "Q2"
+    },
+    {
+      "key": "Q3",
+      "label": "Q3"
+    },
+    {
+      "key": "Q4",
+      "label": "Q4"
+    }
+  ],
+  "columns": [
+    {
+      "id": "c:Q1:amount",
+      "columnKey": "Q1",
+      "columnLabel": "Q1",
+      "measureId": "amount",
+      "measureLabel": "Amount",
+      "headerPath": [
+        "Q1"
+      ],
+      "format": {
+        "decimals": 0,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0;(#,##0)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q2:amount",
+      "columnKey": "Q2",
+      "columnLabel": "Q2",
+      "measureId": "amount",
+      "measureLabel": "Amount",
+      "headerPath": [
+        "Q2"
+      ],
+      "format": {
+        "decimals": 0,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0;(#,##0)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q3:amount",
+      "columnKey": "Q3",
+      "columnLabel": "Q3",
+      "measureId": "amount",
+      "measureLabel": "Amount",
+      "headerPath": [
+        "Q3"
+      ],
+      "format": {
+        "decimals": 0,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0;(#,##0)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q4:amount",
+      "columnKey": "Q4",
+      "columnLabel": "Q4",
+      "measureId": "amount",
+      "measureLabel": "Amount",
+      "headerPath": [
+        "Q4"
+      ],
+      "format": {
+        "decimals": 0,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0;(#,##0)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:amount",
+      "columnKey": null,
+      "columnLabel": "FY 2026",
+      "measureId": "amount",
+      "measureLabel": "Amount",
+      "headerPath": [
+        "FY 2026"
+      ],
+      "format": {
+        "decimals": 0,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0;(#,##0)",
+      "excelPercentNumFmt": "#,##0%"
+    }
+  ],
+  "headerRows": [
+    [
+      {
+        "label": "Q1",
+        "colSpan": 1,
+        "columnKey": "Q1",
+        "measureId": "amount"
+      },
+      {
+        "label": "Q2",
+        "colSpan": 1,
+        "columnKey": "Q2",
+        "measureId": "amount"
+      },
+      {
+        "label": "Q3",
+        "colSpan": 1,
+        "columnKey": "Q3",
+        "measureId": "amount"
+      },
+      {
+        "label": "Q4",
+        "colSpan": 1,
+        "columnKey": "Q4",
+        "measureId": "amount"
+      },
+      {
+        "label": "FY 2026",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "amount"
+      }
+    ]
+  ],
+  "rows": [
+    {
+      "id": "r:Revenue",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Revenue"
+      ],
+      "label": "Revenue",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 2,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ],
+      "subtotal": "end"
+    },
+    {
+      "id": "r:Revenue/Product%20revenue",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Revenue",
+        "Product revenue"
+      ],
+      "label": "Product revenue",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 2460,
+          "raw": 2460,
+          "text": "2,460"
+        },
+        {
+          "value": 2640,
+          "raw": 2640,
+          "text": "2,640"
+        },
+        {
+          "value": 2820,
+          "raw": 2820,
+          "text": "2,820"
+        },
+        {
+          "value": 3000,
+          "raw": 3000,
+          "text": "3,000"
+        },
+        {
+          "value": 10920,
+          "raw": 10920,
+          "text": "10,920"
+        }
+      ]
+    },
+    {
+      "id": "r:Revenue/Services%20revenue",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Revenue",
+        "Services revenue"
+      ],
+      "label": "Services revenue",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 630,
+          "raw": 630,
+          "text": "630"
+        },
+        {
+          "value": 720,
+          "raw": 720,
+          "text": "720"
+        },
+        {
+          "value": 810,
+          "raw": 810,
+          "text": "810"
+        },
+        {
+          "value": 900,
+          "raw": 900,
+          "text": "900"
+        },
+        {
+          "value": 3060,
+          "raw": 3060,
+          "text": "3,060"
+        }
+      ]
+    },
+    {
+      "id": "t:Revenue",
+      "kind": "subtotal",
+      "depth": 0,
+      "path": [
+        "Revenue"
+      ],
+      "label": "Total revenue",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 2,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 3090,
+          "raw": 3090,
+          "text": "3,090"
+        },
+        {
+          "value": 3360,
+          "raw": 3360,
+          "text": "3,360"
+        },
+        {
+          "value": 3630,
+          "raw": 3630,
+          "text": "3,630"
+        },
+        {
+          "value": 3900,
+          "raw": 3900,
+          "text": "3,900"
+        },
+        {
+          "value": 13980,
+          "raw": 13980,
+          "text": "13,980"
+        }
+      ]
+    },
+    {
+      "id": "r:Cost%20of%20sales",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Cost of sales"
+      ],
+      "label": "Cost of sales",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 1,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ],
+      "subtotal": "end"
+    },
+    {
+      "id": "r:Cost%20of%20sales/COGS",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Cost of sales",
+        "COGS"
+      ],
+      "label": "COGS",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -1245,
+          "raw": -1245,
+          "text": "(1,245)"
+        },
+        {
+          "value": -1380,
+          "raw": -1380,
+          "text": "(1,380)"
+        },
+        {
+          "value": -1515,
+          "raw": -1515,
+          "text": "(1,515)"
+        },
+        {
+          "value": -1650,
+          "raw": -1650,
+          "text": "(1,650)"
+        },
+        {
+          "value": -5790,
+          "raw": -5790,
+          "text": "(5,790)"
+        }
+      ]
+    },
+    {
+      "id": "t:Cost%20of%20sales",
+      "kind": "subtotal",
+      "depth": 0,
+      "path": [
+        "Cost of sales"
+      ],
+      "label": "Total cost of sales",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 1,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -1245,
+          "raw": -1245,
+          "text": "(1,245)"
+        },
+        {
+          "value": -1380,
+          "raw": -1380,
+          "text": "(1,380)"
+        },
+        {
+          "value": -1515,
+          "raw": -1515,
+          "text": "(1,515)"
+        },
+        {
+          "value": -1650,
+          "raw": -1650,
+          "text": "(1,650)"
+        },
+        {
+          "value": -5790,
+          "raw": -5790,
+          "text": "(5,790)"
+        }
+      ]
+    },
+    {
+      "id": "i:Gross%20margin",
+      "kind": "calculated",
+      "depth": 0,
+      "path": [
+        "Gross margin"
+      ],
+      "label": "Gross margin",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 0,
+      "cells": [
+        {
+          "value": 1845,
+          "raw": 1845,
+          "text": "1,845"
+        },
+        {
+          "value": 1980,
+          "raw": 1980,
+          "text": "1,980"
+        },
+        {
+          "value": 2115,
+          "raw": 2115,
+          "text": "2,115"
+        },
+        {
+          "value": 2250,
+          "raw": 2250,
+          "text": "2,250"
+        },
+        {
+          "value": 8190,
+          "raw": 8190,
+          "text": "8,190"
+        }
+      ],
+      "formula": "[Revenue] + [Cost of sales]"
+    },
+    {
+      "id": "i:Gross%20margin%20%25",
+      "kind": "calculated",
+      "depth": 0,
+      "path": [
+        "Gross margin %"
+      ],
+      "label": "Gross margin %",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 0,
+      "cells": [
+        {
+          "value": 0.5970873786407767,
+          "raw": 0.5970873786407767,
+          "text": "59.7%"
+        },
+        {
+          "value": 0.5892857142857143,
+          "raw": 0.5892857142857143,
+          "text": "58.9%"
+        },
+        {
+          "value": 0.5826446280991735,
+          "raw": 0.5826446280991735,
+          "text": "58.3%"
+        },
+        {
+          "value": 0.5769230769230769,
+          "raw": 0.5769230769230769,
+          "text": "57.7%"
+        },
+        {
+          "value": 0.5858369098712446,
+          "raw": 0.5858369098712446,
+          "text": "58.6%"
+        }
+      ],
+      "formula": "[Gross margin] / [Revenue]",
+      "format": {
+        "style": "percent",
+        "decimals": 1
+      },
+      "excelNumFmt": "#,##0.0%"
+    },
+    {
+      "id": "r:Operating%20expenses",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Operating expenses"
+      ],
+      "label": "Operating expenses",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 2,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ],
+      "subtotal": "end"
+    },
+    {
+      "id": "r:Operating%20expenses/Salaries",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Operating expenses",
+        "Salaries"
+      ],
+      "label": "Salaries",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -750,
+          "raw": -750,
+          "text": "(750)"
+        },
+        {
+          "value": -750,
+          "raw": -750,
+          "text": "(750)"
+        },
+        {
+          "value": -750,
+          "raw": -750,
+          "text": "(750)"
+        },
+        {
+          "value": -750,
+          "raw": -750,
+          "text": "(750)"
+        },
+        {
+          "value": -3000,
+          "raw": -3000,
+          "text": "(3,000)"
+        }
+      ]
+    },
+    {
+      "id": "r:Operating%20expenses/Rent",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Operating expenses",
+        "Rent"
+      ],
+      "label": "Rent",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -150,
+          "raw": -150,
+          "text": "(150)"
+        },
+        {
+          "value": -150,
+          "raw": -150,
+          "text": "(150)"
+        },
+        {
+          "value": -150,
+          "raw": -150,
+          "text": "(150)"
+        },
+        {
+          "value": -150,
+          "raw": -150,
+          "text": "(150)"
+        },
+        {
+          "value": -600,
+          "raw": -600,
+          "text": "(600)"
+        }
+      ]
+    },
+    {
+      "id": "t:Operating%20expenses",
+      "kind": "subtotal",
+      "depth": 0,
+      "path": [
+        "Operating expenses"
+      ],
+      "label": "Total operating expenses",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 2,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": -900,
+          "raw": -900,
+          "text": "(900)"
+        },
+        {
+          "value": -900,
+          "raw": -900,
+          "text": "(900)"
+        },
+        {
+          "value": -900,
+          "raw": -900,
+          "text": "(900)"
+        },
+        {
+          "value": -900,
+          "raw": -900,
+          "text": "(900)"
+        },
+        {
+          "value": -3600,
+          "raw": -3600,
+          "text": "(3,600)"
+        }
+      ]
+    },
+    {
+      "id": "i:EBITDA",
+      "kind": "calculated",
+      "depth": 0,
+      "path": [
+        "EBITDA"
+      ],
+      "label": "EBITDA",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 0,
+      "cells": [
+        {
+          "value": 945,
+          "raw": 945,
+          "text": "945"
+        },
+        {
+          "value": 1080,
+          "raw": 1080,
+          "text": "1,080"
+        },
+        {
+          "value": 1215,
+          "raw": 1215,
+          "text": "1,215"
+        },
+        {
+          "value": 1350,
+          "raw": 1350,
+          "text": "1,350"
+        },
+        {
+          "value": 4590,
+          "raw": 4590,
+          "text": "4,590"
+        }
+      ],
+      "formula": "[Gross margin] + [Operating expenses]"
+    },
+    {
+      "id": "r:Depreciation%20%26%20amortization",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Depreciation & amortization"
+      ],
+      "label": "Depreciation & amortization",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 1,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ],
+      "subtotal": "end"
+    },
+    {
+      "id": "r:Depreciation%20%26%20amortization/Depreciation",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Depreciation & amortization",
+        "Depreciation"
+      ],
+      "label": "Depreciation",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -480,
+          "raw": -480,
+          "text": "(480)"
+        }
+      ]
+    },
+    {
+      "id": "t:Depreciation%20%26%20amortization",
+      "kind": "subtotal",
+      "depth": 0,
+      "path": [
+        "Depreciation & amortization"
+      ],
+      "label": "Total depreciation & amortization",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 1,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -120,
+          "raw": -120,
+          "text": "(120)"
+        },
+        {
+          "value": -480,
+          "raw": -480,
+          "text": "(480)"
+        }
+      ]
+    },
+    {
+      "id": "__grandTotal__",
+      "kind": "grandTotal",
+      "depth": -1,
+      "path": [],
+      "label": "Operating income",
+      "expandable": false,
+      "expanded": true,
+      "childCount": 4,
+      "sourceRowCount": 72,
+      "cells": [
+        {
+          "value": 825,
+          "raw": 825,
+          "text": "825"
+        },
+        {
+          "value": 960,
+          "raw": 960,
+          "text": "960"
+        },
+        {
+          "value": 1095,
+          "raw": 1095,
+          "text": "1,095"
+        },
+        {
+          "value": 1230,
+          "raw": 1230,
+          "text": "1,230"
+        },
+        {
+          "value": 4110,
+          "raw": 4110,
+          "text": "4,110"
+        }
+      ]
+    }
+  ],
+  "grandTotal": {
+    "id": "__grandTotal__",
+    "kind": "grandTotal",
+    "depth": -1,
+    "path": [],
+    "label": "Operating income",
+    "expandable": false,
+    "expanded": true,
+    "childCount": 4,
+    "sourceRowCount": 72,
+    "cells": [
+      {
+        "value": 825,
+        "raw": 825,
+        "text": "825"
+      },
+      {
+        "value": 960,
+        "raw": 960,
+        "text": "960"
+      },
+      {
+        "value": 1095,
+        "raw": 1095,
+        "text": "1,095"
+      },
+      {
+        "value": 1230,
+        "raw": 1230,
+        "text": "1,230"
+      },
+      {
+        "value": 4110,
+        "raw": 4110,
+        "text": "4,110"
+      }
+    ]
+  },
+  "spans": [
+    [
+      {
+        "rowIndex": 0,
+        "span": 4,
+        "path": [
+          "Revenue"
+        ]
+      },
+      {
+        "rowIndex": 4,
+        "span": 3,
+        "path": [
+          "Cost of sales"
+        ]
+      },
+      {
+        "rowIndex": 7,
+        "span": 1,
+        "path": [
+          "Gross margin"
+        ]
+      },
+      {
+        "rowIndex": 8,
+        "span": 1,
+        "path": [
+          "Gross margin %"
+        ]
+      },
+      {
+        "rowIndex": 9,
+        "span": 4,
+        "path": [
+          "Operating expenses"
+        ]
+      },
+      {
+        "rowIndex": 13,
+        "span": 1,
+        "path": [
+          "EBITDA"
+        ]
+      },
+      {
+        "rowIndex": 14,
+        "span": 3,
+        "path": [
+          "Depreciation & amortization"
+        ]
+      }
+    ],
+    [
+      {
+        "rowIndex": 1,
+        "span": 1,
+        "path": [
+          "Revenue",
+          "Product revenue"
+        ]
+      },
+      {
+        "rowIndex": 2,
+        "span": 1,
+        "path": [
+          "Revenue",
+          "Services revenue"
+        ]
+      },
+      {
+        "rowIndex": 5,
+        "span": 1,
+        "path": [
+          "Cost of sales",
+          "COGS"
+        ]
+      },
+      {
+        "rowIndex": 10,
+        "span": 1,
+        "path": [
+          "Operating expenses",
+          "Salaries"
+        ]
+      },
+      {
+        "rowIndex": 11,
+        "span": 1,
+        "path": [
+          "Operating expenses",
+          "Rent"
+        ]
+      },
+      {
+        "rowIndex": 15,
+        "span": 1,
+        "path": [
+          "Depreciation & amortization",
+          "Depreciation"
+        ]
+      }
+    ]
+  ],
+  "heat": null,
+  "headerSeries": null,
+  "kpis": []
+}

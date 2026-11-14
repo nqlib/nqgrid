@@ -35,6 +35,7 @@ from nqgrid_export.validation import (
     fpa_balance_example_spec,
     fpa_example_spec,
     humanize_pivot_field,
+    income_example_spec,
     infer_pivot_fields,
     multicol_example_spec,
     statement_example_spec,
@@ -134,6 +135,7 @@ def test_schema_copies_in_the_package_match_the_contract() -> None:
     assert statement_example_spec() == load_example("planning-statement.spec.json")
     assert fpa_example_spec() == load_example("planning-fpa.spec.json")
     assert fpa_balance_example_spec() == load_example("planning-fpa-bs.spec.json")
+    assert income_example_spec() == load_example("planning-income.spec.json")
 
 
 def test_schemas_are_valid_2020_12() -> None:
@@ -334,6 +336,11 @@ def test_examples_directory_is_complete() -> None:
         "planning-fpa-bs.model.json",
         "planning-fpa-bs.sheet.json",
         "planning-fpa-bs.html",
+        "planning-income.spec.json",
+        "planning-income.rows.json",
+        "planning-income.model.json",
+        "planning-income.sheet.json",
+        "planning-income.html",
     } <= names
     assert (CONTRACT / "calc-expressions.json").is_file()
 

@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "id": "income-statement-items",
+  "title": "Income statement",
+  "subtitle": "FY 2026 · EUR",
+  "layout": "compact",
+  "rows": [
+    {
+      "field": "SECTION",
+      "label": "Section",
+      "subtotal": "end",
+      "subtotalLabels": {
+        "Revenue": "Total revenue",
+        "Cost of sales": "Total cost of sales",
+        "Operating expenses": "Total operating expenses",
+        "Depreciation & amortization": "Total depreciation & amortization"
+      },
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      },
+      "calculatedItems": [
+        {
+          "key": "Gross margin",
+          "formula": "[Revenue] + [Cost of sales]",
+          "after": "Cost of sales"
+        },
+        {
+          "key": "Gross margin %",
+          "formula": "[Gross margin] / [Revenue]",
+          "after": "Gross margin",
+          "format": {
+            "style": "percent",
+            "decimals": 1
+          }
+        },
+        {
+          "key": "EBITDA",
+          "formula": "[Gross margin] + [Operating expenses]",
+          "after": "Operating expenses"
+        }
+      ]
+    },
+    {
+      "field": "LINE",
+      "label": "Line",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    }
+  ],
+  "columns": {
+    "field": "PERIOD:quarter",
+    "label": "Quarter"
+  },
+  "measures": [
+    {
+      "id": "amount",
+      "label": "Amount",
+      "field": "AMOUNT",
+      "format": {
+        "decimals": 0,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "ord",
+      "label": "Line order",
+      "field": "LINE_SORT",
+      "aggregate": "min"
+    }
+  ],
+  "values": [
+    "amount"
+  ],
+  "totals": {
+    "grandTotalLabel": "Operating income",
+    "rowTotal": true,
+    "rowTotalLabel": "FY 2026"
+  }
+}

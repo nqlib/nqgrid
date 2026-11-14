@@ -11,7 +11,7 @@ It is the reference integration for a Python backend whose MCP agents email repo
 | `nqgrid_export.subprocess_exporter` | `SubprocessExporter`: one-shot `nqgrid-export --input - --out -`, same interface |
 | `nqgrid_export.errors` | `NqgridExportError` and its subclasses, mapped from the error JSON / exit codes |
 | `nqgrid_export.models` | Pydantic v2 models **generated** from `contract/pivot/v1/*.schema.json` |
-| `nqgrid_export.validation` | JSON Schema + referential checks (`validate_pivot_spec`, `validate_export_request`, `check_fields`, `check_calculated_measure`) |
+| `nqgrid_export.validation` | JSON Schema + referential checks (`validate_pivot_spec`, `validate_export_request`, `check_fields`, `check_calculated_measure`, `check_calculated_item`) |
 | `nqgrid_export.calc` | Calculated-measure expressions (`parse_calc`, `evaluate_calc`): a port of nqgrid's parser, same codes and messages |
 | `nqgrid_export.request` | `build_export_request` (mirrors the TS `buildPivotExportRequest`) and JSON encoding of DB types |
 | `nqgrid_export.xlsx` | `write_xlsx_from_sheet`: openpyxl workbook from `format="sheet"` JSON |
@@ -112,6 +112,19 @@ Financial statements (P&L): `nqgrid_export.validation.statement_example_spec()` 
 `percentOf` with `showAsBase.scope: "all"`, a per-level `subtotalLabel`); `validate_pivot_spec` mirrors their rules.
 Recipe and limits: [docs/pivot-recipes.md](../../docs/pivot-recipes.md).
 
+Calculated items (formula rows over keys of a row field, e.g. Gross margin = `[Revenue] + [Cost of sales]` on a P&L's
+`SECTION`): `income_example_spec()` returns the `planning-income` golden (items, cascading EBITDA, per-section
+`subtotalLabels`, a percent row). `validate_pivot_spec` checks the item formulas (same parser, any key may be
+referenced, also `__proto__`), duplicate keys, placement and cycles among items, with nqgrid's messages; keys the data
+does not have come back from `export_report` as `itemKeyNotFound` diagnostics. One item before adding it:
+
+```python
+from nqgrid_export import check_calculated_item
+
+check_calculated_item(spec, "SECTION", {"key": "EBITDA", "formula": "[Gross margin] + [Operating expenses]"})  # None
+check_calculated_item(spec, "SECTION", {"key": "X", "formula": "[X] + 1"})   # "reference cycle X → X"
+```
+
 Planning: `fpa_example_spec()` (long-format budget vs actual: measure filters on `SCENARIO` / `PERIOD:year`, variance,
 YTD, prior year, `format.scale`) and `fpa_balance_example_spec()` (`closingBalance` and `averageOverTime` on the same
 rows) return the `planning-fpa` goldens; the validator mirrors `measures[].filter` and the semi-additive aggregates.
@@ -185,7 +198,7 @@ Or, configured entirely from env: `nqgrid-export-mcp` / `python -m nqgrid_export
 | Tool | Signature | Returns |
 |------|-----------|---------|
 | `export_pivot_report` | `(spec: dict, rows: list[dict] \| None = None, dataset: str \| None = None, format: "pdf" \| "xlsx" = "pdf", email_to: list[str] \| None = None, subject: str \| None = None, options: dict \| None = None, body: str \| None = None)` | `{ok, format, path, filename, bytes, pages, rows, dataset, recipients, emailed, validation_errors, diagnostics, error}` (`diagnostics`: data problems found while building a report that was still made) |
-| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, calc_example_spec, statement_example_spec, fpa_example_spec, fpa_balance_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields, date grouping, calculated measures, show values as, subtotal positions and distinct count) |
+| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, calc_example_spec, statement_example_spec, fpa_example_spec, fpa_balance_example_spec, income_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields, date grouping, calculated measures, calculated items, show values as, subtotal positions and distinct count) |
 
 Resources: `nqgrid://pivot-spec/v1/schema` (JSON) and `nqgrid://pivot-spec/v1/guide` (Markdown).
 
