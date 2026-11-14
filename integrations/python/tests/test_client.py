@@ -314,12 +314,12 @@ def test_diagnostics_and_strict_validation_from_the_service(client: NqgridExport
     assert isinstance(out.data, str)
     assert [d["code"] for d in out.diagnostics] == ["unparsedNumbers"]
     assert out.diagnostics[0]["samples"] == [{"row": 0, "value": '"(500)"'}]
-    unknown = {**spec, "measures": [{"id": "m", "field": "v", "filter": {"field": "s"}}]}
+    unknown = {**spec, "measures": [{"id": "m", "field": "v", "filter": {"field": "s", "where": "x"}}]}
     with pytest.raises(NqgridInvalidInput) as info:
         client.export(unknown, [], format="html")
     # The service now rejects what the Python validator rejects, with the same message.
-    assert info.value.details == ["spec: measures[0]: unknown key(s) ('filter' was unexpected)"]
-    assert "measures[0]: unknown key(s) ('filter' was unexpected)" in validate_pivot_spec(unknown)
+    assert info.value.details == ["spec: measures[0].filter: unknown key(s) ('where' was unexpected)"]
+    assert "measures[0].filter: unknown key(s) ('where' was unexpected)" in validate_pivot_spec(unknown)
 
 
 @pytest.mark.e2e

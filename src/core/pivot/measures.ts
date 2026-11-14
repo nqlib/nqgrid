@@ -1,7 +1,8 @@
 import { findPivotCalcCycles, parsePivotCalc, type PivotCalcError } from "./calc";
 import { pivotColumnFields } from "./columns";
 import { pivotValueIds } from "./fields";
-import type { PivotDimension, PivotMeasure, PivotNumberFormat, PivotShowAs, PivotShowAsBase, PivotSpec } from "./types";
+import { isPivotFilterActive, pivotMeasureFilters } from "./filter";
+import type { PivotDimension, PivotFilter, PivotMeasure, PivotNumberFormat, PivotShowAs, PivotShowAsBase, PivotSpec } from "./types";
 import { pivotCalcShowAsMessage, PIVOT_SHOW_AS_WITH_BASE } from "./validate";
 
 /**
@@ -235,6 +236,20 @@ export function setPivotMeasureSignField(spec: PivotSpec, measureId: string, sig
   if (m.calculate !== undefined || agg === "count" || agg === "distinctCount" || (typeof agg === "object" && agg.type === "custom")) return spec;
   if (m.signField === signField) return spec;
   return { ...spec, measures: spec.measures.map((x) => (x === m ? { ...m, signField } : x)) };
+}
+
+/**
+ * Measure-level filter of a measure (`PivotMeasure.filter`: only records that pass it are aggregated
+ * by this measure). Inactive filters (no include / exclude / match) are dropped; `null`, `[]` or only
+ * inactive filters remove it; a single filter is stored as an object. Refused for calculated measures.
+ */
+export function setPivotMeasureFilter(spec: PivotSpec, measureId: string, filter: PivotFilter | readonly PivotFilter[] | null): PivotSpec {
+  const m = spec.measures.find((x) => x.id === measureId);
+  if (!m || m.calculate !== undefined) return spec;
+  const active = pivotMeasureFilters(filter ?? undefined).filter(isPivotFilterActive);
+  const next: PivotMeasure = active.length === 0 ? omit(m, "filter") : { ...m, filter: active.length === 1 ? active[0]! : active };
+  if (JSON.stringify(next) === JSON.stringify(m)) return spec;
+  return { ...spec, measures: spec.measures.map((x) => (x === m ? next : x)) };
 }
 
 /**

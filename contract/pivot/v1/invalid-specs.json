@@ -202,6 +202,147 @@
         "heat": null,
         "headerCharts": null
       }
+    },
+    {
+      "name": "measure filters on a long-format scenario table (actual, budget, variance)",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "LINE"
+          }
+        ],
+        "columns": {
+          "field": "PERIOD:month"
+        },
+        "measures": [
+          {
+            "id": "actual",
+            "field": "AMOUNT",
+            "filter": {
+              "field": "SCENARIO",
+              "include": [
+                "Actual"
+              ]
+            }
+          },
+          {
+            "id": "budget",
+            "field": "AMOUNT",
+            "filter": {
+              "field": "SCENARIO",
+              "include": [
+                "Budget"
+              ]
+            }
+          },
+          {
+            "id": "var",
+            "calculate": "actual - budget"
+          }
+        ]
+      }
+    },
+    {
+      "name": "measure filter list on a derived date field (prior year), with a sign field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "LINE"
+          }
+        ],
+        "measures": [
+          {
+            "id": "py",
+            "field": "AMOUNT",
+            "signField": "SIGN",
+            "filter": [
+              {
+                "field": "SCENARIO",
+                "include": [
+                  "Actual"
+                ]
+              },
+              {
+                "field": "PERIOD:year",
+                "include": [
+                  "2025"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "n",
+            "aggregate": "count",
+            "filter": {
+              "field": "SCENARIO",
+              "exclude": [
+                "Budget"
+              ],
+              "match": {
+                "op": "beginsWith",
+                "value": "Act"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "closing / opening balance and average over time",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "GROUP"
+          },
+          {
+            "field": "ACCOUNT"
+          }
+        ],
+        "columns": [
+          {
+            "field": "PERIOD:yearQuarter"
+          },
+          {
+            "field": "PERIOD:month"
+          }
+        ],
+        "measures": [
+          {
+            "id": "close",
+            "field": "BALANCE",
+            "signField": "SIGN",
+            "aggregate": {
+              "type": "closingBalance",
+              "timeField": "PERIOD"
+            }
+          },
+          {
+            "id": "open",
+            "field": "BALANCE",
+            "aggregate": {
+              "type": "openingBalance",
+              "timeField": "PERIOD:yearMonth"
+            }
+          },
+          {
+            "id": "fte",
+            "field": "FTE",
+            "aggregate": {
+              "type": "averageOverTime",
+              "timeField": "PERIOD"
+            },
+            "filter": {
+              "field": "SCENARIO",
+              "include": [
+                "Actual"
+              ]
+            }
+          }
+        ]
+      }
     }
   ],
   "invalid": [
@@ -251,7 +392,7 @@
       ]
     },
     {
-      "name": "measure filter (CALCULATE-style) is not a key",
+      "name": "unknown key in a measure filter",
       "spec": {
         "version": 1,
         "rows": [
@@ -267,13 +408,14 @@
               "field": "scenario",
               "include": [
                 "Actual"
-              ]
+              ],
+              "where": "x"
             }
           }
         ]
       },
       "errors": [
-        "measures[0]: unknown key(s) ('filter' was unexpected)"
+        "measures[0].filter: unknown key(s) ('where' was unexpected)"
       ]
     },
     {
@@ -1866,6 +2008,237 @@
       "schemaValid": true,
       "paths": [
         "measures[1].calculate"
+      ]
+    },
+    {
+      "name": "unknown key in a measure filter list",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": [
+              {
+                "field": "scenario",
+                "include": [
+                  "Actual"
+                ]
+              },
+              {
+                "field": "year",
+                "values": [
+                  "2026"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "errors": [
+        "measures[0].filter[1]: unknown key(s) ('values' was unexpected)"
+      ]
+    },
+    {
+      "name": "measure filter on a calculated measure",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "a",
+            "field": "v"
+          },
+          {
+            "id": "c",
+            "calculate": "a * 2",
+            "filter": {
+              "field": "scenario",
+              "include": [
+                "Actual"
+              ]
+            }
+          }
+        ]
+      },
+      "errors": [
+        "measures[1]: filter cannot be combined with calculate (filter the measures it references)"
+      ]
+    },
+    {
+      "name": "measure filter without a field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": {
+              "include": [
+                "Actual"
+              ]
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].filter"
+      ]
+    },
+    {
+      "name": "measure filter that is a string",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": "SCENARIO = Actual"
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].filter"
+      ]
+    },
+    {
+      "name": "non-string include in a measure filter",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "filter": {
+              "field": "year",
+              "include": [
+                2026
+              ]
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].filter.include"
+      ]
+    },
+    {
+      "name": "closing balance without timeField",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "aggregate": {
+              "type": "closingBalance"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "unknown key in a closing balance",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "aggregate": {
+              "type": "closingBalance",
+              "timeField": "PERIOD",
+              "by": "ACCOUNT"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
+      ]
+    },
+    {
+      "name": "averageOverTime without a field",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "aggregate": {
+              "type": "averageOverTime",
+              "timeField": "PERIOD"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0]"
+      ]
+    },
+    {
+      "name": "semi-additive aggregate with a typo",
+      "spec": {
+        "version": 1,
+        "rows": [
+          {
+            "field": "a"
+          }
+        ],
+        "measures": [
+          {
+            "id": "m",
+            "field": "v",
+            "aggregate": {
+              "type": "closing",
+              "timeField": "PERIOD"
+            }
+          }
+        ]
+      },
+      "paths": [
+        "measures[0].aggregate"
       ]
     }
   ]

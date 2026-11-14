@@ -1,4 +1,12 @@
 import { toPivotNumber } from "./format";
+
+/** Natural key order (numbers numerically, else code units), as `comparePivotKeys` in the cube. */
+function comparePivotKeys(a: string, b: string): number {
+  const na = toPivotNumber(a);
+  const nb = toPivotNumber(b);
+  if (na !== null && nb !== null) return na - nb;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
 import type { PivotAggregate, PivotDataRow } from "./types";
 
 /** Custom aggregator registered by name (`{ type: "custom", name }`). Return `null` for "no value". */
@@ -92,6 +100,24 @@ export function aggregatePivotRows(
       if (num.length === 0 || den.length === 0) return null;
       const d = sum(den);
       return d === 0 ? null : sum(num) / d + (agg.offset ?? 0);
+    }
+    case "closingBalance":
+    case "openingBalance":
+    case "averageOverTime": {
+      // One series: the rows' sum at their latest / earliest time key, or the sum per distinct key.
+      if (!field) return null;
+      const byKey = new Map<string, number>();
+      for (const r of rows) {
+        const v = toPivotNumber(r[field]);
+        const t = r[agg.timeField];
+        if (v === null || t === null || t === undefined || t === "") continue;
+        const k = typeof t === "string" ? t : String(t);
+        byKey.set(k, (byKey.get(k) ?? 0) + v);
+      }
+      if (byKey.size === 0) return null;
+      if (agg.type === "averageOverTime") return sum([...byKey.values()]) / byKey.size;
+      const keys = [...byKey.keys()].sort(comparePivotKeys);
+      return byKey.get(agg.type === "closingBalance" ? keys[keys.length - 1]! : keys[0]!)!;
     }
     case "custom": {
       const fn = registry[agg.name];

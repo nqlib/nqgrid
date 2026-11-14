@@ -11,7 +11,8 @@ Three layers, cheapest first:
    :mod:`nqgrid_export.calc`, unknown references, reference cycles), ``showAsBase`` (required by
    ``percentOf`` and the difference / running-total / rank kinds of ``showAs``, must name a row or column
    field; ``percentOf`` needs an ``item``; ``scope: "all"`` needs an item, a row field and an item kind),
-   ``signField`` (not with counts, distinct counts or calculated measures), ``keepEmpty`` only on column
+   ``signField`` (not with counts, distinct counts or calculated measures), a measure ``filter`` (not on
+   calculated measures), ``keepEmpty`` only on column
    dimensions, ``showAsBase`` only where a ``showAs`` kind reads it, no calculated measure over a show-as measure,
    ``format.scale`` not with ``compact`` / percent style, and custom aggregators (not available in nqgrid-export).
 
@@ -174,10 +175,31 @@ def _message(error: ValidationError) -> str:
     return str(error.message)
 
 
+def _branch_errors(error: ValidationError) -> list[ValidationError]:
+    """An ``anyOf`` / ``oneOf`` whose instance has the JSON type of exactly one branch (a measure ``filter``:
+    one object or a list) reports that branch's own errors, so paths and messages match ``validatePivotSpec``."""
+    if error.validator not in ("oneOf", "anyOf") or not error.context:
+        return [error]
+    by_branch: dict[int, list[ValidationError]] = {}
+    for sub in error.context:
+        by_branch.setdefault(int(sub.relative_schema_path[0]), []).append(sub)
+    typed = [
+        subs for subs in by_branch.values() if not any(s.validator == "type" and not s.relative_path for s in subs)
+    ]
+    if len(typed) != 1:
+        return [error]
+    return [e for sub in typed[0] for e in _branch_errors(sub)]
+
+
 def _schema_errors(validator: Draft202012Validator, instance: Any, prefix: str) -> list[str]:
     # A calculated measure with field / aggregate (dependentSchemas) gets a clearer referential message.
     errors = sorted(
-        (e for e in validator.iter_errors(instance) if "dependentSchemas" not in e.absolute_schema_path),
+        (
+            b
+            for e in validator.iter_errors(instance)
+            if "dependentSchemas" not in e.absolute_schema_path
+            for b in _branch_errors(e)
+        ),
         key=lambda e: [str(p) for p in e.absolute_path],
     )
     return [f"{_path(prefix, e)}: {_message(e)}" for e in errors]
@@ -354,6 +376,8 @@ def _measure_errors(
             errors.append(f"{where}: calculate cannot be combined with field or aggregate")
         if "signField" in m:
             errors.append(f"{where}: signField cannot be combined with calculate (sign the measures it references)")
+        if "filter" in m:
+            errors.append(calc_filter_message(where))
         parsed = parse_calc(m["calculate"], ids)
         if parsed.error is not None:
             errors.append(f"{where}.calculate: {parsed.error.message} (at {parsed.error.position})")
@@ -367,6 +391,11 @@ def _measure_errors(
     for cycle in find_cycles(refs):
         errors.append(f"{where_of.get(cycle[0], prefix + 'measures')}.calculate: reference cycle {' → '.join(cycle)}")
     return errors
+
+
+def calc_filter_message(where: str) -> str:
+    """A measure filter on a calculated measure (it aggregates nothing itself). Mirrors ``pivotCalcFilterMessage``."""
+    return f"{where}: filter cannot be combined with calculate (filter the measures it references)"
 
 
 def calc_show_as_message(where: str, ref: str, kind: str) -> str:
@@ -461,6 +490,13 @@ def spec_fields(spec: dict[str, Any]) -> list[tuple[str, str]]:
             for key in ("weightField", "numeratorField", "denominatorField"):
                 if isinstance(agg.get(key), str):
                     out.append((f"measures[{i}].aggregate.{key}", agg[key]))
+            if isinstance(agg.get("timeField"), str):
+                out.append((f"measures[{i}].aggregate.timeField", key_field(agg["timeField"])))
+        flt = m.get("filter")
+        for j, f in enumerate(flt if isinstance(flt, list) else [flt] if isinstance(flt, dict) else []):
+            if isinstance(f, dict) and isinstance(f.get("field"), str):
+                where = f"measures[{i}].filter[{j}]" if isinstance(flt, list) else f"measures[{i}].filter"
+                out.append((f"{where}.field", key_field(f["field"])))
     for i, f in enumerate(spec.get("filters") or []):
         if isinstance(f, dict) and isinstance(f.get("field"), str):
             out.append((f"filters[{i}].field", key_field(f["field"])))

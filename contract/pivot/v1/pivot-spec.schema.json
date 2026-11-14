@@ -363,7 +363,7 @@
             "last",
             "distinctCount"
           ],
-          "description": "distinctCount counts distinct non-blank keys of field (compared as strings); totals count distinct keys of all their records. first / last take the first / last record in input order that has a value (a group or total takes one record, so they are not opening / closing balances); avg averages records."
+          "description": "distinctCount counts distinct non-blank keys of field (compared as strings); totals count distinct keys of all their records. first / last take the first / last record in input order that has a value (a group or total takes one record, so they are not opening / closing balances: use closingBalance / openingBalance); avg averages records (for an average over time of per-period sums use averageOverTime)."
         },
         {
           "title": "WeightedAvgAggregate",
@@ -406,6 +406,29 @@
             },
             "offset": {
               "type": "number"
+            }
+          }
+        },
+        {
+          "title": "TimeAggregate",
+          "description": "Semi-additive aggregates over timeField (a date, a derived date field such as PERIOD:yearMonth, or any field whose keys sort chronologically: numbers, ISO dates, \"2026-01\"). closingBalance / openingBalance: for every series in a cell (one combination of the layout's non-time row and column keys, e.g. an account), the sum of its records at the latest / earliest timeField key it has in the cell, then summed across series (Q1 of a monthly balance = the March balance; a group adds its accounts' balances). averageOverTime: the cell's sum divided by the number of distinct timeField keys with a value in it (Jan 31, Feb 32, Mar 33 FTE -> Q1 32). Records without a value or a time key are skipped.",
+          "type": "object",
+          "required": [
+            "type",
+            "timeField"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "closingBalance",
+                "openingBalance",
+                "averageOverTime"
+              ]
+            },
+            "timeField": {
+              "type": "string",
+              "minLength": 1
             }
           }
         },
@@ -477,7 +500,21 @@
         "signField": {
           "type": "string",
           "minLength": 1,
-          "description": "Record field holding a multiplier (normally 1 / -1) applied to each record's value before aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings (\"-1\"); a missing or non-numeric sign counts as 1. sum / avg / min / max / first / last sign the value, weightedAvg the value (not the weight), ratio the numerator only. Not allowed with count, distinctCount, custom or calculate (validatePivotSpec)."
+          "description": "Record field holding a multiplier (normally 1 / -1) applied to each record's value before aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings (\"-1\"); a missing or non-numeric sign counts as 1. sum / avg / min / max / first / last / closingBalance / openingBalance / averageOverTime sign the value, weightedAvg the value (not the weight), ratio the numerator only. Not allowed with count, distinctCount, custom or calculate (validatePivotSpec)."
+        },
+        "filter": {
+          "description": "Measure-level filter (DAX CALCULATE, Excel SUMIFS): only records that pass it are aggregated by this measure; rows, columns and totals still come from every record that passes the report filters. One filter or a list (ANDed), same shape as filters[], on any field including derived date fields (PERIOD:year). E.g. {\"id\": \"actual\", \"field\": \"AMOUNT\", \"filter\": {\"field\": \"SCENARIO\", \"include\": [\"Actual\"]}}. A cell whose records all fail it is empty. Not allowed with calculate (filter the measures it references).",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/filter"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/filter"
+              }
+            }
+          ]
         },
         "format": {
           "$ref": "#/$defs/numberFormat"
@@ -546,7 +583,12 @@
                         ],
                         "properties": {
                           "type": {
-                            "const": "weightedAvg"
+                            "enum": [
+                              "weightedAvg",
+                              "closingBalance",
+                              "openingBalance",
+                              "averageOverTime"
+                            ]
                           }
                         }
                       }
@@ -565,7 +607,7 @@
       ],
       "dependentSchemas": {
         "calculate": {
-          "$comment": "a calculated measure has no field, aggregate or signField",
+          "$comment": "a calculated measure has no field, aggregate, signField or filter",
           "not": {
             "anyOf": [
               {
@@ -581,6 +623,11 @@
               {
                 "required": [
                   "signField"
+                ]
+              },
+              {
+                "required": [
+                  "filter"
                 ]
               }
             ]

@@ -49,13 +49,18 @@ const SPEC_KEYS = keySet(
 const DIMENSION_KEYS = keySet("field label order sort keepEmpty blankLabel attributes sortBy topN subtotal subtotalLabel");
 const SORT_BY_KEYS = keySet("measure direction columnKey");
 const TOP_N_KEYS = keySet("measure count direction columnKey other otherLabel");
-const MEASURE_KEYS = keySet("id field calculate label aggregate signField format percentFormat showAs groupShowAs showAsBase");
+const MEASURE_KEYS = keySet("id field calculate label aggregate signField filter format percentFormat showAs groupShowAs showAsBase");
 const SHOW_AS_BASE_KEYS = keySet("field item position scope");
 const AGGREGATE_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
   weightedAvg: keySet("type weightField"),
   ratio: keySet("type numeratorField denominatorField offset"),
   custom: keySet("type name"),
+  closingBalance: keySet("type timeField"),
+  openingBalance: keySet("type timeField"),
+  averageOverTime: keySet("type timeField"),
 };
+/** Semi-additive aggregate types (`{ type, timeField }`). */
+export const PIVOT_TIME_AGGREGATES: ReadonlySet<string> = new Set(["closingBalance", "openingBalance", "averageOverTime"]);
 const FORMAT_KEYS = keySet(
   "style currency currencySymbol decimals compact significantDigits compactUnits signDisplay negative prefix suffix groupSeparator decimalSeparator empty scale",
 );
@@ -145,6 +150,28 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
       if (!PIVOT_FORMAT_SCALES.includes(f.scale as number)) errors.push(`${where}.scale must be 1000, 1000000 or 1000000000`);
       else if (f.compact === true) errors.push(`${where}: scale cannot be combined with compact (pick one)`);
       else if (f.style === "percent") errors.push(`${where}: scale does not apply to percent style`);
+    }
+  };
+
+  /** A report filter or a measure filter (`PivotFilter`). */
+  const checkFilter = (f: unknown, where: string) => {
+    if (!isObject(f) || !isNonEmptyString(f.field)) {
+      errors.push(`${where}.field must be a non-empty string`);
+      return;
+    }
+    unknown(f, FILTER_KEYS, where);
+    optString(f.label, `${where}.label`);
+    for (const key of ["include", "exclude"] as const) {
+      if (f[key] !== undefined && !isStringArray(f[key])) errors.push(`${where}.${key} must be an array of strings`);
+    }
+    if (f.match !== undefined) {
+      if (!isObject(f.match) || !MATCH_OPS.has(f.match.op as string)) {
+        errors.push(`${where}.match.op must be one of ${[...MATCH_OPS].join(" | ")}`);
+      } else {
+        unknown(f.match, MATCH_KEYS, `${where}.match`);
+        if (typeof f.match.value !== "string") errors.push(`${where}.match.value must be a string`);
+        optBoolean(f.match.caseSensitive, `${where}.match.caseSensitive`);
+      }
     }
   };
 
@@ -286,9 +313,15 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
       if (m.showAsBase !== undefined || needsBase) showAsBases.push({ where, base: m.showAsBase, needed: needsBase, kinds: [m.showAs, m.groupShowAs] });
 
       if (m.signField !== undefined && !isNonEmptyString(m.signField)) errors.push(`${where}.signField must be a non-empty string`);
+      if (m.filter !== undefined) {
+        if (Array.isArray(m.filter)) m.filter.forEach((f, j) => checkFilter(f, `${where}.filter[${j}]`));
+        else if (isObject(m.filter)) checkFilter(m.filter, `${where}.filter`);
+        else errors.push(`${where}.filter must be a filter object or an array of filters`);
+      }
       if (m.calculate !== undefined) {
         if (m.field !== undefined || m.aggregate !== undefined) errors.push(`${where}: calculate cannot be combined with field or aggregate`);
         if (m.signField !== undefined) errors.push(`${where}: signField cannot be combined with calculate (sign the measures it references)`);
+        if (m.filter !== undefined) errors.push(pivotCalcFilterMessage(where));
         calcs.push({ id: m.id, where, expr: m.calculate });
         return;
       }
@@ -312,6 +345,8 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
         } else if (agg.type === "custom") {
           needsField = false;
           if (!isNonEmptyString(agg.name)) errors.push(`${where}.aggregate.name is required`);
+        } else if (PIVOT_TIME_AGGREGATES.has(agg.type as string)) {
+          if (!isNonEmptyString(agg.timeField)) errors.push(`${where}.aggregate.timeField is required`);
         } else {
           errors.push(`${where}.aggregate.type ${JSON.stringify(agg.type)} is not supported`);
         }
@@ -459,27 +494,7 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     if (!Array.isArray(input.filters)) {
       errors.push("filters must be an array");
     } else {
-      input.filters.forEach((f, i) => {
-        const where = `filters[${i}]`;
-        if (!isObject(f) || !isNonEmptyString(f.field)) {
-          errors.push(`${where}.field must be a non-empty string`);
-          return;
-        }
-        unknown(f, FILTER_KEYS, where);
-        optString(f.label, `${where}.label`);
-        for (const key of ["include", "exclude"] as const) {
-          if (f[key] !== undefined && !isStringArray(f[key])) errors.push(`${where}.${key} must be an array of strings`);
-        }
-        if (f.match !== undefined) {
-          if (!isObject(f.match) || !MATCH_OPS.has(f.match.op as string)) {
-            errors.push(`${where}.match.op must be one of ${[...MATCH_OPS].join(" | ")}`);
-          } else {
-            unknown(f.match, MATCH_KEYS, `${where}.match`);
-            if (typeof f.match.value !== "string") errors.push(`${where}.match.value must be a string`);
-            optBoolean(f.match.caseSensitive, `${where}.match.caseSensitive`);
-          }
-        }
-      });
+      input.filters.forEach((f, i) => checkFilter(f, `filters[${i}]`));
     }
   }
 
@@ -574,6 +589,11 @@ export function pivotCalcShowAsMessage(where: string, ref: string, kind: string)
     `${where}.calculate: references "${ref}", which has showAs "${kind}"; calculated measures read aggregated values before showAs. ` +
     `Reference the plain measure and put showAs on the calculated measure instead (e.g. calculate "actual - budget" with showAs "${kind}")`
   );
+}
+
+/** A measure filter on a calculated measure (it aggregates nothing itself). */
+export function pivotCalcFilterMessage(where: string): string {
+  return `${where}: filter cannot be combined with calculate (filter the measures it references)`;
 }
 
 /** `showAsBase` set on a measure whose `showAs` / `groupShowAs` never reads it (it would be ignored). */

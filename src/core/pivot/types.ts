@@ -229,7 +229,8 @@ export interface PivotFieldSpec {
  * keys); group and grand totals count distinct keys of all their records (not the sum of children).
  * `first` / `last` take the first / last record **in input order** that has a value; a group or total
  * takes one record of all of its records (not each account's last value summed), so they are not
- * opening / closing balances. `avg` averages records, not per-period sums.
+ * opening / closing balances (use `{ type: "closingBalance", timeField }`). `avg` averages records, not
+ * per-period sums (use `{ type: "averageOverTime", timeField }`).
  */
 export type PivotBuiltInAggregate = "sum" | "avg" | "min" | "max" | "count" | "first" | "last" | "distinctCount";
 
@@ -244,7 +245,25 @@ export type PivotAggregate =
       readonly offset?: number;
     }
   /** Looked up by name in `BuildPivotModelOptions.aggregators` (functions cannot cross JSON). */
-  | { readonly type: "custom"; readonly name: string };
+  | { readonly type: "custom"; readonly name: string }
+  /**
+   * Semi-additive balance (Excel / Power BI "last non-blank"): for every **series** in a cell — one
+   * combination of the layout's non-time row and column keys, e.g. an account — the sum of its records
+   * at the latest `timeField` key the series has in that cell; the series' values are then summed.
+   * Q1 of a monthly balance is the March balance, a year total the last month's, and a group adds its
+   * accounts' balances (each at its own latest period, so an account without a March record counts
+   * with its February value in Q1). `openingBalance` takes the earliest key instead.
+   */
+  | { readonly type: "closingBalance" | "openingBalance"; readonly timeField: string }
+  /**
+   * Average over time of the per-period sum (headcount, FTE, average balance): the cell's sum divided
+   * by the number of distinct `timeField` keys with a value in the cell — Jan 31, Feb 32, Mar 33 FTE
+   * give 32 for Q1, not the average record.
+   */
+  | { readonly type: "averageOverTime"; readonly timeField: string };
+
+/** Semi-additive aggregate types (they take a `timeField`). */
+export type PivotTimeAggregateType = "closingBalance" | "openingBalance" | "averageOverTime";
 
 /**
  * Excel-style "Show values as". Percent results are ratios. `percentOf` and the last six need
@@ -314,11 +333,22 @@ export interface PivotMeasure {
   /**
    * Record field holding a multiplier (normally `1` / `-1`) applied to each record's value before
    * aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings (`"-1"`);
-   * a missing or non-numeric sign counts as `1`. `sum` / `avg` / `min` / `max` / `first` / `last`
-   * sign the value, `weightedAvg` the value (not the weight), `ratio` the numerator only. Not
+   * a missing or non-numeric sign counts as `1`. `sum` / `avg` / `min` / `max` / `first` / `last` and
+   * the semi-additive aggregates sign the value, `weightedAvg` the value (not the weight), `ratio` the numerator only. Not
    * allowed with `count`, `distinctCount`, `custom` or `calculate`.
    */
   readonly signField?: string;
+  /**
+   * Measure-level filter (DAX `CALCULATE`, Excel's `SUMIFS`): only records that pass it are aggregated
+   * by **this** measure. One filter or a list (ANDed), same shape and rules as `PivotSpec.filters`, on
+   * any field, including derived date fields (`PERIOD:year`). Rows, columns and totals still come from
+   * every record that passes the report filters, so a long-format table (`SCENARIO` = Actual / Budget)
+   * can show `actual` and `budget` side by side:
+   * `{ id: "actual", field: "AMOUNT", filter: { field: "SCENARIO", include: ["Actual"] } }`.
+   * A cell whose records all fail the filter is empty. Not allowed with `calculate` (filter the
+   * measures it references). Drill-through with this `measureId` lists only the records it counted.
+   */
+  readonly filter?: PivotFilter | readonly PivotFilter[];
   /** Format for aggregated values. */
   readonly format?: PivotNumberFormat;
   /** Format for `showAs` percentages (default `{ style: "percent" }`). */

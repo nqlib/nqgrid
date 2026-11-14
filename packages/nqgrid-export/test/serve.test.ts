@@ -38,9 +38,9 @@ describe("serve mode", () => {
 
   it("rejects unknown spec keys with 400 + details, and sends data diagnostics in a header", async () => {
     const minimal = { version: 1, rows: [{ field: "a" }], measures: [{ id: "m", field: "v" }] };
-    const unknown = await post("?format=model", JSON.stringify({ spec: { ...minimal, measures: [{ id: "m", field: "v", filter: { field: "s" } }] }, rows: [] }));
+    const unknown = await post("?format=model", JSON.stringify({ spec: { ...minimal, measures: [{ id: "m", field: "v", filter: { field: "s", where: "x" } }] }, rows: [] }));
     expect(unknown.status).toBe(400);
-    expect(((await unknown.json()) as { error: { details: string[] } }).error.details).toEqual(["spec: measures[0]: unknown key(s) ('filter' was unexpected)"]);
+    expect(((await unknown.json()) as { error: { details: string[] } }).error.details).toEqual(["spec: measures[0].filter: unknown key(s) ('where' was unexpected)"]);
     const clean = await post("?format=html");
     expect(clean.headers.get("x-nqgrid-diagnostics")).toBeNull();
     const messy = await post("?format=html", JSON.stringify({ spec: minimal, rows: [{ a: "X", v: "1,234.50" }, { a: "Ä", v: 2 }] }));

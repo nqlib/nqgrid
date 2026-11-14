@@ -180,3 +180,28 @@ export function describePivotFilter(
   if (filter.match) out.push({ kind: "label", text: `${label} ${MATCH_TEXT[filter.match.op]} "${filter.match.value}"` });
   return out;
 }
+
+/** `measure.filter` as a list (a single filter object or an array of them; `[]` when absent). */
+export function pivotMeasureFilters(filter: PivotFilter | readonly PivotFilter[] | undefined): readonly PivotFilter[] {
+  return filter === undefined ? [] : Array.isArray(filter) ? (filter as readonly PivotFilter[]) : [filter as PivotFilter];
+}
+
+/**
+ * `1` for records that pass every filter in `filters` (ANDed, same rules as report filters), `null` when
+ * none is active (every record passes). One pass over the records; what a measure-level filter
+ * (`PivotMeasure.filter`) and its drill-through use.
+ */
+export function pivotFilterMask(filters: readonly PivotFilter[], encoding: PivotRowEncoding): Uint8Array | null {
+  const compiled = compilePivotFilters(filters, encoding);
+  if (compiled.length === 0) return null;
+  const n = encoding.length;
+  const mask = new Uint8Array(n);
+  const fc = compiled.map((c) => c.codes.codes);
+  const fa = compiled.map((c) => c.allowed);
+  const k = compiled.length;
+  outer: for (let i = 0; i < n; i++) {
+    for (let j = 0; j < k; j++) if (fa[j]![fc[j]![i]!] === 0) continue outer;
+    mask[i] = 1;
+  }
+  return mask;
+}

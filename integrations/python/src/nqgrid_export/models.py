@@ -74,6 +74,18 @@ class RatioAggregate(BaseModel):
     offset: float | None = None
 
 
+class TimeAggregate(BaseModel):
+    """
+    Semi-additive aggregates over timeField (a date, a derived date field such as PERIOD:yearMonth, or any field whose keys sort chronologically: numbers, ISO dates, "2026-01"). closingBalance / openingBalance: for every series in a cell (one combination of the layout's non-time row and column keys, e.g. an account), the sum of its records at the latest / earliest timeField key it has in the cell, then summed across series (Q1 of a monthly balance = the March balance; a group adds its accounts' balances). averageOverTime: the cell's sum divided by the number of distinct timeField keys with a value in it (Jan 31, Feb 32, Mar 33 FTE -> Q1 32). Records without a value or a time key are skipped.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: Literal["closingBalance", "openingBalance", "averageOverTime"]
+    timeField: Annotated[str, Field(min_length=1)]
+
+
 class CustomAggregate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -293,13 +305,18 @@ class Measure(BaseModel):
     aggregate: (
         WeightedAvgAggregate
         | RatioAggregate
+        | TimeAggregate
         | CustomAggregate
         | Literal["sum", "avg", "min", "max", "count", "first", "last", "distinctCount"]
         | None
     ) = None
     signField: Annotated[str | None, Field(min_length=1)] = None
     """
-    Record field holding a multiplier (normally 1 / -1) applied to each record's value before aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings ("-1"); a missing or non-numeric sign counts as 1. sum / avg / min / max / first / last sign the value, weightedAvg the value (not the weight), ratio the numerator only. Not allowed with count, distinctCount, custom or calculate (validatePivotSpec).
+    Record field holding a multiplier (normally 1 / -1) applied to each record's value before aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings ("-1"); a missing or non-numeric sign counts as 1. sum / avg / min / max / first / last / closingBalance / openingBalance / averageOverTime sign the value, weightedAvg the value (not the weight), ratio the numerator only. Not allowed with count, distinctCount, custom or calculate (validatePivotSpec).
+    """
+    filter: Filter | list[Filter] | None = None
+    """
+    Measure-level filter (DAX CALCULATE, Excel SUMIFS): only records that pass it are aggregated by this measure; rows, columns and totals still come from every record that passes the report filters. One filter or a list (ANDed), same shape as filters[], on any field including derived date fields (PERIOD:year). E.g. {"id": "actual", "field": "AMOUNT", "filter": {"field": "SCENARIO", "include": ["Actual"]}}. A cell whose records all fail it is empty. Not allowed with calculate (filter the measures it references).
     """
     format: NumberFormat | None = None
     percentFormat: NumberFormat | None = None
