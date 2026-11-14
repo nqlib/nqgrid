@@ -28,6 +28,26 @@ Check these before you upgrade from 0.3. Details are under each "Changed (behavi
 
 No public export was removed or renamed.
 
+### Playground: pivot showcase
+
+Playground only (`apps/playground`); no engine or public API change.
+
+- The "Planning pivot" tab is now **Pivot showcase**: three examples that together exercise every pivot feature, each
+  feature linked to its section in `docs/pivot-headless.md` / `docs/pivot-recipes.md` (the docs explain them one by
+  one). **Sales workbench**: one spec with slicers, filter menus, sort, Top N, the field list, column groups, fiscal date
+  grouping, calculated measures, show values as, distinct count, KPI panel, heat and drill-through. **Finance
+  reports**: one long-format ledger read as budget vs actual (measure filters, scale and units), an income statement
+  (calculated items, % of revenue, sign field, subtotal labels) and a balance sheet with headcount (closing / opening
+  balance, average over time). **Scale**: 100k–500k generated rows with row virtualization and live build times.
+- Shared panels under every example: **Spec** (the live spec, with the keys changed since load), **Validate**
+  (editable JSON through `validatePivotSpec`, "Try a bad spec"), **Diagnostics** (`model.diagnostics`, with a switch
+  that injects unparsable values) and **Export** (request JSON, `renderPivotHtml` preview with the report / statement
+  profile, PDF / XLSX through `VITE_NQGRID_EXPORT_URL`).
+- `?pivot=<id>` deep links keep working (`planning`, `dates`, `calc`, `statement`, `income`, `fpa`, `balance`) and open
+  the pivot tab, on the example that now covers them.
+- The playground resolves `@nqlib/nqgrid/core`, `/pivot`, `/render-static` and `/styles` to the library sources, like
+  the other entry points, so it no longer needs a fresh `dist/` build.
+
 ### Analyst review, batch C: calculated items, cascading totals, per-group subtotal labels
 
 `PivotSpec` stays `version: 1`; the schema changes are additive (`rows[i].calculatedItems`, `subtotalLabels`,

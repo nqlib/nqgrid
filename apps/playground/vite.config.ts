@@ -48,6 +48,12 @@ export default defineConfig({
       { find: /^@nqlib\/nqgrid\/advanced$/, replacement: path.resolve(__dirname, "../../src/advanced/index.ts") },
       { find: /^@nqlib\/nqgrid\/configurator$/, replacement: path.resolve(__dirname, "../../src/configurator/index.ts") },
       { find: /^@nqlib\/nqgrid\/fixtures$/, replacement: path.resolve(__dirname, "../../src/fixtures/index.ts") },
+      // Pivot entries resolve to source too, so the pivot showcase runs on the engine in this checkout
+      // (the built `dist/` can lag behind `src/`).
+      { find: /^@nqlib\/nqgrid\/core$/, replacement: path.resolve(__dirname, "../../src/core/index.ts") },
+      { find: /^@nqlib\/nqgrid\/pivot$/, replacement: path.resolve(__dirname, "../../src/pivot/index.ts") },
+      { find: /^@nqlib\/nqgrid\/render-static$/, replacement: path.resolve(__dirname, "../../src/render-static/index.ts") },
+      { find: /^@nqlib\/nqgrid\/styles$/, replacement: path.resolve(__dirname, "../../src/styles/index.ts") },
       ...(localNquiDist
         ? [
             { find: "@nqlib/nqui/styles", replacement: path.join(localNquiDist, "styles.css") },

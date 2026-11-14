@@ -1073,7 +1073,7 @@ renderToStaticMarkup(<PivotTable model={model} mode="static" />);   // same layo
   stable semantic class (`nqg-pivot`, `nqg-pivot-cell`, `nqg-pivot-kpi`, …) that the static stylesheet targets. Colors resolve via
   `--nqg-heat-0 … --nqg-heat-8` (default: `--nqg-heat-color` mixed over the surface, so one ramp works in
   light and dark) and `--nqg-series-0 … --nqg-series-7` (`pivotThemeVars("dark")` for dark steps).
-- No `@nqlib/nqui` dependency — the playground's "Planning pivot" demo adds nqui controls (Select, Button, ScrollArea) around it.
+- No `@nqlib/nqui` dependency — the playground's "Pivot showcase" adds nqui controls (Select, Button, ScrollArea, Popover) around it.
 
 ## Static HTML (`@nqlib/nqgrid/render-static`)
 
@@ -1168,7 +1168,7 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
 2. **Phase 1 — done.** Pivot core, JSON Schema, golden contract fixtures, sheet export shape.
 3. **Phase 2 — done.** `@nqlib/nqgrid/pivot`: `usePivotGrid(spec, rows)` + TanStack adapter; CSS-sticky
    pinned dimension columns with real `rowSpan` span cells; heat CSS variables; header chart band;
-   KPI side-panel slot; static render mode; playground "Planning pivot" demo.
+   KPI side-panel slot; static render mode; playground "Pivot showcase".
 4. **Phase 3 — done.** `@nqlib/nqgrid/render-static` (`renderPivotHtml(model, { theme, page, … })`: self-contained
    HTML + CSS, inline SVG header bars, landscape pages, repeated headers, `break-inside: avoid` per group, balanced
    column chunks, tall-KPI filler rows) and `packages/nqgrid-export` (CLI, Node API and HTTP serve mode; Playwright

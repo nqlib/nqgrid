@@ -202,7 +202,7 @@ async fn export_pivot_report(request: serde_json::Value, format: String) -> Resu
 
 Without a Rust command, `fetch` from the webview to the Python backend works too, if the backend allows the Tauri
 origin (`tauri://localhost`, `http://tauri.localhost` on Windows) via CORS, or via `@tauri-apps/plugin-http`
-with the backend URL in its capability scope. The playground's Planning pivot demo shows the request JSON and,
+with the backend URL in its capability scope. The playground's Pivot showcase (Export tab) shows the request JSON and a `renderPivotHtml` preview and,
 with `VITE_NQGRID_EXPORT_URL` set, downloads the PDF / XLSX through a dev proxy.
 
 ## Financial statements (the Statement report)
