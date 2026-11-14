@@ -22,7 +22,11 @@
       "@nqlib/nqgrid/spreadsheet": ["../../src/spreadsheet/index.ts"],
       "@nqlib/nqgrid/advanced": ["../../src/advanced/index.ts"],
       "@nqlib/nqgrid/configurator": ["../../src/configurator/index.ts"],
-      "@nqlib/nqgrid/fixtures": ["../../src/fixtures/index.ts"]
+      "@nqlib/nqgrid/fixtures": ["../../src/fixtures/index.ts"],
+      "@nqlib/nqgrid/core": ["../../src/core/index.ts"],
+      "@nqlib/nqgrid/pivot": ["../../src/pivot/index.ts"],
+      "@nqlib/nqgrid/render-static": ["../../src/render-static/index.ts"],
+      "@nqlib/nqgrid/styles": ["../../src/styles/index.ts"]
     }
   },
   "include": ["src"]

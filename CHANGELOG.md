@@ -4,6 +4,25 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 
 ## [Unreleased]
 
+### Playground: guided pivot showcase
+
+Playground only (`apps/playground`); no engine or public API change.
+
+- The "Planning pivot" tab is now **Pivot showcase**: ten scenarios, each with a "what to try" list and its own
+  controls: planning grid, slice & filter, field list & drag-and-drop, column hierarchy & dates, calculated measures
+  & show values as, income statement (calculated items), % of Revenue & signs, budget vs actual, balance sheet &
+  headcount, and a 100k–500k row dataset with row virtualization and live build times. Scenarios are registered in
+  `apps/playground/src/demos/pivot-showcase/registry.ts`, one file per scenario.
+- Shared panels under every scenario: **Spec** (the live spec, with the keys changed since load), **Validate**
+  (editable JSON through `validatePivotSpec`, "Try a bad spec"), **Diagnostics** (`model.diagnostics`, with a switch
+  that injects unparsable values) and **Export** (request JSON, `renderPivotHtml` preview with the report / statement
+  profile, PDF / XLSX through `VITE_NQGRID_EXPORT_URL`).
+- `?pivot=<id>` deep links keep working (`planning`, `dates`, `calc`, `statement`, `income`, `fpa`, `balance`) and open
+  the pivot tab; the scenario list becomes a select on narrow screens.
+- The playground resolves `@nqlib/nqgrid/core`, `/pivot`, `/render-static` and `/styles` to the library sources, like
+  the other entry points, so it no longer needs a fresh `dist/` build.
+
+
 ### Analyst review, batch C: calculated items, cascading totals, per-group subtotal labels
 
 `PivotSpec` stays `version: 1`; the schema changes are additive (`rows[i].calculatedItems`, `subtotalLabels`,
