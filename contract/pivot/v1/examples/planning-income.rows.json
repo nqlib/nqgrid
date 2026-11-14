@@ -1,7 +1,7 @@
 [
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-01-01",
     "AMOUNT": -40
@@ -42,8 +42,8 @@
     "AMOUNT": 800
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-02-01",
     "AMOUNT": -40
@@ -84,8 +84,8 @@
     "AMOUNT": 820
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-03-01",
     "AMOUNT": -40
@@ -126,8 +126,8 @@
     "AMOUNT": 840
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-04-01",
     "AMOUNT": -40
@@ -168,8 +168,8 @@
     "AMOUNT": 860
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-05-01",
     "AMOUNT": -40
@@ -210,8 +210,8 @@
     "AMOUNT": 880
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-06-01",
     "AMOUNT": -40
@@ -252,8 +252,8 @@
     "AMOUNT": 900
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-07-01",
     "AMOUNT": -40
@@ -294,8 +294,8 @@
     "AMOUNT": 920
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-08-01",
     "AMOUNT": -40
@@ -336,8 +336,8 @@
     "AMOUNT": 940
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-09-01",
     "AMOUNT": -40
@@ -378,8 +378,8 @@
     "AMOUNT": 960
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-10-01",
     "AMOUNT": -40
@@ -420,8 +420,8 @@
     "AMOUNT": 980
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-11-01",
     "AMOUNT": -40
@@ -462,8 +462,8 @@
     "AMOUNT": 1000
   },
   {
-    "SECTION": "Depreciation & amortization",
-    "LINE": "Depreciation",
+    "SECTION": "Depreciation",
+    "LINE": "Equipment depreciation",
     "LINE_SORT": 60,
     "PERIOD": "2026-12-01",
     "AMOUNT": -40

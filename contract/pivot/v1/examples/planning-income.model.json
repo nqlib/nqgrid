@@ -753,13 +753,13 @@
       "formula": "[Gross margin] + [Operating expenses]"
     },
     {
-      "id": "r:Depreciation%20%26%20amortization",
+      "id": "r:Depreciation",
       "kind": "group",
       "depth": 0,
       "path": [
-        "Depreciation & amortization"
+        "Depreciation"
       ],
-      "label": "Depreciation & amortization",
+      "label": "Depreciation",
       "expandable": true,
       "expanded": true,
       "childCount": 1,
@@ -794,14 +794,14 @@
       "subtotal": "end"
     },
     {
-      "id": "r:Depreciation%20%26%20amortization/Depreciation",
+      "id": "r:Depreciation/Equipment%20depreciation",
       "kind": "leaf",
       "depth": 1,
       "path": [
-        "Depreciation & amortization",
-        "Depreciation"
+        "Depreciation",
+        "Equipment depreciation"
       ],
-      "label": "Depreciation",
+      "label": "Equipment depreciation",
       "expandable": false,
       "expanded": false,
       "childCount": 0,
@@ -835,13 +835,13 @@
       ]
     },
     {
-      "id": "t:Depreciation%20%26%20amortization",
+      "id": "t:Depreciation",
       "kind": "subtotal",
       "depth": 0,
       "path": [
-        "Depreciation & amortization"
+        "Depreciation"
       ],
-      "label": "Total depreciation & amortization",
+      "label": "Total depreciation",
       "expandable": false,
       "expanded": false,
       "childCount": 1,
@@ -999,7 +999,7 @@
         "rowIndex": 14,
         "span": 3,
         "path": [
-          "Depreciation & amortization"
+          "Depreciation"
         ]
       }
     ],
@@ -1048,8 +1048,8 @@
         "rowIndex": 15,
         "span": 1,
         "path": [
-          "Depreciation & amortization",
-          "Depreciation"
+          "Depreciation",
+          "Equipment depreciation"
         ]
       }
     ]

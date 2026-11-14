@@ -36,7 +36,7 @@ line's position in the statement.
 | Cost of sales | COGS | 30 | 2026-01-01 | -400 |
 | Operating expenses | Salaries | 40 | 2026-01-01 | -250 |
 | Operating expenses | Rent | 50 | 2026-01-01 | -50 |
-| Depreciation & amortization | Depreciation | 60 | 2026-01-01 | -40 |
+| Depreciation | Equipment depreciation | 60 | 2026-01-01 | -40 |
 | … 12 months (`2026-01-01` … `2026-12-01`), 72 records | | | | |
 
 Unsigned amounts with a `SIGN` column work the same way: add `"signField": "SIGN"` to the amount measure (see the
@@ -58,7 +58,7 @@ variant below).
         "Revenue": "Total revenue",
         "Cost of sales": "Total cost of sales",
         "Operating expenses": "Total operating expenses",
-        "Depreciation & amortization": "Total depreciation & amortization"
+        "Depreciation": "Total depreciation"
       },
       "sortBy": { "measure": "ord", "direction": "asc" },
       "calculatedItems": [
@@ -112,9 +112,9 @@ variant below).
 | &nbsp;&nbsp;Rent | (150) | (150) | (150) | (150) | (600) |
 | **Total operating expenses** | **(900)** | **(900)** | **(900)** | **(900)** | **(3,600)** |
 | **EBITDA** | **945** | **1,080** | **1,215** | **1,350** | **4,590** |
-| **Depreciation & amortization** | | | | | |
-| &nbsp;&nbsp;Depreciation | (120) | (120) | (120) | (120) | (480) |
-| **Total depreciation & amortization** | **(120)** | **(120)** | **(120)** | **(120)** | **(480)** |
+| **Depreciation** | | | | | |
+| &nbsp;&nbsp;Equipment depreciation | (120) | (120) | (120) | (120) | (480) |
+| **Total depreciation** | **(120)** | **(120)** | **(120)** | **(120)** | **(480)** |
 | **Operating income** | **825** | **960** | **1,095** | **1,230** | **4,110** |
 
 The three item rows are `kind: "calculated"` in the model (with their `formula`); the statement print profile and the

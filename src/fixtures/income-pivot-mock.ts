@@ -14,7 +14,7 @@ import type { PivotDataRow, PivotSpec } from "../core/pivot/types";
  * | Cost of sales | COGS | −(400 + 15k) |
  * | Operating expenses | Salaries | −250 |
  * | Operating expenses | Rent | −50 |
- * | Depreciation & amortization | Depreciation | −40 |
+ * | Depreciation | Equipment depreciation | −40 |
  */
 export interface IncomePivotRow extends PivotDataRow {
   readonly SECTION: string;
@@ -33,7 +33,7 @@ export const INCOME_LINES = [
   { section: "Cost of sales", line: "COGS", sort: 30 },
   { section: "Operating expenses", line: "Salaries", sort: 40 },
   { section: "Operating expenses", line: "Rent", sort: 50 },
-  { section: "Depreciation & amortization", line: "Depreciation", sort: 60 },
+  { section: "Depreciation", line: "Equipment depreciation", sort: 60 },
 ] as const;
 
 /** Deterministic signed P&L records for 2026 (72 records; costs first, so first-seen order is not the statement order). */
@@ -45,7 +45,7 @@ export function generateIncomePivotRows(): IncomePivotRow[] {
   };
   for (let k = 0; k < 12; k++) {
     const period = `2026-${String(k + 1).padStart(2, "0")}-01`;
-    push("Depreciation", period, -40);
+    push("Equipment depreciation", period, -40);
     push("Rent", period, -50);
     push("Salaries", period, -250);
     push("COGS", period, -(400 + 15 * k));
@@ -75,7 +75,7 @@ export const incomePivotSpec: PivotSpec = {
         Revenue: "Total revenue",
         "Cost of sales": "Total cost of sales",
         "Operating expenses": "Total operating expenses",
-        "Depreciation & amortization": "Total depreciation & amortization",
+        Depreciation: "Total depreciation",
       },
       sortBy: { measure: "ord", direction: "asc" },
       calculatedItems: [

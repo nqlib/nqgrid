@@ -44,9 +44,9 @@ describe("income statement recipe (docs/pivot-recipes.md, calculated items)", ()
       "leaf:  Rent",
       "subtotal:Total operating expenses",
       "calculated:EBITDA",
-      "group:Depreciation & amortization",
-      "leaf:  Depreciation",
-      "subtotal:Total depreciation & amortization",
+      "group:Depreciation",
+      "leaf:  Equipment depreciation",
+      "subtotal:Total depreciation",
       "grandTotal:Operating income",
     ]);
     expect(model.columns.map((c) => c.columnLabel)).toEqual(["Q1", "Q2", "Q3", "Q4", "FY 2026"]);
@@ -59,7 +59,7 @@ describe("income statement recipe (docs/pivot-recipes.md, calculated items)", ()
     expect(texts(model, "Gross margin %")).toEqual(["59.7%", "58.9%", "58.3%", "57.7%", "58.6%"]);
     expect(texts(model, "Total operating expenses")).toEqual(["(900)", "(900)", "(900)", "(900)", "(3,600)"]);
     expect(texts(model, "EBITDA")).toEqual(["945", "1,080", "1,215", "1,350", "4,590"]);
-    expect(texts(model, "Total depreciation & amortization")).toEqual(["(120)", "(120)", "(120)", "(120)", "(480)"]);
+    expect(texts(model, "Total depreciation")).toEqual(["(120)", "(120)", "(120)", "(120)", "(480)"]);
     // Items are left out of the grand total: Operating income = the four sections, not + Gross margin + EBITDA.
     expect(texts(model, "Operating income")).toEqual(["825", "960", "1,095", "1,230", "4,110"]);
   });

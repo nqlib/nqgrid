@@ -13,7 +13,7 @@
         "Revenue": "Total revenue",
         "Cost of sales": "Total cost of sales",
         "Operating expenses": "Total operating expenses",
-        "Depreciation & amortization": "Total depreciation & amortization"
+        "Depreciation": "Total depreciation"
       },
       "sortBy": {
         "measure": "ord",
