@@ -300,3 +300,38 @@ describe("calculated measures, show-as differences, subtotal rows and distinct c
     expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
   }, 60_000);
 });
+
+describe("financial statement: sign field, % of with a global base, section subtotal labels (planning-statement)", async () => {
+  const rows = JSON.parse(readExample("planning-statement.rows.json")) as PivotDataRow[];
+  const spec = JSON.parse(readExample("planning-statement.spec.json")) as PivotSpec;
+
+  it("model / sheet / html match the golden files", async () => {
+    expect(await exportPivot({ spec, rows, format: "model" })).toBe(readExample("planning-statement.model.json"));
+    expect(await exportPivot({ spec, rows, format: "sheet" })).toBe(readExample("planning-statement.sheet.json"));
+    expect(await exportPivot({ spec, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })).toBe(readExample("planning-statement.html"));
+  });
+
+  it("xlsx: signed amounts and % of Revenue stay numeric with their formats", async () => {
+    const bytes = await exportPivot({ spec, rows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    const sheet = JSON.parse(readExample("planning-statement.sheet.json")) as PivotSheet;
+    sheet.cells.forEach((row, r) =>
+      row.forEach((src, c) => {
+        const cell = ws.getCell(r + 1, c + 1);
+        if (cell.isMerged && cell.master.address !== cell.address) return;
+        expect(cell.value ?? null).toBe(src.v);
+        if (typeof src.v === "number" && src.numFmt) expect(cell.numFmt).toBe(src.numFmt);
+      }),
+    );
+    const income = sheet.cells.findIndex((row) => row[0]?.v === "Operating income");
+    expect(ws.getCell(income + 1, sheet.columnCount).value).toBeCloseTo(4110 / 18600, 12);
+    // signField on a count is rejected before rendering.
+    const bad = { ...spec, measures: [...spec.measures, { id: "n", aggregate: "count", signField: "SIGN" }] } as PivotSpec;
+    await expect(exportPivot({ spec: bad, rows, format: "model" })).rejects.toMatchObject({ code: "invalid_input" });
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec, rows, format: "pdf", options: { generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+});

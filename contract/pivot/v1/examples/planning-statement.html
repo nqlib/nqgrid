@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="@nqlib/nqgrid/render-static">
+<title>Income statement</title>
+<style>
+:root {
+  color-scheme: light;
+  --nqg-font: Inter, "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --nqg-page: #ffffff;
+  --nqg-surface: #ffffff;
+  --nqg-muted: #efeee9;
+  --nqg-fg: #281d15;
+  --nqg-muted-fg: #7e7167;
+  --nqg-border: #dcdbd7;
+  --nqg-rule: #eae9e7;
+  --nqg-hairline: #f1f1ef;
+  --nqg-secondary: #e9e7e1;
+  --nqg-secondary-fg: #3c2c20;
+  --nqg-positive: #059669;
+  --nqg-negative: #dc2626;
+  --nqg-series-0: #2a78d6;
+  --nqg-series-1: #eb6834;
+  --nqg-series-2: #1baf7a;
+  --nqg-series-3: #eda100;
+  --nqg-series-4: #e87ba4;
+  --nqg-series-5: #008300;
+  --nqg-series-6: #6250d6;
+  --nqg-series-7: #e34948;
+  --nqg-heat-0: #fef5f0;
+  --nqg-heat-1: #fde9de;
+  --nqg-heat-2: #fbdbca;
+  --nqg-heat-3: #faceb7;
+  --nqg-heat-4: #f8c0a3;
+  --nqg-heat-5: #f7b28d;
+  --nqg-heat-6: #f5a377;
+  --nqg-heat-7: #f39461;
+  --nqg-heat-8: #f2854b;
+}
+:root[data-theme="dark"], .dark {
+  color-scheme: dark;
+  --nqg-page: #171717;
+  --nqg-surface: #171717;
+  --nqg-muted: #201f1f;
+  --nqg-fg: #e4e4e4;
+  --nqg-muted-fg: #a1a1a1;
+  --nqg-border: #3a3738;
+  --nqg-rule: #2c2a2b;
+  --nqg-hairline: #252424;
+  --nqg-secondary: #292727;
+  --nqg-secondary-fg: #e4e4e4;
+  --nqg-positive: #34d399;
+  --nqg-negative: #f87171;
+  --nqg-series-0: #3987e5;
+  --nqg-series-1: #d95926;
+  --nqg-series-2: #199e70;
+  --nqg-series-3: #c98500;
+  --nqg-series-4: #d55181;
+  --nqg-series-5: #008300;
+  --nqg-series-6: #9085e9;
+  --nqg-series-7: #e66767;
+  --nqg-heat-0: #261d18;
+  --nqg-heat-1: #372319;
+  --nqg-heat-2: #4b2b1a;
+  --nqg-heat-3: #5e321b;
+  --nqg-heat-4: #723a1c;
+  --nqg-heat-5: #87421e;
+  --nqg-heat-6: #9d4a1f;
+  --nqg-heat-7: #b35320;
+  --nqg-heat-8: #c85b22;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: var(--nqg-page); }
+body {
+  margin: 0;
+  background: var(--nqg-page);
+  color: var(--nqg-fg);
+  font-family: var(--nqg-font);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+@media screen { body { padding: 24px; } }
+
+/* Report chrome */
+.nqg-report-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 12px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--nqg-border);
+}
+.nqg-report-title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.nqg-report-subtitle { margin: 2px 0 0; font-size: 12px; line-height: 16px; color: var(--nqg-muted-fg); }
+.nqg-report-meta { font-size: 11px; line-height: 16px; color: var(--nqg-muted-fg); text-align: right; white-space: nowrap; }
+.nqg-report-chunk { width: fit-content; min-width: 50%; }
+.nqg-report-chunk + .nqg-report-chunk { break-before: page; }
+.nqg-report-chunk-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--nqg-muted-fg);
+}
+.nqg-report-chunk-title { font-size: 13px; font-weight: 600; color: var(--nqg-fg); }
+.nqg-report-scale { width: max-content; }
+
+/* Table */
+.nqg-pivot {
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--nqg-surface);
+  color: var(--nqg-fg);
+  font-size: 14px;
+  line-height: 20px;
+}
+:where(.nqg-pivot) :where(th, td) { padding: 0 12px; vertical-align: middle; text-align: left; font-weight: inherit; }
+.nqg-pivot thead { display: table-header-group; break-inside: avoid; }
+/* No table-level border: a table fragment cut by a page break stretches to the page end. */
+.nqg-pivot thead > tr:first-child > th { border-top: 1px solid var(--nqg-border); }
+.nqg-pivot tbody:last-child > tr:last-child > * { border-bottom: 1px solid var(--nqg-border); }
+.nqg-pivot tbody { break-inside: avoid; }
+.nqg-pivot tr { break-inside: avoid; }
+.nqg-pivot svg { display: block; overflow: visible; }
+
+.nqg-pivot-head {
+  white-space: nowrap;
+  border-bottom: 1px solid var(--nqg-border);
+  background: var(--nqg-surface);
+  padding: 0 12px;
+  vertical-align: middle;
+  text-align: left;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-head-value { text-align: right; }
+.nqg-pivot-band { border-bottom: 1px solid var(--nqg-rule); background: var(--nqg-surface); padding: 8px 0 0; vertical-align: bottom; }
+.nqg-pivot-band-summary {
+  border-bottom: 1px solid var(--nqg-rule);
+  background: var(--nqg-surface);
+  padding: 8px 12px;
+  vertical-align: top;
+  text-align: left;
+  font-weight: 400;
+}
+.nqg-pivot-band-value {
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-summary-label {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-summary-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--nqg-fg);
+}
+.nqg-pivot-summary-note { font-size: 11px; font-weight: 400; color: var(--nqg-muted-fg); }
+.nqg-pivot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-legend-swatch { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; vertical-align: middle; }
+
+.nqg-pivot-cell { border-bottom: 1px solid var(--nqg-hairline); padding: 0 12px; vertical-align: middle; }
+.nqg-pivot-leaf { background: var(--nqg-surface); }
+.nqg-pivot-group { background: var(--nqg-muted); font-weight: 500; }
+.nqg-pivot-span {
+  border-bottom: 1px solid var(--nqg-rule);
+  border-right: 1px solid var(--nqg-rule);
+  background: var(--nqg-surface);
+  padding: 8px 12px;
+  vertical-align: top;
+}
+.nqg-pivot-total {
+  border-top: 1px solid var(--nqg-border);
+  background: var(--nqg-muted);
+  padding: 0 12px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+.nqg-pivot-total-label { text-align: left; }
+.nqg-pivot-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nqg-pivot-group-value { color: var(--nqg-muted-fg); }
+.nqg-pivot-heat { color: var(--nqg-fg); }
+.nqg-pivot-edge { border-right: 1px solid var(--nqg-rule); }
+.nqg-pivot-row-header { text-align: left; font-weight: 400; }
+.nqg-pivot-group-label { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.nqg-pivot-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nqg-pivot-count {
+  display: inline-flex;
+  height: 16px;
+  min-width: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 1px solid var(--nqg-border);
+  border-radius: 9999px;
+  background: var(--nqg-page);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--nqg-muted-fg);
+}
+
+/* KPI side panel */
+.nqg-pivot-kpi { display: flex; flex-direction: column; gap: 8px; }
+.nqg-pivot-kpi-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--nqg-fg);
+}
+.nqg-pivot-kpi-headline-label {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-kpi-headline { font-size: 20px; line-height: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.nqg-pivot-kpi-list { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 12px; line-height: 16px; }
+.nqg-pivot-kpi-term { color: var(--nqg-muted-fg); }
+.nqg-pivot-kpi-value { margin: 0; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--nqg-fg); }
+.nqg-pivot-kpi-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--nqg-rule);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--nqg-muted-fg);
+}
+.nqg-pivot-kpi-avatar {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--nqg-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--nqg-secondary-fg);
+}
+.nqg-pivot-delta { font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.nqg-pivot-up { color: var(--nqg-positive); }
+.nqg-pivot-down { color: var(--nqg-negative); }
+.nqg-pivot-flat { color: var(--nqg-muted-fg); }
+@page { size: 297mm 210mm; margin: 16mm 10mm 14mm 10mm; }
+@page { background: #ffffff; }
+</style>
+</head>
+<body><main class="nqg-report" data-nqg-report=""><header class="nqg-report-header"><div><h1 class="nqg-report-title">Income statement</h1><p class="nqg-report-subtitle">FY 2026 · EUR</p></div><div class="nqg-report-meta">Generated 2026-01-15 09:30 UTC</div></header>
+<section class="nqg-report-chunk" data-nqg-chunk="0"><div class="nqg-report-chunk-head"><span class="nqg-report-chunk-title"></span><span>Amount · Columns 1–12 of 26</span></div><div class="nqg-report-scale" style="zoom:0.954"><table class="nqg-pivot" style="width:1096px;min-width:1096px" aria-label="Income statement" data-nqg-pivot="" data-nqg-mode="static"><colgroup><col style="width:184px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/></colgroup>
+<thead><tr><th scope="col" rowSpan="2" class="nqg-pivot-head nqg-pivot-edge" style="height:36px"><span class="nqg-pivot-head-label" style="display:flex;align-items:center;gap:4px;min-width:0"><span class="nqg-pivot-label">Section / Line</span><span class="nqg-pivot-indicator" role="img" aria-label="Sorted by ord, ascending" title="Sorted by ord, ascending" data-nqg-indicator="" style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="nqg-pivot-indicator" role="img" aria-label="Sorted by ord, ascending" title="Sorted by ord, ascending" data-nqg-indicator="" style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span></th><th scope="col" colSpan="12" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px;text-align:left">Amount</th></tr>
+<tr><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Jan</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Feb</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Mar</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Apr</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">May</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Jun</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Jul</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Aug</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Sep</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Oct</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Nov</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Dec</th></tr>
+</thead>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Gross margin</span><span class="nqg-pivot-count" title="2 items">2</span></span></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Revenue</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,000</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,100</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,200</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,300</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,400</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,500</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,600</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,700</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,800</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">1,900</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">2,000</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">2,100</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">COGS</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(600)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(660)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(720)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(780)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(840)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(900)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(960)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(1,020)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(1,080)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(1,140)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(1,200)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(1,260)</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span class="nqg-pivot-label" style="padding-left:0">Gross margin</span></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">400</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">440</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">480</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">520</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">560</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">600</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">640</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">680</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">720</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">760</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">800</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">840</td></tr>
+</tbody>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Operating expenses</span><span class="nqg-pivot-count" title="3 items">3</span></span></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Salaries</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(180)</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Rent</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Marketing</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(20)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(25)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(30)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(35)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(40)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(45)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(50)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(55)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(65)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(70)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(75)</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span class="nqg-pivot-label" style="padding-left:0">Operating expenses</span></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(250)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(255)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(260)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(265)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(270)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(275)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(280)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(285)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(290)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(295)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(300)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(305)</td></tr>
+</tbody>
+<tbody data-nqg-group="grandTotal"><tr data-kind="grandTotal" data-depth="-1" style="height:36px"><th scope="row" colSpan="1" class="nqg-pivot-total nqg-pivot-total-label nqg-pivot-edge">Operating income</th><td class="nqg-pivot-total nqg-pivot-value">150</td><td class="nqg-pivot-total nqg-pivot-value">185</td><td class="nqg-pivot-total nqg-pivot-value">220</td><td class="nqg-pivot-total nqg-pivot-value">255</td><td class="nqg-pivot-total nqg-pivot-value">290</td><td class="nqg-pivot-total nqg-pivot-value">325</td><td class="nqg-pivot-total nqg-pivot-value">360</td><td class="nqg-pivot-total nqg-pivot-value">395</td><td class="nqg-pivot-total nqg-pivot-value">430</td><td class="nqg-pivot-total nqg-pivot-value">465</td><td class="nqg-pivot-total nqg-pivot-value">500</td><td class="nqg-pivot-total nqg-pivot-value">535</td></tr>
+</tbody>
+</table></div></section>
+<section class="nqg-report-chunk" data-nqg-chunk="1"><div class="nqg-report-chunk-head"><span class="nqg-report-chunk-title">Income statement (cont.)</span><span>% of Revenue · Columns 13–24 of 26</span></div><div class="nqg-report-scale" style="zoom:0.954"><table class="nqg-pivot" style="width:1096px;min-width:1096px" aria-label="Income statement" data-nqg-pivot="" data-nqg-mode="static"><colgroup><col style="width:184px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/><col style="width:76px"/></colgroup>
+<thead><tr><th scope="col" rowSpan="2" class="nqg-pivot-head nqg-pivot-edge" style="height:36px"><span class="nqg-pivot-head-label" style="display:flex;align-items:center;gap:4px;min-width:0"><span class="nqg-pivot-label">Section / Line</span><span class="nqg-pivot-indicator" role="img" aria-label="Sorted by ord, ascending" title="Sorted by ord, ascending" data-nqg-indicator="" style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="nqg-pivot-indicator" role="img" aria-label="Sorted by ord, ascending" title="Sorted by ord, ascending" data-nqg-indicator="" style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span></th><th scope="col" colSpan="12" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px;text-align:left">% of Revenue</th></tr>
+<tr><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Jan</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Feb</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Mar</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Apr</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">May</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Jun</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Jul</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Aug</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Sep</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Oct</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Nov</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Dec</th></tr>
+</thead>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Gross margin</span><span class="nqg-pivot-count" title="2 items">2</span></span></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Revenue</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">COGS</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span class="nqg-pivot-label" style="padding-left:0">Gross margin</span></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td></tr>
+</tbody>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Operating expenses</span><span class="nqg-pivot-count" title="3 items">3</span></span></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Salaries</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(18.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(16.4%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(15.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(13.8%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(12.9%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(12.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(11.3%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(10.6%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(10.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(9.5%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(9.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(8.6%)</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Rent</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(5.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(4.5%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(4.2%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.8%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.6%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.3%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.1%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.9%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.8%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.6%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.5%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.4%)</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Marketing</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.3%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.5%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.7%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2.9%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.0%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.1%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.2%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.3%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.4%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.5%)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.6%)</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span class="nqg-pivot-label" style="padding-left:0">Operating expenses</span></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(25.0%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(23.2%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(21.7%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(20.4%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(19.3%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(18.3%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(17.5%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(16.8%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(16.1%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(15.5%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(15.0%)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(14.5%)</td></tr>
+</tbody>
+<tbody data-nqg-group="grandTotal"><tr data-kind="grandTotal" data-depth="-1" style="height:36px"><th scope="row" colSpan="1" class="nqg-pivot-total nqg-pivot-total-label nqg-pivot-edge">Operating income</th><td class="nqg-pivot-total nqg-pivot-value">15.0%</td><td class="nqg-pivot-total nqg-pivot-value">16.8%</td><td class="nqg-pivot-total nqg-pivot-value">18.3%</td><td class="nqg-pivot-total nqg-pivot-value">19.6%</td><td class="nqg-pivot-total nqg-pivot-value">20.7%</td><td class="nqg-pivot-total nqg-pivot-value">21.7%</td><td class="nqg-pivot-total nqg-pivot-value">22.5%</td><td class="nqg-pivot-total nqg-pivot-value">23.2%</td><td class="nqg-pivot-total nqg-pivot-value">23.9%</td><td class="nqg-pivot-total nqg-pivot-value">24.5%</td><td class="nqg-pivot-total nqg-pivot-value">25.0%</td><td class="nqg-pivot-total nqg-pivot-value">25.5%</td></tr>
+</tbody>
+</table></div></section>
+<section class="nqg-report-chunk" data-nqg-chunk="2"><div class="nqg-report-chunk-head"><span class="nqg-report-chunk-title">Income statement (cont.)</span><span>FY 2026 · Columns 25–26 of 26</span></div><div class="nqg-report-scale" style="zoom:0.954"><table class="nqg-pivot" style="width:336px;min-width:336px" aria-label="Income statement" data-nqg-pivot="" data-nqg-mode="static"><colgroup><col style="width:184px"/><col style="width:76px"/><col style="width:76px"/></colgroup>
+<thead><tr><th scope="col" rowSpan="2" class="nqg-pivot-head nqg-pivot-edge" style="height:36px"><span class="nqg-pivot-head-label" style="display:flex;align-items:center;gap:4px;min-width:0"><span class="nqg-pivot-label">Section / Line</span><span class="nqg-pivot-indicator" role="img" aria-label="Sorted by ord, ascending" title="Sorted by ord, ascending" data-nqg-indicator="" style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="nqg-pivot-indicator" role="img" aria-label="Sorted by ord, ascending" title="Sorted by ord, ascending" data-nqg-indicator="" style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span></th><th scope="col" colSpan="2" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">FY 2026</th></tr>
+<tr><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">Amount</th><th scope="col" colSpan="1" class="nqg-pivot-head-value nqg-pivot-head" style="height:36px">% of Revenue</th></tr>
+</thead>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Gross margin</span><span class="nqg-pivot-count" title="2 items">2</span></span></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Revenue</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">18,600</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">100.0%</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">COGS</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(11,160)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(60.0%)</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span class="nqg-pivot-label" style="padding-left:0">Gross margin</span></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">7,440</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">40.0%</td></tr>
+</tbody>
+<tbody data-nqg-group="group"><tr data-kind="group" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><div class="nqg-pivot-group-label" style="justify-content:space-between;padding-left:0"><span class="nqg-pivot-group-label"><span class="nqg-pivot-label">Operating expenses</span><span class="nqg-pivot-count" title="3 items">3</span></span></div></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value"></td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Salaries</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(2,160)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(11.6%)</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Rent</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(600)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.2%)</td></tr>
+<tr data-kind="leaf" data-depth="1" style="height:36px"><th scope="row" class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span style="padding-left:16px">Marketing</span></th><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(570)</td><td class="nqg-pivot-leaf nqg-pivot-cell nqg-pivot-value">(3.1%)</td></tr>
+<tr data-kind="subtotal" data-depth="0" style="height:36px"><th scope="row" class="nqg-pivot-group nqg-pivot-cell nqg-pivot-row-header nqg-pivot-edge"><span class="nqg-pivot-label" style="padding-left:0">Operating expenses</span></th><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(3,330)</td><td class="nqg-pivot-group nqg-pivot-cell nqg-pivot-value nqg-pivot-group-value">(17.9%)</td></tr>
+</tbody>
+<tbody data-nqg-group="grandTotal"><tr data-kind="grandTotal" data-depth="-1" style="height:36px"><th scope="row" colSpan="1" class="nqg-pivot-total nqg-pivot-total-label nqg-pivot-edge">Operating income</th><td class="nqg-pivot-total nqg-pivot-value">4,110</td><td class="nqg-pivot-total nqg-pivot-value">22.1%</td></tr>
+</tbody>
+</table></div></section>
+</main></body>
+</html>

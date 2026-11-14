@@ -3,7 +3,8 @@
 `buildPivotModel` benchmarks before and after the filters / Top N / sort-by-value work (Excel parity, step 1), plus the
 field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)) and the column-hierarchy /
 date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)) and the calculated-measure / distinct-count / drill-through scenarios of step 4 ([below](#step-4-calculated-measures-distinct-count-show-values-as-drill-through-excel-parity-step-4)). The [performance review](#performance-review) at the end covers the React layer and the export service too, with fixes and recommended limits.
-The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts` and `bench/pivot-step4.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
+The [financial-statement features](#financial-statements-sign-field-and--of-with-a-global-base) (sign field, % Of with a global base) follow.
+The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts`, `bench/pivot-step4.bench.ts` and `bench/pivot-statement.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
 
 ## Setup
 
@@ -461,3 +462,63 @@ rows are measured); find-in-page sees only rendered rows; custom `renderSpanCell
 stretch rows when its span is clipped at the window edge.
 
 Re-run with `pnpm bench`. Numbers on other machines differ in absolute terms. Compare scenarios on the same machine.
+
+## Financial statements: sign field and % Of with a global base
+
+`bench/pivot-statement.bench.ts` (rows: `generateBenchSignedRows(n)` = the bench rows plus `sign` (`1` / `-1` by
+department) and `signText` (the same as a string)). This VM was faster than the one above (4 vCPU, Node 22); compare
+rows within the table only. Means in ms, median of 2 runs:
+
+| Scenario | 100k | 500k |
+|---|---:|---:|
+| Reference: base spec, cold | 26.2 | 96.2 |
+| `signField` on 2 of the 3 value measures, numeric sign, cold | 31.0 | 118.7 |
+| `signField` on 2 measures, string sign (`"-1"`), cold | 32.1 | 133.6 |
+| `percentOf` line "Camp 1" with `scope: "all"` (merged over 6 regions), on rows and groups, cold | 27.4 | 107.4 |
+| `percentOf` line "Camp 1" with `scope: "parent"`, cold | 26.8 | 110.8 |
+| View-only: values / % Of scope all / % Of scope parent (builder, cube reused) | 5.9 | 8.1 |
+
+- **Sign field.** A cold build pays one pass over the sign column (number parsing, like any measure field) and one
+  multiply pass per signed (value, sign) column pair, which allocates a `Float64Array` of the record count (4 MB at
+  500k): about +11 ms per signed measure at 500k, +15 ms with string signs. Both are memoized on the encoding, so
+  `createPivotModelBuilder` / `usePivotGrid` pay them once per `rows`; the record pass then reads the signed column
+  exactly like an unsigned one (no per-record branch). Measures without `signField` take the old code path, and
+  `pivotSpecDataKey` is unchanged for them.
+- **% Of, `scope: "all"`.** No change to the cube: `PivotCube.keyTotal(level, item)` merges the accumulators of the
+  nodes with that key once per cube (here 6 nodes × 14 buckets) and memoizes it; each cell is then one accumulator read.
+  There are no sibling scans, so the O(k log k)-per-sibling-group property of the performance review holds (scope
+  `parent` uses the existing direct base lookup). Switching it on in the app is a view-only rebuild.
+
+**Regression check (existing scenarios).** Medians of the per-run means, 4 interleaved runs of HEAD `8613f57` (temporary
+worktree) and of this tree for `pivot.bench.ts` and `pivot-columns.bench.ts`, 2 for `pivot-step4.bench.ts`. Before →
+after, ms:
+
+| Scenario | 10k | 100k | 500k |
+|---|---:|---:|---:|
+| Base spec, cold | 9.8 → 9.4 | 25.4 → 24.7 | 113.6 → 116.2 |
+| 3 filters, cold | 6.8 → 6.6 | 24.3 → 22.8 | 111.3 → 106.2 |
+| Filters + label filter + 4 facets + Top 5 + sortBy, cold | 7.2 → 7.0 | 28.7 → 29.8 | 128.2 → 126.7 |
+| View-only change (expand / collapse / heat scope) | 1.5 → 1.5 | 1.3 → 1.3 | 1.3 → 1.5 |
+| Filter change: slicer click | 1.5 → 1.5 | 5.2 → 5.0 | 21.9 → 22.6 |
+| Move field: Line ↔ Columns | 12.3 → 12.8 | 18.8 → 17.9 | 41.6 → 42.0 |
+| Add measure: Units into Values | 7.4 → 7.1 | 13.2 → 13.0 | 38.0 → 36.8 |
+| 2 column fields: year → month, cold | | 39.4 → 40.9 | 136.6 → 139.5 |
+| 3 column fields: year → quarter → month, cold | | 43.8 → 48.6 | 164.7 → 165.4 |
+| Date grouping from ISO strings, cold | | 49.7 → 49.3 | 227.3 → 226.5 |
+| Date grouping, encoding reused: slicer click | | 3.8 → 4.0 | 14.1 → 15.6 |
+| Toggle a column group | | 11.3 → 11.3 | 10.7 → 11.2 |
+| Step 4 reference: base spec, cold | | 29.8 → 27.8 | 119.4 → 110.6 |
+| Calculated measure as a 4th value, cold | | 36.2 → 31.9 | 123.8 → 104.1 |
+| Calculated measure as sortBy + Top 3 + heat + KPI, cold | | 34.6 → 34.8 | 140.3 → 136.2 |
+| Distinct count of 20k customers, cold | | 43.7 → 40.9 | 182.1 → 176.0 |
+| Distinct count of 6 regions, cold | | 24.8 → 23.8 | 105.8 → 113.9 |
+| View-only: running total / difference from / subtotal rows | | 5.9 → 6.1 | 5.6 → 5.6 |
+| Running total along month, cold | | 29.3 → 29.0 | 109.5 → 109.1 |
+| Drill-through: leaf cell | | 0.5 → 0.5 | 2.8 → 2.7 |
+| Drill-through: grand total of filters + Top 5 | | 6.9 → 6.5 | 27.9 → 27.8 |
+
+Rows above +10 % overlap between runs: 100k "3 column fields" (38.9–47.1 before, 37.9–53.2 after), 500k date-grouping
+slicer click (12.5–17.5 against 14.4–23.3, one outlier) and the sub-2 ms 500k view-only row. The record pass and the
+merge / read switches are unchanged for specs without the new features: the view stage adds one `Map` per build for
+global bases (empty unless used), and `readValue` checks a flag only in its distinct-count and custom cases.
+

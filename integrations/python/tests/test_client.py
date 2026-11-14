@@ -171,6 +171,7 @@ def test_filtered_spec_matches_the_golden_files(
         ("planning-multicol", "planning-fields.rows.json"),
         ("planning-dates", "planning-dates.rows.json"),
         ("planning-calc", "planning-dates.rows.json"),
+        ("planning-statement", "planning-statement.rows.json"),
     ],
 )
 def test_column_hierarchy_and_date_grouping_match_the_golden_files(
@@ -232,6 +233,30 @@ def test_calculated_measures_from_python(client: NqgridExportClient) -> None:
     with pytest.raises(NqgridInvalidInput) as err:
         client.export(bad, rows, format="model")
     assert any("reference cycle" in d for d in err.value.details)
+
+
+@pytest.mark.e2e
+def test_financial_statement_from_python(client: NqgridExportClient) -> None:
+    """An agent builds an income statement: signed amounts, % of Revenue on every row, Operating income."""
+    spec = load_example("planning-statement.spec.json")
+    rows = load_example("planning-statement.rows.json")
+    model = client.export(spec, rows, format="model")
+    labels = [(r["kind"], r["label"]) for r in model["rows"]]
+    assert ("subtotal", "Gross margin") in labels and labels[-1] == ("grandTotal", "Operating income")
+    total = model["grandTotal"]["cells"]
+    assert total[-2]["value"] == 4110  # FY 2026 amount
+    assert total[-1]["value"] == pytest.approx(4110 / 18600)  # % of Revenue
+    # Amounts that are already signed: drop signField; the figures stay the same.
+    signed = [{**r, "AMOUNT": r["AMOUNT"] * float(r["SIGN"])} for r in rows]
+    plain = {**spec, "measures": [{k: v for k, v in m.items() if k != "signField"} for m in spec["measures"]]}
+    assert client.export(plain, signed, format="model")["grandTotal"]["cells"][-2]["value"] == 4110
+    with pytest.raises(NqgridInvalidInput) as err:
+        client.export(
+            {**spec, "measures": [*spec["measures"], {"id": "n", "aggregate": "count", "signField": "SIGN"}]},
+            rows,
+            format="model",
+        )
+    assert any("signField" in d for d in err.value.details)
 
 
 @pytest.mark.e2e

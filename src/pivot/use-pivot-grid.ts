@@ -97,6 +97,8 @@ export interface PivotGridState {
   readonly setMeasureShowAs: (measureId: string, showAs: PivotShowAs, base?: PivotShowAsBase | null, scope?: "all" | "leaf" | "group") => void;
   /** Subtotal position of a row / column field's groups (`setPivotSubtotal`). */
   readonly setSubtotal: (field: string, position: "start" | "end" | "none") => void;
+  /** Sign field of a measure (`setPivotMeasureSignField`; `null` removes it). */
+  readonly setMeasureSignField: (measureId: string, signField: string | null) => void;
   /**
    * Source records behind a cell of the current spec (`pivotDrillThrough` on the cached encoding),
    * e.g. from `PivotTable`'s `onDrillThrough`.
@@ -184,6 +186,7 @@ export function usePivotGrid(
       removeMeasure: (measureId) => dispatch({ type: "removeMeasure", measureId }),
       setMeasureShowAs: (measureId, showAs, base, scope) => dispatch({ type: "setMeasureShowAs", measureId, showAs, base, scope }),
       setSubtotal: (field, position) => dispatch({ type: "setSubtotal", field, position }),
+      setMeasureSignField: (measureId, signField) => dispatch({ type: "setMeasureSignField", measureId, signField }),
       drillThrough: (target, drillOptions) => builder.drillThrough(current, rows, target, { aggregators, ...drillOptions }),
     }),
     [current, rows, model, dispatch, fields, builder, aggregators],

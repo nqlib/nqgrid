@@ -205,6 +205,28 @@ origin (`tauri://localhost`, `http://tauri.localhost` on Windows) via CORS, or v
 with the backend URL in its capability scope. The playground's Planning pivot demo shows the request JSON and,
 with `VITE_NQGRID_EXPORT_URL` set, downloads the PDF / XLSX through a dev proxy.
 
+## Financial statements (the Statement report)
+
+The Statement report (rows SECTION → LINE, months as columns, `PL_AMOUNT`, line order from `LINE_SORT`, a Gross margin
+row, Operating income and "% of Revenue") maps to one PivotSpec: see the
+[P&L recipe](../pivot-recipes.md#financial-statement-pl--income-statement) (complete spec, result table and limits) and
+the golden `contract/pivot/v1/examples/planning-statement.*`. In short:
+
+- `LINE_SORT` → a hidden measure `{ "id": "ord", "field": "LINE_SORT", "aggregate": "min" }` (not in `values`) and
+  `"sortBy": { "measure": "ord", "direction": "asc" }` on SECTION and LINE.
+- Gross margin → `{ "field": "SECTION", "subtotal": "end", "subtotalLabel": "{label}" }` (a subtotal row named after
+  the section); Operating income → `"totals": { "grandTotalLabel": "Operating income" }`.
+- % of Revenue → `"showAs": "percentOf", "showAsBase": { "field": "LINE", "item": "Revenue", "scope": "all" }`.
+- `PL_AMOUNT` is already signed, so no `signField`; datasets with unsigned amounts and a sign column add
+  `"signField": "<sign column>"` to each amount measure.
+- Not possible: formula rows over keys (e.g. EBITDA between sections), a different subtotal label per section, "%" in
+  the total column only. The recipe's "Limits" table lists workarounds.
+- The exporter pivots the rows it receives in memory (no SQL pushdown): have the backend `GROUP BY` the statement grain
+  (section, line, sort, month) before calling it, which keeps a P&L to a few thousand rows.
+
+The MCP authoring guide (`describe_pivot_spec`) has a "Financial statements" section with the same recipe, and returns
+`statement_example_spec`.
+
 ## Adopting it in Secolab (checklist for when the code is shared)
 
 1. **Pick the deployment.** Docker sidecar on the backend host, or `serve` on localhost for desktop / dev. Add a

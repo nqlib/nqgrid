@@ -46,6 +46,7 @@ import {
   type PivotModel,
   type PivotModelDimension,
   type PivotShowAs,
+  type PivotShowAsBase,
   type PivotSpec,
   type PivotValueColumn,
 } from "./types";
@@ -119,6 +120,12 @@ function divide(a: number | null, b: number | null): number | null {
   return a / b;
 }
 
+/** `percentOf` / `differenceFrom` / `percentDifferenceFrom` of `raw` against `base` (`null`: no base). */
+function relativeTo(kind: string, raw: number, base: number | null): number | null {
+  if (base === null) return null;
+  return kind === "percentOf" ? divide(raw, base) : kind === "differenceFrom" ? raw - base : divide(raw - base, base);
+}
+
 const BLANK_CELL: PivotCell = { value: null, raw: null, text: "" };
 
 /**
@@ -184,12 +191,13 @@ function countBelow(sorted: Float64Array, x: number, orEqual: boolean): number {
 function showAsAlong(kind: string, raw: number | null, index: number, series: AlongSeries, baseIndex: number): number | null {
   if (raw === null) return null;
   switch (kind) {
+    case "percentOf":
     case "differenceFrom":
     case "percentDifferenceFrom": {
-      if (baseIndex < 0 || baseIndex === index) return null;
-      const base = series.valueOf(baseIndex);
-      if (base === null) return null;
-      return kind === "differenceFrom" ? raw - base : divide(raw - base, base);
+      if (baseIndex < 0) return null;
+      // The base item itself: 100 % for % Of, empty for differences (like Excel).
+      if (baseIndex === index) return kind === "percentOf" ? divide(raw, raw) : null;
+      return relativeTo(kind, raw, series.valueOf(baseIndex));
     }
     case "runningTotal":
     case "percentRunningTotal": {
@@ -340,6 +348,8 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
   const grandLabel = totals.grandTotalLabel ?? "Grand Total";
   const rowTotalLabel = totals.rowTotalLabel ?? "Total";
   const subtotalTemplate = totals.subtotalLabel ?? "{label} Total";
+  /** Subtotal label template of a dimension: its own `subtotalLabel`, else `totals.subtotalLabel`. */
+  const subtotalTemplateOf = (d: PivotDimension) => d.subtotalLabel ?? subtotalTemplate;
   const root = cube.root;
   const colRoot = cube.columnRoot;
   const totalBucket = colRoot.bucket;
@@ -378,7 +388,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     else descs.push({ slot, measure: m ?? valueMeasures[0]!, items });
   };
   const groupTotal = (c: PivotCubeColumn, prefix: readonly HeaderItem[], m: PivotMeasure | null, collapsed: boolean) => {
-    const label = collapsed ? colLabel(c) : subtotalText(subtotalTemplate, colLabel(c));
+    const label = collapsed ? colLabel(c) : subtotalText(subtotalTemplateOf(colDims[c.depth]!), colLabel(c));
     const open = sigma >= 0 && m === null;
     const item: HeaderItem = {
       id: `${collapsed ? "c" : "s"}:${c.columnKey}`,
@@ -518,14 +528,34 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
    */
   const rowSeries: ({ readonly parent: PivotCubeNode; readonly byRel: Map<string, AlongSeries> } | undefined)[] = [];
   /**
+   * `showAsBase.scope: "all"`: per measure, the records whose base-field key is the base item, across
+   * every parent (`cube.keyTotal`, merged once per cube) — then one lookup per cell.
+   */
+  const globalBases = new Map<string, PivotCubeNode | null>();
+  const globalBaseOf = (m: PivotMeasure, base: PivotShowAsBase): PivotCubeNode | null => {
+    let node = globalBases.get(m.id);
+    if (node === undefined) {
+      const level = rowLevelOf.get(base.field);
+      node = level === undefined || base.item === undefined ? null : cube.keyTotal(level, base.item);
+      globalBases.set(m.id, node);
+    }
+    return node;
+  };
+  /**
    * Show-as value of `node` in column `i` along its measure's base field: along a column field via
    * `columnAlong`, along a row field via the node's ancestor at that level and its siblings (the
    * corresponding descendant of each sibling, same column). Cells above the base level, and columns
-   * outside a column base's levels, get `showAsOutside`.
+   * outside a column base's levels, get `showAsOutside`. With `scope: "all"`, every cell compares
+   * with the measure's global base in its column instead.
    */
   const alongValue = (kind: string, node: PivotCubeNode, m: PivotMeasure, i: number, raw: number | null): number | null => {
     const base = m.showAsBase;
     if (!base) return null;
+    if (base.scope === "all" && (kind === "percentOf" || kind === "differenceFrom" || kind === "percentDifferenceFrom")) {
+      if (raw === null) return null;
+      const total = globalBaseOf(m, base);
+      return relativeTo(kind, raw, total === null ? null : valueAt(total, m, columnBuckets[i]!));
+    }
     const colAlong = columnAlong[i];
     if (colAlong) {
       const { buckets, index, baseIndex, group } = colAlong;
@@ -557,7 +587,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       }
       return valueAt(x!, m, bucket);
     };
-    if (kind === "differenceFrom" || kind === "percentDifferenceFrom") {
+    if (kind === "percentOf" || kind === "differenceFrom" || kind === "percentDifferenceFrom") {
       let baseIndex: number;
       if (base.item !== undefined) {
         const item = childOf(parent, base.item);
@@ -818,7 +848,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     kind: "subtotal",
     depth: n.depth,
     path: n.path,
-    label: subtotalText(subtotalTemplate, nodeLabel(n)),
+    label: subtotalText(subtotalTemplateOf(dims[n.depth]!), nodeLabel(n)),
     expandable: false,
     expanded: false,
     childCount: n.children.length,

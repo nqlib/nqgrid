@@ -8,9 +8,11 @@ Three layers, cheapest first:
    ``sortBy`` / ``topN`` on column dimensions, a field used twice across ``rows`` and ``columns`` (a
    dimension or a list of dimensions), duplicate measure ids, facets and catalogue fields, date-grouping
    entries (``source`` + ``dateGroup``), calculated measures (expression grammar via
-   :mod:`nqgrid_export.calc`, unknown references, reference cycles), ``showAsBase`` (required by the
-   difference / running-total / rank kinds of ``showAs``, must name a row or column field), and custom
-   aggregators (not available in nqgrid-export).
+   :mod:`nqgrid_export.calc`, unknown references, reference cycles), ``showAsBase`` (required by
+   ``percentOf`` and the difference / running-total / rank kinds of ``showAs``, must name a row or column
+   field; ``percentOf`` needs an ``item``; ``scope: "all"`` needs an item, a row field and an item kind),
+   ``signField`` (not with counts, distinct counts or calculated measures), and custom aggregators (not
+   available in nqgrid-export).
 3. nqgrid-export itself (authoritative): ``NqgridInvalidInput.details``.
 
 Messages are short ``path: problem`` strings meant to be shown to an LLM agent.
@@ -92,7 +94,14 @@ def calc_example_spec() -> dict[str, Any]:
     return _load("planning-calc.spec.json")
 
 
+def statement_example_spec() -> dict[str, Any]:
+    """The golden ``planning-statement.spec.json`` example (income statement: signField, % of Revenue with
+    ``showAsBase.scope: "all"``, section subtotals labelled with the section, grand total as Operating income)."""
+    return _load("planning-statement.spec.json")
+
+
 SHOW_AS_WITH_BASE = (
+    "percentOf",
     "differenceFrom",
     "percentDifferenceFrom",
     "runningTotal",
@@ -236,12 +245,45 @@ def _referential_errors(spec: dict[str, Any], prefix: str) -> list[str]:
                 errors.append(f"{prefix}fields[{i}]: source and dateGroup go together")
             if f.get("source") is not None and f.get("source") == f["field"]:
                 errors.append(f"{prefix}fields[{i}].source must differ from field")
-    errors += _measure_errors(spec, prefix, ids, set(used))
+    row_fields = {f for f, where in used.items() if where.startswith("rows[")}
+    errors += _measure_errors(spec, prefix, ids, set(used), row_fields)
     return errors
 
 
-def _measure_errors(spec: dict[str, Any], prefix: str, ids: set[str], layout_fields: set[str]) -> list[str]:
-    """Calculated measures (grammar, references, cycles) and ``showAsBase``; same messages as nqgrid."""
+_ITEM_KINDS = ("percentOf", "differenceFrom", "percentDifferenceFrom")
+
+
+def _show_as_base_errors(m: dict[str, Any], where: str, layout_fields: set[str], row_fields: set[str]) -> list[str]:
+    errors: list[str] = []
+    kinds = (m.get("showAs"), m.get("groupShowAs"))
+    base = m.get("showAsBase")
+    if base is None:
+        if any(k in SHOW_AS_WITH_BASE for k in kinds):
+            errors.append(f"{where}.showAsBase is required by its showAs / groupShowAs")
+        return errors
+    if not isinstance(base, dict) or not isinstance(base.get("field"), str):
+        return errors
+    field = base["field"]
+    if field not in layout_fields:
+        errors.append(f'{where}.showAsBase.field "{field}" is not a row or column field')
+    if "percentOf" in kinds and "item" not in base:
+        errors.append(f"{where}.showAsBase.item is required by percentOf")
+    if base.get("scope") == "all":
+        if "item" not in base:
+            errors.append(f'{where}.showAsBase.scope "all" needs showAsBase.item')
+        if field in layout_fields and field not in row_fields:
+            errors.append(f'{where}.showAsBase.scope "all" needs a row field (got column field "{field}")')
+        if any(k not in (None, "value", *_ITEM_KINDS) and k in SHOW_AS_WITH_BASE for k in kinds):
+            errors.append(
+                f'{where}.showAsBase.scope "all" applies to percentOf / differenceFrom / percentDifferenceFrom only'
+            )
+    return errors
+
+
+def _measure_errors(
+    spec: dict[str, Any], prefix: str, ids: set[str], layout_fields: set[str], row_fields: set[str]
+) -> list[str]:
+    """Calculated measures (grammar, references, cycles), ``showAsBase`` and ``signField``; same messages as nqgrid."""
     errors: list[str] = []
     refs: dict[str, list[str]] = {}
     where_of: dict[str, str] = {}
@@ -249,16 +291,18 @@ def _measure_errors(spec: dict[str, Any], prefix: str, ids: set[str], layout_fie
         if not isinstance(m, dict) or not isinstance(m.get("id"), str):
             continue
         where = f"{prefix}measures[{i}]"
-        needs_base = m.get("showAs") in SHOW_AS_WITH_BASE or m.get("groupShowAs") in SHOW_AS_WITH_BASE
-        base = m.get("showAsBase")
-        if base is None and needs_base:
-            errors.append(f"{where}.showAsBase is required by its showAs / groupShowAs")
-        elif isinstance(base, dict) and isinstance(base.get("field"), str) and base["field"] not in layout_fields:
-            errors.append(f'{where}.showAsBase.field "{base["field"]}" is not a row or column field')
+        errors += _show_as_base_errors(m, where, layout_fields, row_fields)
+        agg = m.get("aggregate", "sum")
+        if "signField" in m and "calculate" not in m and agg in ("count", "distinctCount"):
+            errors.append(
+                f'{where}.signField is not supported with aggregate "{agg}" (it signs values; counts have none)'
+            )
         if "calculate" not in m:
             continue
         if "field" in m or "aggregate" in m:
             errors.append(f"{where}: calculate cannot be combined with field or aggregate")
+        if "signField" in m:
+            errors.append(f"{where}: signField cannot be combined with calculate (sign the measures it references)")
         parsed = parse_calc(m["calculate"], ids)
         if parsed.error is not None:
             errors.append(f"{where}.calculate: {parsed.error.message} (at {parsed.error.position})")
@@ -340,6 +384,8 @@ def spec_fields(spec: dict[str, Any]) -> list[tuple[str, str]]:
             continue
         if isinstance(m.get("field"), str):
             out.append((f"measures[{i}].field", m["field"]))
+        if isinstance(m.get("signField"), str):
+            out.append((f"measures[{i}].signField", m["signField"]))
         agg = m.get("aggregate")
         if isinstance(agg, dict):
             for key in ("weightField", "numeratorField", "denominatorField"):

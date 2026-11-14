@@ -49,6 +49,7 @@ from .validation import (
     infer_pivot_fields,
     multicol_example_spec,
     pivot_spec_schema,
+    statement_example_spec,
     validate_export_options,
     validate_pivot_spec,
 )
@@ -290,17 +291,46 @@ Filter in the spec instead of pre-filtering rows: the report header then prints 
   totals are `sum(actual) / sum(plan) - 1` (Excel calculated fields). Division by zero and null operands give an
   empty cell. At most 1000 characters; unknown functions, unknown measures and reference cycles are rejected.
   Calculated measures work in `values`, `heat`, `kpis`, `headerCharts`, `sortBy`, `topN` and `showAs`.
-- Show values as along a field: `"showAs": "differenceFrom" | "percentDifferenceFrom" | "runningTotal" |
+- Show values as along a field: `"showAs": "percentOf" | "differenceFrom" | "percentDifferenceFrom" | "runningTotal" |
   "percentRunningTotal" | "rankAscending" | "rankDescending"` with `"showAsBase": {"field": "orderDate:year",
   "position": "previous"}` (or `"next"`, or `"item": "2025"` for a fixed base). The base field must be a row or
   column field. The first item (previous), the base item itself and missing bases are empty; rows / columns
   outside the base field show the value itself for running totals and are empty for differences and ranks.
+  `percentOf` (Excel "% Of") is value / the base item's value and needs `"item"` (the base item itself is 100 %).
+- By default the base item is looked up among the cell's siblings under the same parent (Excel), so rows under
+  other parents and group / total rows are empty. `"scope": "all"` in `showAsBase` (with an `item`, on a **row**
+  field, for `percentOf` / differences) compares **every** row — groups, subtotals, the grand total — with the
+  total of that item across all parents in the same column: `{"field": "LINE", "item": "Revenue", "scope": "all"}`.
 - Row subtotals: `"subtotal": "start"` (default: the group row carries the totals), `"end"` (a "Camp Total" row
-  after the group's children) or `"none"` on a row dimension; `totals.subtotalLabel` names the subtotal rows.
+  after the group's children) or `"none"` on a row dimension; `totals.subtotalLabel` names the subtotal rows, and a
+  dimension's own `"subtotalLabel"` (same `{label}` template) overrides it for that level only.
+- Sign field: `"signField": "SIGN"` on a measure multiplies each row's value by that row's sign (1 / -1, numbers or
+  numeric strings; missing = 1) before aggregation. Not with `count`, `distinctCount` or calculated measures; ratio
+  signs the numerator only. Leave it out when amounts are already signed.
 - Distinct count: `{"id": "customers", "field": "customer", "aggregate": "distinctCount"}` counts distinct non-blank
   values; group and grand totals count distinct values of all their rows (not the sum of the children).
 - Example: `calc_example_spec` (vs Plan calculated measure, YoY % difference, % running total along Line,
   distinct regions, department subtotals at the bottom).
+
+## Financial statements (P&L / income statement)
+Rows SECTION → LINE, months as columns, an amount, a subtotal per section, Operating income and "% of Revenue":
+- Statement order from a sort column: add a **hidden** measure (defined, not listed in `values`)
+  `{"id": "ord", "field": "LINE_SORT", "aggregate": "min"}` and `"sortBy": {"measure": "ord", "direction": "asc"}`
+  on **both** row levels (sections sort by their smallest line number).
+- Section subtotal named like the section: `{"field": "SECTION", "subtotal": "end", "subtotalLabel": "{label}"}`
+  gives a "Gross margin" row after Revenue and COGS. The expanded section row above its lines stays as a heading
+  with blank cells.
+- Operating income = the grand total: `"totals": {"grandTotalLabel": "Operating income", "rowTotal": true}`.
+- Signed amounts: if costs are positive with a separate sign column, add `"signField": "SIGN"` to every measure that
+  reads the amount; if amounts are already signed, leave it out.
+- % of Revenue: a second measure on the same amount with `"showAs": "percentOf", "showAsBase": {"field": "LINE",
+  "item": "Revenue", "scope": "all"}` and `"percentFormat": {"style": "percent", "decimals": 1}`. It shows in every
+  month column (a measure cannot appear in the total column only); `"valuesIndex": 0` groups amounts first.
+- Not possible: formula rows over keys (Excel "calculated items", e.g. a "Gross margin" line computed as
+  Revenue - COGS that is not a subtotal), a different subtotal label per section, or a row computed from two
+  sections other than the grand total. Arrange sections so that each needed total is a section subtotal or the
+  grand total, or add such rows to the data.
+- Example: `statement_example_spec` (sections, lines, LINE_SORT, SIGN on unsigned amounts, 12 months).
 
 ## Rules
 - Every `field` must exist in the rows (see `datasets[].fields`), including filter fields (for `orderDate:year`
@@ -397,6 +427,7 @@ class PivotReportService:
             "multicol_example_spec": multicol_example_spec(),
             "dates_example_spec": dates_example_spec(),
             "calc_example_spec": calc_example_spec(),
+            "statement_example_spec": statement_example_spec(),
             "formats": ["pdf", "xlsx"],
         }
         if isinstance(self.row_provider, DatasetCatalog):

@@ -4,6 +4,22 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 
 ## [Unreleased]
 
+Financial statements (P&L / income statement). Additive: `PivotSpec` stays `version: 1`, existing specs produce identical models (goldens unchanged).
+
+### Added
+
+- **Pivot core** — `showAs: "percentOf"` (Excel "% Of": value / the base item's value; `showAsBase.item` required) with Excel sibling semantics, and `showAsBase.scope: "parent" | "all"`: `"all"` takes the base from every record whose row-field key is `item` in the same column, so every row — groups, subtotals, the grand total — compares with one base (a P&L's "% of Revenue"); also for `differenceFrom` / `percentDifferenceFrom`. View-only (the cube is reused); the base is merged once per cube (`PivotCube.keyTotal`), one read per cell.
+- **Pivot core** — `measures[i].signField`: each record's value is multiplied by a sign column (numbers or numeric strings; missing = 1) before aggregation (`sum` / `avg` / `min` / `max` / `first` / `last` / `weightedAvg` sign the value, `ratio` the numerator; rejected for counts, custom aggregates and calculated measures). Signed columns are memoized per encoding; part of `pivotSpecDataKey`; drill-through lists the sign field. `setPivotMeasureSignField`.
+- **Pivot core** — per-level `subtotalLabel` on row and column dimensions (same `{label}` template, overrides `totals.subtotalLabel` for that level).
+- **`@nqlib/nqgrid/pivot`** — `PivotShowAsMenu` offers "% of" with base item and "Compare with" (same group / across all groups); `usePivotGrid().setMeasureSignField` and the `setMeasureSignField` reducer action.
+- **Contract** — schema additions (`percentOf`, `showAsBase.scope`, `signField`, dimension `subtotalLabel`) and the golden `examples/planning-statement.{spec,rows,model,sheet}.json` + `.html` (fixture `statementPivotSpec` / `generateStatementPivotRows`). Python: regenerated models, `validation.py` mirror (incl. `signField` in `check_fields`), `statement_example_spec()`, a "Financial statements" section in the MCP authoring guide, e2e tests through `nqgrid-export serve`.
+- **Docs** — [docs/pivot-recipes.md](docs/pivot-recipes.md): a complete, tested P&L recipe with an honest limits table (no calculated items, per-level labels, in-memory pivoting, …).
+- **Playground** — `?pivot=statement` preset (income statement).
+
+### Changed
+
+- `setPivotMeasureAggregate` drops `signField` when switching to `count` / `distinctCount`; move helpers reset a measure whose `showAsBase.scope: "all"` field leaves Rows.
+
 ## [0.3.0] - 2026-11-04
 
 Pivot tables with Excel parity, a framework-free core and print/export tooling. Additive: every 0.2.0 export is still available.

@@ -97,6 +97,10 @@ evaluate_calc("round(actual / plan - 1, 3)", {"actual": 110, "plan": 100})   # 0
 check_calculated_measure(spec, "vsPlan * 2", "vsPlan")               # "reference cycle vsPlan → vsPlan"
 ```
 
+Financial statements (P&L): `nqgrid_export.validation.statement_example_spec()` returns the golden income-statement spec (`signField`,
+`percentOf` with `showAsBase.scope: "all"`, a per-level `subtotalLabel`); `validate_pivot_spec` mirrors their rules.
+Recipe and limits: [docs/pivot-recipes.md](../../docs/pivot-recipes.md).
+
 Field catalogues (what the app's field list shows) use the same inference as nqgrid core:
 
 ```python

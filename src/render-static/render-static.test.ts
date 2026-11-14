@@ -11,6 +11,7 @@ import {
   planningMultiColumnPivotSpec,
   planningPivotSpec,
 } from "../fixtures/planning-pivot-mock";
+import { generateStatementPivotRows, statementPivotSpec } from "../fixtures/statement-pivot-mock";
 import { pivotBodyGroups, pivotKpiPanelHeight } from "../pivot/layout";
 import { PIVOT_SERIES_COLORS } from "../styles";
 import {
@@ -80,6 +81,15 @@ describe("renderPivotHtml", () => {
     const groups = pivotBodyGroups(model);
     const camp = groups.find((g) => g.id === "r:Camp")!;
     expect(model.rows[camp.end - 1]!.kind).toBe("subtotal");
+  });
+
+  it("renders a financial statement (golden planning-statement.html: % of Revenue, section subtotals, Operating income)", async () => {
+    const out = renderPivotHtmlFromSpec(statementPivotSpec, generateStatementPivotRows(), { generatedAt });
+    await expect(out).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-statement.html");
+    // 26 value columns print in 3 column chunks, each with both section subtotal rows.
+    expect(count(out, /data-kind="subtotal"/g)).toBe(6);
+    expect(out).toContain(">Operating income<");
+    expect(out).toContain(">(11,160)<");
   });
 
   it("renders a spec rearranged in the field list (golden planning-fields.html: Σ Values outermost, 3 row levels)", async () => {

@@ -152,9 +152,14 @@ export function removePivotMeasure(spec: PivotSpec, measureId: string): PivotSpe
   return next;
 }
 
+/** Show-as kinds that compare with a base item (and so accept `showAsBase.scope`). */
+const ITEM_KINDS: ReadonlySet<string> = new Set(["percentOf", "differenceFrom", "percentDifferenceFrom"]);
+
 /**
- * Excel's "Show values as" for one measure. `base` is required by the difference / running-total /
- * rank kinds (a row or column field; refused otherwise) and dropped for the others. `scope`:
+ * Excel's "Show values as" for one measure. `base` is required by `percentOf` and the difference /
+ * running-total / rank kinds (a row or column field; refused otherwise) and dropped for the others;
+ * `percentOf` also needs `base.item`, and `base.scope: "all"` an item and a row field (refused
+ * otherwise; running totals and ranks drop `scope`). `scope`:
  * `all` (default) sets `showAs` and clears `groupShowAs`; `leaf` sets `showAs` only; `group` sets
  * `groupShowAs` only.
  */
@@ -170,6 +175,11 @@ export function setPivotMeasureShowAs(
   const needsBase = PIVOT_SHOW_AS_WITH_BASE.has(showAs);
   const fields = new Set([...spec.rows.map((d) => d.field), ...pivotColumnFields(spec).map((d) => d.field)]);
   if (needsBase && (!base || !fields.has(base.field))) return spec;
+  if (needsBase && showAs === "percentOf" && base!.item === undefined) return spec;
+  if (needsBase && base!.scope !== undefined) {
+    if (!ITEM_KINDS.has(showAs)) base = omit(base!, "scope");
+    else if (base!.scope === "all" && (base!.item === undefined || !spec.rows.some((d) => d.field === base!.field))) return spec;
+  }
   const scope = options.scope ?? "all";
   let next: PivotMeasure = omit(m, "showAs", "groupShowAs", "showAsBase");
   const leaf = scope === "group" ? m.showAs : showAs;
@@ -181,9 +191,28 @@ export function setPivotMeasureShowAs(
     const b = needsBase ? base! : m.showAsBase;
     if (b) next = { ...next, showAsBase: b };
     else return spec;
+    // A global base (or a % Of) shared with a kind that cannot take it would be invalid.
+    const kinds = [next.showAs, next.groupShowAs];
+    if (b.scope === "all" && kinds.some((k) => k !== undefined && k !== "value" && !ITEM_KINDS.has(k) && PIVOT_SHOW_AS_WITH_BASE.has(k))) return spec;
+    if (b.item === undefined && kinds.includes("percentOf")) return spec;
   }
   if (JSON.stringify(next) === JSON.stringify(m)) return spec;
   return { ...spec, measures: spec.measures.map((x) => (x === m ? next : x)) };
+}
+
+/**
+ * Sign field of a measure (`PivotMeasure.signField`: each record's value is multiplied by it before
+ * aggregation); `null` / `""` removes it. Refused for calculated measures, `count`, `distinctCount`
+ * and custom aggregates.
+ */
+export function setPivotMeasureSignField(spec: PivotSpec, measureId: string, signField: string | null): PivotSpec {
+  const m = spec.measures.find((x) => x.id === measureId);
+  if (!m) return spec;
+  if (!signField) return m.signField === undefined ? spec : { ...spec, measures: spec.measures.map((x) => (x === m ? omit(m, "signField") : x)) };
+  const agg = m.aggregate ?? "sum";
+  if (m.calculate !== undefined || agg === "count" || agg === "distinctCount" || (typeof agg === "object" && agg.type === "custom")) return spec;
+  if (m.signField === signField) return spec;
+  return { ...spec, measures: spec.measures.map((x) => (x === m ? { ...m, signField } : x)) };
 }
 
 /**

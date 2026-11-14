@@ -840,10 +840,14 @@ function applyLayout(spec: PivotSpec, layout: Layout): PivotSpec {
   for (const m of layout.measures) if (m.calculate !== undefined) referenced.add(m.id);
   addCalcDependencies(layout.measures, referenced);
   // "Show values as" along a field that left Rows / Columns falls back to plain values (Excel).
+  // A global base (`scope: "all"`) needs its field in Rows.
   const placed = new Set([...rows.map((d) => d.field), ...layout.columns.flatMap((c) => (c.kind === "dim" ? [c.dim.field] : []))]);
+  const inRows = new Set(rows.map((d) => d.field));
   const measures = layout.measures
     .filter((m) => !removed.has(m.id) || referenced.has(m.id))
-    .map((m) => (m.showAsBase && !placed.has(m.showAsBase.field) ? withoutShowAsBase(m) : m));
+    .map((m) =>
+      m.showAsBase && (!placed.has(m.showAsBase.field) || (m.showAsBase.scope === "all" && !inRows.has(m.showAsBase.field))) ? withoutShowAsBase(m) : m,
+    );
 
   // Columns: the list (with Σ Values) back to `columns` (one object for one field) + `valuesIndex`.
   const columnDims = layout.columns.flatMap((c) => (c.kind === "dim" ? [c.dim] : []));
@@ -987,10 +991,10 @@ export function setPivotMeasureAggregate(
   if (m.field && typeof prev === "string") {
     const info = fieldInfo(fields, m.field);
     if (m.label === undefined || m.label === pivotMeasureLabel(info.label, prev)) next = { ...next, label: pivotMeasureLabel(info.label, aggregate) };
-    if (isCountAggregate(aggregate)) next = omitKeys(next, "format");
+    if (isCountAggregate(aggregate)) next = omitKeys(next, "format", "signField");
     else if (isCountAggregate(prev) && info.format) next = { ...next, format: info.format };
   } else if (aggregate === "count") {
-    next = omitKeys(next, "format");
+    next = omitKeys(next, "format", "signField");
   }
   return { ...spec, measures: spec.measures.map((x) => (x === m ? next : x)) };
 }

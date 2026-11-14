@@ -34,6 +34,7 @@ from nqgrid_export.validation import (
     humanize_pivot_field,
     infer_pivot_fields,
     multicol_example_spec,
+    statement_example_spec,
 )
 
 from .conftest import CONTRACT, EXAMPLES, load_example
@@ -91,6 +92,19 @@ INVALID_SPECS: dict[str, dict[str, Any]] = {
         ],
     },
     "showAsBase without field": {**MINIMAL, "measures": [{"id": "m", "field": "v", "showAsBase": {"item": "x"}}]},
+    "bad showAsBase scope": {
+        **MINIMAL,
+        "measures": [
+            {
+                "id": "m",
+                "field": "v",
+                "showAs": "percentOf",
+                "showAsBase": {"field": "a", "item": "x", "scope": "global"},
+            }
+        ],
+    },
+    "empty signField": {**MINIMAL, "measures": [{"id": "m", "field": "v", "signField": ""}]},
+    "non-string subtotalLabel": {**MINIMAL, "rows": [{"field": "a", "subtotalLabel": 1}]},
     "bad fiscal month": {**MINIMAL, "fields": [{"field": "d", "fiscalYearStartMonth": 13}]},
     "bad time zone offset": {**MINIMAL, "fields": [{"field": "d", "timeZoneOffsetMinutes": 900}]},
     "short monthNames": {**MINIMAL, "fields": [{"field": "d", "monthNames": ["J"]}]},
@@ -114,6 +128,7 @@ def test_schema_copies_in_the_package_match_the_contract() -> None:
     assert dates_example_spec() == load_example("planning-dates.spec.json")
     assert multicol_example_spec() == load_example("planning-multicol.spec.json")
     assert calc_example_spec() == load_example("planning-calc.spec.json")
+    assert statement_example_spec() == load_example("planning-statement.spec.json")
 
 
 def test_schemas_are_valid_2020_12() -> None:
@@ -300,6 +315,11 @@ def test_examples_directory_is_complete() -> None:
         "planning-calc.model.json",
         "planning-calc.sheet.json",
         "planning-calc.html",
+        "planning-statement.spec.json",
+        "planning-statement.rows.json",
+        "planning-statement.model.json",
+        "planning-statement.sheet.json",
+        "planning-statement.html",
     } <= names
     assert (CONTRACT / "calc-expressions.json").is_file()
 
@@ -354,6 +374,7 @@ def test_field_inference_matches_nqgrid() -> None:
         ("planning-multicol.spec.json", "planning-fields.rows.json"),
         ("planning-dates.spec.json", "planning-dates.rows.json"),
         ("planning-calc.spec.json", "planning-dates.rows.json"),
+        ("planning-statement.spec.json", "planning-statement.rows.json"),
     ],
 )
 def test_column_hierarchy_and_date_specs_validate_everywhere(spec_name: str, rows_name: str) -> None:
@@ -447,3 +468,45 @@ def test_calc_spec_round_trips_and_mirrors_ts_validation() -> None:
     assert check_calculated_measure(base, "m / pp") == 'unknown measure "pp" at 4'
     loop = {**base, "measures": [*base["measures"], {"id": "c", "calculate": "m * 2"}]}
     assert check_calculated_measure(loop, "c + 1", "m") == "reference cycle c → m → c"
+
+
+def test_statement_spec_round_trips_and_mirrors_ts_validation() -> None:
+    """percentOf / showAsBase.scope, signField and per-level subtotalLabel: same checks and messages as nqgrid."""
+    spec = load_example("planning-statement.spec.json")
+    model = PivotSpec.model_validate(spec)
+    assert model.measures[0].signField == "SIGN"
+    assert model.measures[1].showAs == "percentOf"
+    assert model.measures[1].showAsBase is not None and model.measures[1].showAsBase.scope == "all"
+    assert model.rows[0].subtotalLabel == "{label}"
+    assert check_fields(spec, load_example("planning-statement.rows.json")) == []
+    assert [
+        e.split(":")[0]
+        for e in check_fields({**spec, "measures": [{**spec["measures"][0], "signField": "SGN"}]}, [{"SECTION": 1}])
+    ][-1] == "spec.measures[0].signField"
+
+    base = {**MINIMAL, "rows": [{"field": "a"}, {"field": "l"}], "columns": {"field": "c"}}
+
+    def errors(**measure: Any) -> list[str]:
+        return validate_pivot_spec({**base, "measures": [{"id": "m", "field": "v", **measure}]})
+
+    assert errors(showAs="percentOf", showAsBase={"field": "l"}) == [
+        "measures[0].showAsBase.item is required by percentOf"
+    ]
+    assert errors(showAs="percentOf") == ["measures[0].showAsBase is required by its showAs / groupShowAs"]
+    assert errors(showAs="differenceFrom", showAsBase={"field": "l", "scope": "all"}) == [
+        'measures[0].showAsBase.scope "all" needs showAsBase.item'
+    ]
+    assert errors(showAs="percentOf", showAsBase={"field": "c", "item": "Jan", "scope": "all"}) == [
+        'measures[0].showAsBase.scope "all" needs a row field (got column field "c")'
+    ]
+    assert errors(showAs="runningTotal", showAsBase={"field": "l", "item": "x", "scope": "all"}) == [
+        'measures[0].showAsBase.scope "all" applies to percentOf / differenceFrom / percentDifferenceFrom only'
+    ]
+    assert errors(showAs="percentOf", showAsBase={"field": "l", "item": "Revenue", "scope": "all"}) == []
+    assert errors(signField="s") == []
+    assert errors(aggregate="count", signField="s") == [
+        'measures[0].signField is not supported with aggregate "count" (it signs values; counts have none)'
+    ]
+    assert validate_pivot_spec(
+        {**base, "measures": [{"id": "m", "field": "v"}, {"id": "c", "calculate": "m", "signField": "s"}]}
+    ) == ["measures[1]: signField cannot be combined with calculate (sign the measures it references)"]

@@ -11,6 +11,7 @@ export type PivotSpecValidation =
 const BUILT_IN_AGGREGATES = new Set(["sum", "avg", "min", "max", "count", "first", "last", "distinctCount"]);
 /** `showAs` kinds that need `showAsBase`. */
 export const PIVOT_SHOW_AS_WITH_BASE: ReadonlySet<string> = new Set([
+  "percentOf",
   "differenceFrom",
   "percentDifferenceFrom",
   "runningTotal",
@@ -95,6 +96,7 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
       errors.push(`${where}.sort must be "asc" | "desc" | "none"`);
     }
     if (d.subtotal !== undefined && !SUBTOTALS.has(d.subtotal as string)) errors.push(`${where}.subtotal must be "end" | "start" | "none"`);
+    if (d.subtotalLabel !== undefined && typeof d.subtotalLabel !== "string") errors.push(`${where}.subtotalLabel must be a string`);
   };
 
   const dimensionFields: [string, string][] = [];
@@ -132,7 +134,7 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
   /** Calculated measures, checked once every measure id is known. */
   const calcs: { readonly id: string; readonly where: string; readonly expr: unknown }[] = [];
   /** `showAsBase` fields, checked against the row / column fields. */
-  const showAsBases: { readonly where: string; readonly base: unknown; readonly needed: boolean }[] = [];
+  const showAsBases: { readonly where: string; readonly base: unknown; readonly needed: boolean; readonly kinds: readonly unknown[] }[] = [];
   if (!Array.isArray(input.measures) || input.measures.length === 0) {
     errors.push("measures must be a non-empty array");
   } else {
@@ -151,10 +153,12 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
         }
       }
       const needsBase = PIVOT_SHOW_AS_WITH_BASE.has(m.showAs as string) || PIVOT_SHOW_AS_WITH_BASE.has(m.groupShowAs as string);
-      if (m.showAsBase !== undefined || needsBase) showAsBases.push({ where, base: m.showAsBase, needed: needsBase });
+      if (m.showAsBase !== undefined || needsBase) showAsBases.push({ where, base: m.showAsBase, needed: needsBase, kinds: [m.showAs, m.groupShowAs] });
 
+      if (m.signField !== undefined && !isNonEmptyString(m.signField)) errors.push(`${where}.signField must be a non-empty string`);
       if (m.calculate !== undefined) {
         if (m.field !== undefined || m.aggregate !== undefined) errors.push(`${where}: calculate cannot be combined with field or aggregate`);
+        if (m.signField !== undefined) errors.push(`${where}: signField cannot be combined with calculate (sign the measures it references)`);
         calcs.push({ id: m.id, where, expr: m.calculate });
         return;
       }
@@ -182,6 +186,10 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
         errors.push(`${where}.aggregate must be a string or object`);
       }
       if (needsField && !isNonEmptyString(m.field)) errors.push(`${where}.field is required`);
+      if (m.signField !== undefined && (agg === "count" || agg === "distinctCount" || (isObject(agg) && agg.type === "custom"))) {
+        const name = typeof agg === "string" ? agg : "custom";
+        errors.push(`${where}.signField is not supported with aggregate ${JSON.stringify(name)} (it signs values; counts have none)`);
+      }
     });
   }
 
@@ -200,9 +208,11 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     errors.push(`${where}.calculate: reference cycle ${cycle.join(" → ")}`);
   }
 
-  // showAsBase: required by the difference / running-total / rank kinds, names a row or column field.
+  // showAsBase: required by % Of and the difference / running-total / rank kinds, names a row or
+  // column field; % Of needs an item; scope "all" needs an item and a row field.
   const layoutFields = new Set(dimensionFields.map(([field]) => field));
-  for (const { where, base, needed } of showAsBases) {
+  const rowFields = new Set(dimensionFields.filter(([, where]) => where.startsWith("rows[")).map(([field]) => field));
+  for (const { where, base, needed, kinds } of showAsBases) {
     if (base === undefined) {
       if (needed) errors.push(`${where}.showAsBase is required by its showAs / groupShowAs`);
       continue;
@@ -215,6 +225,17 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     if (base.item !== undefined && typeof base.item !== "string") errors.push(`${where}.showAsBase.item must be a string`);
     if (base.position !== undefined && base.position !== "previous" && base.position !== "next") {
       errors.push(`${where}.showAsBase.position must be "previous" | "next"`);
+    }
+    if (kinds.includes("percentOf") && base.item === undefined) errors.push(`${where}.showAsBase.item is required by percentOf`);
+    if (base.scope !== undefined) {
+      if (base.scope !== "parent" && base.scope !== "all") errors.push(`${where}.showAsBase.scope must be "parent" | "all"`);
+      else if (base.scope === "all") {
+        if (base.item === undefined) errors.push(`${where}.showAsBase.scope "all" needs showAsBase.item`);
+        if (layoutFields.has(base.field) && !rowFields.has(base.field)) errors.push(`${where}.showAsBase.scope "all" needs a row field (got column field "${base.field}")`);
+        if (kinds.some((k) => k !== undefined && k !== "value" && k !== "percentOf" && k !== "differenceFrom" && k !== "percentDifferenceFrom" && PIVOT_SHOW_AS_WITH_BASE.has(k as string))) {
+          errors.push(`${where}.showAsBase.scope "all" applies to percentOf / differenceFrom / percentDifferenceFrom only`);
+        }
+      }
     }
   }
 

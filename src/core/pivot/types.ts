@@ -90,6 +90,12 @@ export interface PivotDimension {
    *   or `none` (no subtotals while expanded). A collapsed group row always shows its totals.
    */
   readonly subtotal?: "end" | "start" | "none";
+  /**
+   * Label of this field's subtotal rows (`subtotal: "end"`) and subtotal columns, overriding
+   * `totals.subtotalLabel` for this level only; `{label}` is the group label (e.g. `"{label}"` names
+   * a P&L section's subtotal row after the section: `Gross margin`).
+   */
+  readonly subtotalLabel?: string;
 }
 
 /** Sort sibling keys by an aggregated measure (raw value, before `showAs`). */
@@ -229,9 +235,9 @@ export type PivotAggregate =
   | { readonly type: "custom"; readonly name: string };
 
 /**
- * Excel-style "Show values as". Percent results are ratios. The last six need `showAsBase` (the
- * field, and for differences the item, they are computed along); see "Show values as" in
- * `docs/pivot-headless.md` for the edge cases.
+ * Excel-style "Show values as". Percent results are ratios. `percentOf` and the last six need
+ * `showAsBase` (the field, and for `percentOf` / differences the item, they are computed along);
+ * see "Show values as" in `docs/pivot-headless.md` for the edge cases.
  */
 export type PivotShowAs =
   | "value"
@@ -240,6 +246,8 @@ export type PivotShowAs =
   | "percentOfParentColumn"
   | "percentOfRowTotal"
   | "percentOfGrandTotal"
+  /** Excel "% Of": value / the base item's value (`showAsBase.item` required). */
+  | "percentOf"
   | "differenceFrom"
   | "percentDifferenceFrom"
   | "runningTotal"
@@ -248,12 +256,13 @@ export type PivotShowAs =
   | "rankDescending";
 
 /** `showAs` kinds that need `showAsBase`. */
-export type PivotShowAsWithBase = "differenceFrom" | "percentDifferenceFrom" | "runningTotal" | "percentRunningTotal" | "rankAscending" | "rankDescending";
+export type PivotShowAsWithBase = "percentOf" | "differenceFrom" | "percentDifferenceFrom" | "runningTotal" | "percentRunningTotal" | "rankAscending" | "rankDescending";
 
 /**
- * Base of `differenceFrom` / `percentDifferenceFrom` / `runningTotal` / `percentRunningTotal` /
- * `rank*`: a row or column field, and for differences the base item — a key of that field
- * (`item`), or the `previous` (default) / `next` sibling. Running totals and ranks use the field only.
+ * Base of `percentOf` / `differenceFrom` / `percentDifferenceFrom` / `runningTotal` /
+ * `percentRunningTotal` / `rank*`: a row or column field, and for `percentOf` / differences the base
+ * item — a key of that field (`item`; required by `percentOf`), or the `previous` (default) / `next`
+ * sibling. Running totals and ranks use the field only.
  */
 export interface PivotShowAsBase {
   readonly field: string;
@@ -261,6 +270,16 @@ export interface PivotShowAsBase {
   readonly item?: string;
   /** Default `previous`. */
   readonly position?: "previous" | "next";
+  /**
+   * Where the base `item` is looked up (`percentOf` / differences with an `item` only):
+   *
+   * - `parent` (default, Excel): among the cell's siblings under the same parent — rows of other
+   *   parents, and rows above the base field (groups, grand total), are empty.
+   * - `all`: the aggregate of every record whose `field` key is `item`, in the cell's column (after
+   *   filters), whatever the row's parent — so every row, including group, subtotal and grand-total
+   *   rows, compares with the same base (a P&L's "% of Revenue"). `field` must be a row field.
+   */
+  readonly scope?: "parent" | "all";
 }
 
 export interface PivotMeasure {
@@ -277,6 +296,14 @@ export interface PivotMeasure {
   readonly label?: string;
   /** Default `sum`. */
   readonly aggregate?: PivotAggregate;
+  /**
+   * Record field holding a multiplier (normally `1` / `-1`) applied to each record's value before
+   * aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings (`"-1"`);
+   * a missing or non-numeric sign counts as `1`. `sum` / `avg` / `min` / `max` / `first` / `last`
+   * sign the value, `weightedAvg` the value (not the weight), `ratio` the numerator only. Not
+   * allowed with `count`, `distinctCount`, `custom` or `calculate`.
+   */
+  readonly signField?: string;
   /** Format for aggregated values. */
   readonly format?: PivotNumberFormat;
   /** Format for `showAs` percentages (default `{ style: "percent" }`). */
@@ -342,7 +369,7 @@ export interface PivotTotalsSpec {
   readonly rowTotalLabel?: string;
   /**
    * Label of column subtotals and of `subtotal: "end"` rows; `{label}` is the group label
-   * (default `{label} Total`).
+   * (default `{label} Total`). A dimension's own `subtotalLabel` wins for its level.
    */
   readonly subtotalLabel?: string;
 }

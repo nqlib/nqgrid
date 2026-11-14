@@ -24,7 +24,7 @@ class Totals(BaseModel):
     rowTotalLabel: str | None = None
     subtotalLabel: str | None = None
     """
-    Label of column subtotals and of subtotal: "end" rows; {label} is the group label (default "{label} Total").
+    Label of column subtotals and of subtotal: "end" rows; {label} is the group label (default "{label} Total"). A dimension's own subtotalLabel wins for its level.
     """
 
 
@@ -189,7 +189,7 @@ class FacetWithLabel(BaseModel):
 
 class ShowAsBase(BaseModel):
     """
-    Base of the difference / running-total / rank kinds of showAs: a row or column field, and for differences the base item — a key of that field (item) or the previous (default) / next sibling (position). Running totals and ranks use the field only.
+    Base of percentOf and of the difference / running-total / rank kinds of showAs: a row or column field, and for percentOf / differences the base item — a key of that field (item; required by percentOf) or the previous (default) / next sibling (position). Running totals and ranks use the field only.
     """
 
     model_config = ConfigDict(
@@ -201,6 +201,10 @@ class ShowAsBase(BaseModel):
     A key of field, e.g. "2025"; wins over position.
     """
     position: Literal["previous", "next"] | None = None
+    scope: Literal["parent", "all"] | None = None
+    """
+    Where item is looked up (percentOf / differences with an item): parent (default, Excel) — among the cell's siblings under the same parent; all — the aggregate of every record whose field key is item in the cell's column (after filters), whatever the row's parent, so every row incl. group, subtotal and grand-total rows uses the same base (a P&L's "% of Revenue"). all needs a row field.
+    """
 
 
 class PositiveNumber(RootModel[float]):
@@ -265,6 +269,10 @@ class Dimension(BaseModel):
     """
     Groups of this field (every level but the innermost). Columns: subtotal column per group at the end (default), the start, or none. Rows: start (default; the group row carries the subtotals, Excel's "at top"), end (a subtotal row after the group's children) or none. Collapsed groups always show their totals.
     """
+    subtotalLabel: str | None = None
+    """
+    Label of this field's subtotal rows (subtotal: "end") and subtotal columns, overriding totals.subtotalLabel for this level; {label} is the group label (e.g. "{label}" names a P&L section's subtotal row after the section).
+    """
 
 
 class Measure(BaseModel):
@@ -285,6 +293,10 @@ class Measure(BaseModel):
         | Literal["sum", "avg", "min", "max", "count", "first", "last", "distinctCount"]
         | None
     ) = None
+    signField: Annotated[str | None, Field(min_length=1)] = None
+    """
+    Record field holding a multiplier (normally 1 / -1) applied to each record's value before aggregation, e.g. a P&L sign column on unsigned amounts. Numbers or numeric strings ("-1"); a missing or non-numeric sign counts as 1. sum / avg / min / max / first / last sign the value, weightedAvg the value (not the weight), ratio the numerator only. Not allowed with count, distinctCount, custom or calculate (validatePivotSpec).
+    """
     format: NumberFormat | None = None
     percentFormat: NumberFormat | None = None
     showAs: (
@@ -295,6 +307,7 @@ class Measure(BaseModel):
             "percentOfParentColumn",
             "percentOfRowTotal",
             "percentOfGrandTotal",
+            "percentOf",
             "differenceFrom",
             "percentDifferenceFrom",
             "runningTotal",
@@ -305,7 +318,7 @@ class Measure(BaseModel):
         | None
     ) = None
     """
-    Excel "Show values as". Percent kinds are ratios. differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase.
+    Excel "Show values as". Percent kinds are ratios. percentOf (Excel "% Of": value / the base item's value), differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase; percentOf also needs showAsBase.item.
     """
     groupShowAs: (
         Literal[
@@ -315,6 +328,7 @@ class Measure(BaseModel):
             "percentOfParentColumn",
             "percentOfRowTotal",
             "percentOfGrandTotal",
+            "percentOf",
             "differenceFrom",
             "percentDifferenceFrom",
             "runningTotal",
@@ -325,7 +339,7 @@ class Measure(BaseModel):
         | None
     ) = None
     """
-    Excel "Show values as". Percent kinds are ratios. differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase.
+    Excel "Show values as". Percent kinds are ratios. percentOf (Excel "% Of": value / the base item's value), differenceFrom, percentDifferenceFrom, runningTotal, percentRunningTotal, rankAscending and rankDescending need showAsBase; percentOf also needs showAsBase.item.
     """
     showAsBase: ShowAsBase | None = None
 
@@ -447,7 +461,7 @@ class Columns(RootModel[list[Dimension]]):
 
 class PivotSpec(BaseModel):
     """
-    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field) are done by validatePivotSpec().
+    nqgrid pivot spec v1. Mirrors src/core/pivot/types.ts. Referential checks (measure ids used by values/heat/headerCharts/kpis/sortBy/topN, sortBy/topN only on row dimensions, a field used at most once across rows and columns, unique facets and fields, calculated-measure expressions (grammar, references, cycles), showAsBase naming a row or column field, percentOf needing showAsBase.item, showAsBase.scope "all" needing an item and a row field, signField only on value aggregates) are done by validatePivotSpec().
     """
 
     model_config = ConfigDict(

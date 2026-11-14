@@ -203,6 +203,9 @@ export interface PivotShowAsLabels {
   readonly baseItem: string;
   readonly previous: string;
   readonly next: string;
+  /** Where the base item is looked up (`showAsBase.scope`). */
+  readonly baseScope: string;
+  readonly scopes: Readonly<Record<"parent" | "all", string>>;
 }
 
 export const PIVOT_SHOW_AS_LABELS: PivotShowAsLabels = {
@@ -214,6 +217,7 @@ export const PIVOT_SHOW_AS_LABELS: PivotShowAsLabels = {
     percentOfRowTotal: "% of row total",
     percentOfParentRow: "% of parent row total",
     percentOfParentColumn: "% of parent column total",
+    percentOf: "% of",
     differenceFrom: "Difference from",
     percentDifferenceFrom: "% difference from",
     runningTotal: "Running total in",
@@ -225,6 +229,8 @@ export const PIVOT_SHOW_AS_LABELS: PivotShowAsLabels = {
   baseItem: "Base item",
   previous: "(previous)",
   next: "(next)",
+  baseScope: "Compare with",
+  scopes: { parent: "Item in the same group", all: "Item across all groups" },
 };
 
 /** Every "show values as" kind, in Excel's menu order. */
@@ -233,6 +239,7 @@ export const PIVOT_SHOW_AS_KINDS: readonly PivotShowAs[] = [
   "percentOfGrandTotal",
   "percentOfColumnTotal",
   "percentOfRowTotal",
+  "percentOf",
   "percentOfParentRow",
   "percentOfParentColumn",
   "differenceFrom",
@@ -263,12 +270,19 @@ const ITEM_PREVIOUS = "\u0000previous";
 const ITEM_NEXT = "\u0000next";
 
 /**
- * Excel's "Show values as" for one measure: the kind, and for differences / running totals / ranks
- * the base field (a row or column field) and base item ((previous), (next) or a key). Applies on
+ * Excel's "Show values as" for one measure: the kind, and for % of / differences / running totals /
+ * ranks the base field (a row or column field) and base item ((previous), (next) or a key; % of needs
+ * a key). With a key on a row field, "Compare with" picks the item in the same group (Excel) or
+ * across all groups (`showAsBase.scope: "all"`, e.g. % of Revenue on every P&L row). Applies on
  * change; a base kind without a base field available is disabled.
  */
 export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabel, className, style, labels: overrides, children }: PivotShowAsMenuProps) {
-  const labels = { ...PIVOT_SHOW_AS_LABELS, ...overrides, kinds: { ...PIVOT_SHOW_AS_LABELS.kinds, ...overrides?.kinds } };
+  const labels = {
+    ...PIVOT_SHOW_AS_LABELS,
+    ...overrides,
+    kinds: { ...PIVOT_SHOW_AS_LABELS.kinds, ...overrides?.kinds },
+    scopes: { ...PIVOT_SHOW_AS_LABELS.scopes, ...overrides?.scopes },
+  };
   const id = useId();
   const measure = spec.measures.find((m) => m.id === measureId);
   const dims = [...spec.rows, ...pivotColumnFields(spec)];
@@ -276,12 +290,24 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
   const showAs = measure?.showAs ?? "value";
   const base = measure?.showAsBase;
   const needsBase = PIVOT_SHOW_AS_WITH_BASE.has(showAs);
+  const isPercentOf = showAs === "percentOf";
   const isDifference = showAs === "differenceFrom" || showAs === "percentDifferenceFrom";
+  const usesItem = isPercentOf || isDifference;
   if (!measure) return null;
   const apply = (kind: PivotShowAs, nextBase: PivotShowAsBase | null) => onChange(setPivotMeasureShowAs(spec, measureId, kind, nextBase));
-  const defaultBase = (): PivotShowAsBase | null => (base && dims.some((d) => d.field === base.field) ? base : dims.length ? { field: dims[dims.length > 1 ? 1 : 0]!.field } : null);
-  const facet = needsBase && isDifference && base ? getFacet?.(base.field) : undefined;
+  /** % of needs an item: keep the current one, else the field's first key (from `getFacet`). */
+  const withItem = (b: PivotShowAsBase): PivotShowAsBase | null => {
+    if (b.item !== undefined) return b;
+    const first = getFacet?.(b.field)?.values[0]?.key;
+    return first === undefined ? null : { field: b.field, item: first, ...(b.scope ? { scope: b.scope } : {}) };
+  };
+  const defaultBase = (kind: PivotShowAs): PivotShowAsBase | null => {
+    const b = base && dims.some((d) => d.field === base.field) ? base : dims.length ? { field: dims[dims.length > 1 ? 1 : 0]!.field } : null;
+    return b && kind === "percentOf" ? withItem(b) : b;
+  };
+  const facet = needsBase && usesItem && base ? getFacet?.(base.field) : undefined;
   const itemValue = base?.item !== undefined ? base.item : base?.position === "next" ? ITEM_NEXT : ITEM_PREVIOUS;
+  const scopeAvailable = usesItem && base?.item !== undefined && spec.rows.some((d) => d.field === base.field);
 
   return (
     <div className={cx(pivotFilterMenuClass, className)} style={style} role="group" aria-labelledby={`${id}-title`} data-nqg-show-as="">
@@ -294,7 +320,7 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
         value={showAs}
         onChange={(e) => {
           const kind = e.target.value as PivotShowAs;
-          apply(kind, PIVOT_SHOW_AS_WITH_BASE.has(kind) ? defaultBase() : null);
+          apply(kind, PIVOT_SHOW_AS_WITH_BASE.has(kind) ? defaultBase(kind) : null);
         }}
         data-nqg-show-as-kind=""
       >
@@ -310,7 +336,10 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
           <select
             className={pivotFilterMenuInputClass}
             value={base?.field ?? ""}
-            onChange={(e) => apply(showAs, { field: e.target.value })}
+            onChange={(e) => {
+              const next = { field: e.target.value };
+              apply(showAs, isPercentOf ? withItem(next) : next);
+            }}
             data-nqg-show-as-field=""
           >
             {dims.map((d) => (
@@ -321,7 +350,7 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
           </select>
         </label>
       ) : null}
-      {needsBase && isDifference && base ? (
+      {needsBase && usesItem && base ? (
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span className={pivotFilterMenuLabelClass}>{labels.baseItem}</span>
           <select
@@ -329,17 +358,35 @@ export function PivotShowAsMenu({ spec, measureId, onChange, getFacet, fieldLabe
             value={itemValue}
             onChange={(e) => {
               const v = e.target.value;
-              apply(showAs, v === ITEM_PREVIOUS ? { field: base.field } : v === ITEM_NEXT ? { field: base.field, position: "next" } : { field: base.field, item: v });
+              const scope = base.scope ? { scope: base.scope } : {};
+              apply(showAs, v === ITEM_PREVIOUS ? { field: base.field } : v === ITEM_NEXT ? { field: base.field, position: "next" } : { field: base.field, item: v, ...scope });
             }}
             data-nqg-show-as-item=""
           >
-            <option value={ITEM_PREVIOUS}>{labels.previous}</option>
-            <option value={ITEM_NEXT}>{labels.next}</option>
+            {isPercentOf ? null : <option value={ITEM_PREVIOUS}>{labels.previous}</option>}
+            {isPercentOf ? null : <option value={ITEM_NEXT}>{labels.next}</option>}
             {(facet?.values ?? (base.item !== undefined ? [{ key: base.item, label: base.item }] : [])).map((v) => (
               <option key={v.key} value={v.key}>
                 {v.label}
               </option>
             ))}
+          </select>
+        </label>
+      ) : null}
+      {needsBase && scopeAvailable && base ? (
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className={pivotFilterMenuLabelClass}>{labels.baseScope}</span>
+          <select
+            className={pivotFilterMenuInputClass}
+            value={base.scope ?? "parent"}
+            onChange={(e) => {
+              const rest: PivotShowAsBase = { field: base.field, ...(base.item !== undefined ? { item: base.item } : {}) };
+              apply(showAs, e.target.value === "all" ? { ...rest, scope: "all" } : rest);
+            }}
+            data-nqg-show-as-scope=""
+          >
+            <option value="parent">{labels.scopes.parent}</option>
+            <option value="all">{labels.scopes.all}</option>
           </select>
         </label>
       ) : null}

@@ -29,6 +29,7 @@ import {
   removePivotMeasure,
   setPivotCalculatedMeasure,
   setPivotMeasureShowAs,
+  setPivotMeasureSignField,
   setPivotSubtotal,
   type PivotCalculatedMeasureInput,
 } from "../core/pivot/measures";
@@ -95,7 +96,8 @@ export type PivotGridAction =
       readonly base?: PivotShowAsBase | null;
       readonly scope?: "all" | "leaf" | "group";
     }
-  | { readonly type: "setSubtotal"; readonly field: string; readonly position: "start" | "end" | "none" };
+  | { readonly type: "setSubtotal"; readonly field: string; readonly position: "start" | "end" | "none" }
+  | { readonly type: "setMeasureSignField"; readonly measureId: string; readonly signField: string | null };
 
 /**
  * Pure spec transition behind `usePivotGrid`. `model` must be built from `spec`
@@ -159,5 +161,7 @@ export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: 
       return setPivotMeasureShowAs(spec, action.measureId, action.showAs, action.base, { scope: action.scope });
     case "setSubtotal":
       return setPivotSubtotal(spec, action.field, action.position);
+    case "setMeasureSignField":
+      return setPivotMeasureSignField(spec, action.measureId, action.signField);
   }
 }

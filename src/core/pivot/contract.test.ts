@@ -9,6 +9,7 @@ import {
   planningMultiColumnPivotSpec,
   planningPivotSpec,
 } from "../../fixtures/planning-pivot-mock";
+import { generateStatementPivotRows, statementPivotSpec } from "../../fixtures/statement-pivot-mock";
 import { buildPivotModel } from "./build-model";
 import { inferPivotFields, pivotFieldListState, resolvePivotFields } from "./fields";
 import { pivotModelToSheet } from "./to-sheet";
@@ -103,5 +104,21 @@ describe("pivot golden contract", () => {
     await expect(json(pivotModelToSheet(calcModel))).toMatchFileSnapshot(`${dir}/planning-calc.sheet.json`);
     expect(JSON.parse(JSON.stringify(calcModel))).toEqual(calcModel);
     expect(calcModel.rows.filter((r) => r.kind === "subtotal").map((r) => r.label)).toEqual(["Camp Total", "Packs Total"]);
+  });
+
+  // Financial statement (P&L, docs/pivot-recipes.md): unsigned amounts with a SIGN column (signField),
+  // statement order from LINE_SORT (hidden min measure + sortBy), "% of Revenue" against the Revenue
+  // line across sections (percentOf, scope "all"), section subtotals labelled with the section name
+  // and the grand total as "Operating income" (rows: generateStatementPivotRows()).
+  const statementRows = generateStatementPivotRows();
+  const statementModel = buildPivotModel(statementPivotSpec, statementRows);
+
+  it("planning-statement example (sign field, % of with a global base, per-level subtotal label)", async () => {
+    await expect(json(statementPivotSpec)).toMatchFileSnapshot(`${dir}/planning-statement.spec.json`);
+    await expect(json(statementRows)).toMatchFileSnapshot(`${dir}/planning-statement.rows.json`);
+    await expect(json(statementModel)).toMatchFileSnapshot(`${dir}/planning-statement.model.json`);
+    await expect(json(pivotModelToSheet(statementModel))).toMatchFileSnapshot(`${dir}/planning-statement.sheet.json`);
+    expect(JSON.parse(JSON.stringify(statementModel))).toEqual(statementModel);
+    expect(statementModel.rows.filter((r) => r.kind === "subtotal").map((r) => r.label)).toEqual(["Gross margin", "Operating expenses"]);
   });
 });

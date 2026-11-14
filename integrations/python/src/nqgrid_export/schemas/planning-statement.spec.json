@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "id": "income-statement",
+  "title": "Income statement",
+  "subtitle": "FY 2026 · EUR",
+  "layout": "compact",
+  "rows": [
+    {
+      "field": "SECTION",
+      "label": "Section",
+      "subtotal": "end",
+      "subtotalLabel": "{label}",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    },
+    {
+      "field": "LINE",
+      "label": "Line",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    }
+  ],
+  "columns": {
+    "field": "PERIOD:month",
+    "label": "Month"
+  },
+  "measures": [
+    {
+      "id": "amount",
+      "label": "Amount",
+      "field": "AMOUNT",
+      "signField": "SIGN",
+      "format": {
+        "decimals": 0,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "pctRevenue",
+      "label": "% of Revenue",
+      "field": "AMOUNT",
+      "signField": "SIGN",
+      "showAs": "percentOf",
+      "showAsBase": {
+        "field": "LINE",
+        "item": "Revenue",
+        "scope": "all"
+      },
+      "percentFormat": {
+        "style": "percent",
+        "decimals": 1,
+        "negative": "parentheses"
+      }
+    },
+    {
+      "id": "ord",
+      "label": "Line order",
+      "field": "LINE_SORT",
+      "aggregate": "min"
+    }
+  ],
+  "values": [
+    "amount",
+    "pctRevenue"
+  ],
+  "valuesIndex": 0,
+  "totals": {
+    "grandTotalLabel": "Operating income",
+    "rowTotal": true,
+    "rowTotalLabel": "FY 2026"
+  }
+}

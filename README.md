@@ -17,3 +17,5 @@ import { PivotTable } from "@nqlib/nqgrid/pivot"
 ```
 
 Pivot, virtual sheets, and the grid guide: [nqlib.com/docs/nqgrid](https://nqlib.com/docs/nqgrid)
+
+Docs in this repo: [pivot core & export](docs/pivot-headless.md) · [recipes (P&L / income statement)](docs/pivot-recipes.md) · [performance](docs/pivot-performance.md)

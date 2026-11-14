@@ -16,6 +16,7 @@ import {
 import {
   clearPivotFilters,
   generatePlanningPivotRows,
+  generateStatementPivotRows,
   PIVOT_VALUES_FIELD,
   planningCalcPivotSpec,
   planningDatesPivotSpec,
@@ -23,6 +24,8 @@ import {
   planningPivotSpec,
   pivotExportFilename,
   setPivotTopN,
+  statementPivotSpec,
+  type PivotDataRow,
   type PivotDrillThroughTarget,
   type PivotExportFormat,
   type PivotExportRequest,
@@ -164,13 +167,21 @@ function ExportPanel({ grid }: { grid: PivotGridState }) {
   );
 }
 
+interface Preset {
+  readonly label: string;
+  readonly spec: PivotSpec;
+  readonly rows: () => readonly PivotDataRow[];
+  /** Slicer fields (outer, inner); default Department / Line. */
+  readonly slicers?: readonly [string, string];
+}
+
 /**
  * Presets: the planning spec (fiscal months in Columns), and two fiscal years of orders with
  * `orderDate` grouped Year → Quarter in Columns (collapsible), both with slicer facets and a field
- * catalogue (labels, types, allowed areas) for the field list. Filters, sort, Top N and the layout
- * are changed by the controls.
+ * catalogue (labels, types, allowed areas) for the field list; plus an income statement (P&L recipe,
+ * docs/pivot-recipes.md). Filters, sort, Top N and the layout are changed by the controls.
  */
-const PRESETS = {
+const PRESETS: Readonly<Record<"planning" | "dates" | "calc" | "statement", Preset>> = {
   planning: {
     label: "Fiscal months",
     spec: { ...planningPivotSpec, facets: ["department", "line"], fields: planningFieldCatalog } as PivotSpec,
@@ -186,8 +197,15 @@ const PRESETS = {
     spec: { ...planningCalcPivotSpec, facets: ["department", "line"] } as PivotSpec,
     rows: () => generatePlanningPivotRows(7, { extraFields: true, orderDates: true }),
   },
-} as const;
+  statement: {
+    label: "Income statement (P&L)",
+    spec: { ...statementPivotSpec, facets: ["SECTION", "LINE"] },
+    rows: generateStatementPivotRows,
+    slicers: ["SECTION", "LINE"],
+  },
+};
 type PresetId = keyof typeof PRESETS;
+const isPresetId = (p: string | null): p is PresetId => p !== null && Object.prototype.hasOwnProperty.call(PRESETS, p);
 
 /**
  * Row-dimension header: a drag handle (drop it on the field list's areas, or on another header to
@@ -280,8 +298,8 @@ function ColumnHeader({ layout, context }: { layout: PivotLayoutDraftState; cont
   );
 }
 
-/** Department / Line slicers plus the active-filter summary. */
-function SlicerBar({ grid }: { grid: PivotGridState }) {
+/** Department / Line (or the preset's) slicers plus the active-filter summary. */
+function SlicerBar({ grid, fields = ["department", "line"] }: { grid: PivotGridState; fields?: readonly [string, string] }) {
   const [multi, setMulti] = useState<Record<string, boolean>>({});
   const filters = grid.model.filters ?? [];
   const counts = grid.model.recordCount;
@@ -298,8 +316,8 @@ function SlicerBar({ grid }: { grid: PivotGridState }) {
   return (
     <div className="flex shrink-0 flex-col gap-2 border-b border-border/70 px-4 py-3">
       <div className="flex flex-wrap items-start gap-3">
-        {slicer("department", 2, "w-64 shadow-none")}
-        {slicer("line", 6, "min-w-[28rem] flex-1 shadow-none", "max-h-[4.5rem] overflow-y-auto pr-1")}
+        {slicer(fields[0], 2, "w-64 shadow-none")}
+        {slicer(fields[1], 6, "min-w-[28rem] flex-1 shadow-none", "max-h-[4.5rem] overflow-y-auto pr-1")}
       </div>
       <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {filters.length ? (
@@ -336,7 +354,7 @@ function SlicerBar({ grid }: { grid: PivotGridState }) {
 export function PlanningPivotDemo() {
   const [preset, setPreset] = useState<PresetId>(() => {
     const p = new URLSearchParams(window.location.search).get("pivot");
-    return p === "dates" || p === "calc" ? p : "planning";
+    return isPresetId(p) ? p : "planning";
   });
   // Remount per preset so the grid starts from the preset's spec and rows.
   return <PlanningPivotView key={preset} preset={preset} onPresetChange={setPreset} />;
@@ -430,7 +448,7 @@ function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPre
             </div>
           </div>
 
-          <SlicerBar grid={pivot} />
+          <SlicerBar grid={pivot} fields={PRESETS[preset].slicers} />
 
           <ScrollArea
             orientation="both"
@@ -473,7 +491,9 @@ function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPre
                 ? "Order dates grouped by fiscal year (from November); click a year to collapse it."
                 : preset === "calc"
                   ? "vs Plan = actual / plan - 1 · YoY = % difference from the previous year · double-click a cell for its records."
-                  : "Group rows show % of month total; lines show actuals."}
+                  : preset === "statement"
+                    ? "Amounts signed by SIGN · lines ordered by LINE_SORT · % of Revenue against the Revenue line across sections."
+                    : "Group rows show % of month total; lines show actuals."}
             </p>
           </div>
         </div>

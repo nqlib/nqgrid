@@ -133,3 +133,14 @@ export const benchCalcSpec: PivotSpec = {
   measures: [...benchBaseSpec.measures, { id: "vsPlan", calculate: "actual / plan - 1", format: { style: "percent", decimals: 1 } }],
   values: ["actual", "plan", "units", "vsPlan"],
 };
+
+/**
+ * `generateBenchRows` plus a P&L-style sign: `sign` (`1` / `-1`, by department) and the same as a
+ * string (`signText`, like serialized decimals), for the `signField` scenarios.
+ */
+export function generateBenchSignedRows(count: number, seed = 11): PivotDataRow[] {
+  return generateBenchRows(count, seed).map((r) => {
+    const sign = DEPARTMENTS.indexOf(r.department as (typeof DEPARTMENTS)[number]) % 2 === 0 ? 1 : -1;
+    return { ...r, sign, signText: String(sign) };
+  });
+}

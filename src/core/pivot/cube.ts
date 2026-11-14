@@ -106,6 +106,8 @@ interface MutableNode extends PivotCubeNode {
   /** Record indices per bucket (only with custom aggregators). */
   readonly rowIdx: number[][] | null;
   attrPending: number;
+  /** A `keyTotal` merged from several nodes (distinct counts / custom aggregates read `null`). */
+  readonly merged?: true;
 }
 
 /** One column group / leaf of the aggregated column tree (or its root). */
@@ -148,6 +150,14 @@ export interface PivotCube {
   valueOf(node: PivotCubeNode, measureId: string, columnKey: string | null): number | null;
   /** `valueOf` by accumulator bucket (`PivotCubeColumn.bucket`; `-1` → `null`). */
   valueAt(node: PivotCubeNode, measureId: string, bucket: number): number | null;
+  /**
+   * Every record whose row-level `depth` key is `key`, whatever its parents (the base of
+   * `showAsBase.scope: "all"`), as a node to read with `valueAt` (every column bucket). The node of
+   * that key itself when it occurs under one parent; otherwise the nodes' accumulators merged once
+   * and memoized (distinct counts and custom aggregates cannot merge, so they read `null` there).
+   * `null` when no node at `depth` has the key.
+   */
+  keyTotal(depth: number, key: string): PivotCubeNode | null;
   /** Records before / after report, label and Top-N filters. */
   readonly recordCount: { readonly total: number; readonly matched: number };
   /** Cross-filtered counts for `spec.facets`, in facet order. */
@@ -240,7 +250,9 @@ export function pivotSpecDataKey(spec: PivotSpec): string {
   return JSON.stringify([
     spec.rows.map((d) => [d.field, d.order, d.sort, d.sortBy, d.topN && { ...d.topN, otherLabel: undefined }, d.attributes]),
     columns.length ? columns.map((c) => [c.field, c.order, c.sort, c.keepEmpty]) : null,
-    spec.measures.map((m) => (m.calculate !== undefined ? [m.id, m.calculate] : [m.id, m.field, m.aggregate])),
+    spec.measures.map((m) =>
+      m.calculate !== undefined ? [m.id, m.calculate] : m.signField !== undefined ? [m.id, m.field, m.aggregate, m.signField] : [m.id, m.field, m.aggregate],
+    ),
     (spec.filters ?? []).map((f) => [f.field, f.include, f.exclude, f.match]),
     (spec.facets ?? []).map(pivotFacetField),
     ...(dates.length ? [dates] : []),
@@ -290,9 +302,37 @@ function compileMeasureSet(
   return { list, byId, slots: off };
 }
 
+/** Signed copies of value columns, per (values, signs) column pair: built once per encoding. */
+const signedColumns = new WeakMap<Float64Array, WeakMap<Float64Array, Float64Array>>();
+
+/**
+ * `values[i] * signs[i]`, with a missing / non-numeric sign (`NaN`) counting as 1. Memoized on the
+ * encoding's cached columns, so rebuilds of the same rows reuse it; measures without `signField`
+ * never get here (their accumulation reads the plain column).
+ */
+function signedColumn(values: Float64Array, signs: Float64Array): Float64Array {
+  let bySigns = signedColumns.get(values);
+  if (!bySigns) signedColumns.set(values, (bySigns = new WeakMap()));
+  let out = bySigns.get(signs);
+  if (!out) {
+    out = new Float64Array(values.length);
+    for (let i = 0; i < values.length; i++) {
+      const s = signs[i]!;
+      out[i] = s === s ? values[i]! * s : values[i]!;
+    }
+    bySigns.set(signs, out);
+  }
+  return out;
+}
+
 function compileMeasure(m: PivotMeasure, off: number, enc: PivotRowEncoding): CompiledMeasure {
   const agg = m.aggregate ?? "sum";
-  const num = (f: string | undefined) => (f ? enc.numbers(f) : null);
+  const signs = m.signField ? enc.numbers(m.signField) : null;
+  const num = (f: string | undefined) => {
+    if (!f) return null;
+    const values = enc.numbers(f);
+    return signs ? signedColumn(values, signs) : values;
+  };
   if (typeof agg === "string") {
     switch (agg) {
       case "distinctCount": {
@@ -341,7 +381,8 @@ function compileMeasure(m: PivotMeasure, off: number, enc: PivotRowEncoding): Co
         measure: m,
         kind: Kind.Ratio,
         off,
-        a: enc.numbers(agg.numeratorField),
+        // The sign applies to the numerator (the value); the denominator stays as recorded.
+        a: num(agg.numeratorField),
         b: enc.numbers(agg.denominatorField),
         p: null,
         offset: agg.offset ?? 0,
@@ -772,8 +813,9 @@ function readValue(
     case Kind.CountRows:
       return acc[o]!;
     case Kind.CountField:
-    case Kind.DistinctCount:
       return acc[x]!;
+    case Kind.DistinctCount:
+      return node.merged ? null : acc[x]!;
     case Kind.Calc: {
       const c = m.calc!;
       const s = c.scratch;
@@ -790,6 +832,7 @@ function readValue(
       if (acc[x + 1] === 0 || acc[x + 3] === 0 || acc[x + 2] === 0) return null;
       return acc[x]! / acc[x + 2]! + m.offset;
     case Kind.Custom: {
+      if (node.merged) return null;
       const idx = node.rowIdx![bucket]!;
       return aggregatePivotRows(
         idx.map((i) => rows[i]!),
@@ -1231,6 +1274,40 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
   // ---- Facets -------------------------------------------------------------------
   const facets = facetFields.map((field) => facetOf(field, pass.facets.get(field)!, spec));
 
+  // ---- Key totals (showAsBase.scope "all"), merged on first use -------------------
+  const keyTotals = new Map<string, MutableNode | null>();
+  const keyTotal = (depth: number, key: string): MutableNode | null => {
+    const id = `${depth}\u0000${key}`;
+    const hit = keyTotals.get(id);
+    if (hit !== undefined) return hit;
+    const matches = depth >= 0 && depth <= leafDepth ? nodes.filter((x) => x.depth === depth && x.key === key) : [];
+    let out: MutableNode | null = null;
+    if (matches.length === 1) out = matches[0]!;
+    else if (matches.length > 1) {
+      const acc = new Float64Array((buckets + 1) * S);
+      for (const x of matches) mergeInto(acc, x.acc, buckets, S, measureSet.list);
+      out = {
+        id: -1,
+        path: [key],
+        key,
+        depth,
+        parent: null,
+        children: [],
+        rowCount: acc[buckets * S]!,
+        attributes: null,
+        attrPending: 0,
+        code: -1,
+        childByCode: NO_CHILDREN,
+        acc,
+        rowIdx: null,
+        chain: null,
+        merged: true,
+      };
+    }
+    keyTotals.set(id, out);
+    return out;
+  };
+
   return {
     root,
     nodes: ordered,
@@ -1239,6 +1316,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     valueOf: (node, measureId, columnKey) => value(node as MutableNode, measureId, columnKey),
     valueAt: (node, measureId, bucket) =>
       bucket < 0 ? null : readValue(node as MutableNode, compiledMeasures.get(measureId)!, bucket, S, rows, registry),
+    keyTotal,
     recordCount: { total: n, matched: root.rowCount },
     facets,
     byteSize: nodes.length * ((buckets + 1) * S * 8 + NODE_BYTES) + (custom ? root.rowCount * (leafDepth + 2) * 2 * 8 : 0),
@@ -1341,6 +1419,7 @@ function measureSourceFields(spec: PivotSpec, id: string, out: string[], seen = 
     return;
   }
   add(m.field);
+  add(m.signField);
   const agg = m.aggregate;
   if (agg && typeof agg === "object") {
     if (agg.type === "weightedAvg") add(agg.weightField);

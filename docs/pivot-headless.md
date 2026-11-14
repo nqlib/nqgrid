@@ -57,11 +57,14 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
   `{ type: "weightedAvg", weightField }`, `{ type: "ratio", numeratorField, denominatorField, offset }`
   (`offset: -1` = growth), or `{ type: "custom", name }` resolved from `options.aggregators`. Calculated measures:
   `calculate: "actual / plan - 1"` (see [step 4](#calculated-measures-show-values-as-subtotals-distinct-count-drill-through-excel-parity-step-4)).
+  `signField` multiplies each record's value by a sign column before aggregation (see
+  [Financial statements](#financial-statements)).
 - `showAs` / `groupShowAs` — Excel-style `percentOfColumnTotal`, `percentOfParentRow`, `percentOfParentColumn`,
-  `percentOfRowTotal`, `percentOfGrandTotal`, and along a field (`showAsBase`) `differenceFrom`, `percentDifferenceFrom`,
-  `runningTotal`, `percentRunningTotal`, `rankAscending`, `rankDescending`. Cells keep both `raw` and the displayed `value`.
-- `rows[i].subtotal` — subtotals at the top (default), bottom (`end`: subtotal rows) or off; `pivotDrillThrough` lists the
-  records behind a cell.
+  `percentOfRowTotal`, `percentOfGrandTotal`, and along a field (`showAsBase`) `percentOf`, `differenceFrom`,
+  `percentDifferenceFrom`, `runningTotal`, `percentRunningTotal`, `rankAscending`, `rankDescending`
+  (`showAsBase.scope: "all"` compares every row with one base item). Cells keep both `raw` and the displayed `value`.
+- `rows[i].subtotal` — subtotals at the top (default), bottom (`end`: subtotal rows) or off, labelled per level with
+  `subtotalLabel`; `pivotDrillThrough` lists the records behind a cell.
 - `values` — measure ids shown as grid columns; other measures can still feed KPIs/charts.
 - `heat` — discrete levels (default 9) by `scope`: `all`, `column` (each leaf column), `row`, or `group` (siblings).
   Levels — not colors — cross the wire; each renderer maps them to its palette
@@ -539,10 +542,11 @@ positions) run in both the TypeScript and the Python test suites.
 
 ### Show values as along a field
 
-`showAs` / `groupShowAs` also take `differenceFrom`, `percentDifferenceFrom`, `runningTotal`, `percentRunningTotal`,
-`rankAscending` and `rankDescending`, with `showAsBase: { field, item?, position? }` naming a **row or column field**
-(validated). Differences use `item` (a key of that field) or `position` (`previous`, the default, or `next`); running
-totals and ranks use the field only.
+`showAs` / `groupShowAs` also take `percentOf`, `differenceFrom`, `percentDifferenceFrom`, `runningTotal`,
+`percentRunningTotal`, `rankAscending` and `rankDescending`, with `showAsBase: { field, item?, position?, scope? }`
+naming a **row or column field** (validated). `percentOf` needs `item`; differences use `item` (a key of that field) or
+`position` (`previous`, the default, or `next`); running totals and ranks use the field only. `percentOf` and
+`scope: "all"` are described under [Financial statements](#financial-statements).
 
 | Topic | Rule |
 |-------|------|
@@ -616,9 +620,9 @@ const result = useMemo(() => (drill ? grid.drillThrough(drill, { limit: 500 }) :
 | `PivotTable.onDrillThrough(target, context)` | Double-click on a value cell (interactive mode; no handlers in static mode). `context`: row, column, indices, cell. |
 | `PivotDrillThroughPanel` | Records table with a sticky header, one column per field (`fields`, default `result.fields`), numbers right-aligned in `formats`, "Showing 500 of 4,210 records", close button; `renderCell`, `classNames`, `labels`. `pivotDrillThroughFieldInfo(spec, fields)` gives labels and formats, `pivotDrillThroughTitle(model, target)` a heading (`Camp › Tents · FY26 · Actual`). |
 | `PivotCalculatedMeasureForm` | Name, formula (validated as you type with `checkPivotCalculatedMeasure`: the message and position show inline, Add stays disabled), insert-measure picker (`pivotCalcReference` brackets ids when needed), format; edit / delete an existing one with `measureId` / `onRemove`. |
-| `PivotShowAsMenu` | The show-as kind, base field (row / column fields) and base item ((previous), (next) or a key from `getFacet`). |
+| `PivotShowAsMenu` | The show-as kind, base field (row / column fields), base item ((previous), (next) or a key from `getFacet`; % of needs a key) and, for a key on a row field, "Compare with" (same group / across all groups = `scope`). |
 | `PivotFieldList` | "Calculated measure…" button under the checklist; on value chips "Show values as" (and "Edit formula…" for calculated measures, which skip "Summarize values by"); "Subtotals" At top / At bottom / Off on group-level row chips (Before / After / Off on column chips); Distinct Count in "Summarize values by". |
-| `usePivotGrid` / `reducePivotGridSpec` | `setCalculatedMeasure(input)`, `removeMeasure(id)`, `setMeasureShowAs(id, showAs, base?, scope?)`, `setSubtotal(field, position)`, `drillThrough(target, options?)`. |
+| `usePivotGrid` / `reducePivotGridSpec` | `setCalculatedMeasure(input)`, `removeMeasure(id)`, `setMeasureShowAs(id, showAs, base?, scope?)`, `setSubtotal(field, position)`, `setMeasureSignField(id, field \| null)`, `drillThrough(target, options?)`. |
 
 **Exports.** Static HTML / PDF and both XLSX writers render calculated measures and the new show-as kinds as numbers
 with their formats, and subtotal rows as bold group rows ("Camp Total" in the Department column of the sheet).
@@ -628,6 +632,84 @@ with their formats, and subtotal rows as bold group rows ("Camp Total" in the De
 `formatPivotNumber` does not use `Intl`. WebKit (macOS Tauri), WebView2 (Windows Tauri) and Node
 can disagree on compact notation; core always prints `$302k`, `$4.76M`, `+5.5%` the same way.
 `toExcelNumFmt` gives the matching Excel format so XLSX cells stay numeric.
+
+## Financial statements
+
+Three additions for P&L / income statements (Secolab's "Statement" report). The complete recipe — data shape, spec,
+result table and an honest list of what does not work — is [pivot-recipes.md](./pivot-recipes.md#financial-statement-pl--income-statement);
+the golden example is `contract/pivot/v1/examples/planning-statement.*`.
+
+```jsonc
+{
+  "rows": [
+    { "field": "SECTION", "subtotal": "end", "subtotalLabel": "{label}", "sortBy": { "measure": "ord", "direction": "asc" } },
+    { "field": "LINE", "sortBy": { "measure": "ord", "direction": "asc" } }
+  ],
+  "measures": [
+    { "id": "amount", "field": "AMOUNT", "signField": "SIGN" },
+    { "id": "pctRevenue", "field": "AMOUNT", "signField": "SIGN", "showAs": "percentOf",
+      "showAsBase": { "field": "LINE", "item": "Revenue", "scope": "all" } },
+    { "id": "ord", "field": "LINE_SORT", "aggregate": "min" }               // hidden: not in values
+  ],
+  "values": ["amount", "pctRevenue"],
+  "totals": { "grandTotalLabel": "Operating income" }
+}
+```
+
+### % Of (`percentOf`) and `showAsBase.scope`
+
+`showAs: "percentOf"` is Excel's "% Of": the value divided by the base item's value, as a ratio formatted with
+`percentFormat` (`pivotShowAsFormatKind` → `percent`; `pivotModelToSheet` uses the percent numFmt). `showAsBase.item`
+is required (`validatePivotSpec`: `showAsBase.item is required by percentOf`).
+
+| `scope` | Base of a cell | Rows above the base field, other parents |
+|---|---|---|
+| `parent` (default, Excel) | The sibling with key `item` under the same parent, at the same relative path, same column (exactly like `differenceFrom` with an item). The base item itself is 100 %. Along a column field: the same row's value in the `item` column. | Empty. |
+| `all` | The aggregate of **every record whose `field` key is `item`** in the cell's column bucket (leaf, subtotal or grand-total column), after filters and Top N, whatever the row's parent. | Every row — group, subtotal, collapsed and grand-total rows — gets value / base. |
+
+`scope: "all"` needs `item` and a **row** field (a column field is rejected: the base would be a different column), and
+applies to `percentOf`, `differenceFrom` and `percentDifferenceFrom` (value − base, (value − base) / base; there the
+base item's own rows show 0 / 0 %, unlike Excel's blank). Running totals and ranks reject it (`setPivotMeasureShowAs`
+drops it for them). A base of 0, a missing base (no such key, no data in that column, or filtered out) and cells without
+data are empty. Moving the base field out of Rows resets the measure to plain values (move helpers), like any show-as
+whose base field leaves the layout.
+
+**Cost.** View-only: the cube is unchanged (`pivotSpecDataKey` ignores show-as), so toggling it in the app reuses the
+aggregated cube. `PivotCube.keyTotal(depth, key)` returns the base once per (level, key): the node itself when the key
+occurs under one parent (exact for every aggregate), otherwise the accumulators of every node with that key merged once
+and memoized (O(nodes at that level × buckets × slots)). Each cell is then one accumulator read — no sibling scans, so
+the "no O(k²) show-as" property of the [performance review](./pivot-performance.md#performance-review) holds. Distinct
+counts and custom aggregates cannot be merged: when the item occurs under several parents their base is empty (null).
+
+### Sign field (`measures[i].signField`)
+
+Each record's value is multiplied by that record's `signField` value before aggregation (a P&L sign column on unsigned
+amounts). Numbers and numeric strings (`"-1"`) are read like measure values; a missing, blank or non-numeric sign counts
+as `1`. Any finite number is used as the multiplier, so use `1` / `-1`.
+
+| Aggregate | What is signed |
+|---|---|
+| `sum`, `avg`, `min`, `max`, `first`, `last` | the value (`min` / `max` compare signed values) |
+| `weightedAvg` | the value, not the weight |
+| `ratio` | the numerator only (`sum(sign × numerator) / sum(denominator)`) |
+| `count`, `distinctCount`, `custom`, calculated measures | rejected by `validatePivotSpec` (counts have no values; a calculated measure uses the signs of its references) |
+
+Implementation: the signed column (`value × sign`) is computed once per (value column, sign column) of an encoding and
+memoized, so the record pass reads one `Float64Array` as for any other measure; measures without `signField` do not
+touch it. `signField` is part of `pivotSpecDataKey` (only when set, so other specs keep their cache keys), so cubes are
+cached correctly. Drill-through returns raw records and lists the sign field in `fields`. Helpers:
+`setPivotMeasureSignField(spec, id, field | null)` (refused for counts / calculated measures), and
+`setPivotMeasureAggregate` drops `signField` when switching to a count. The field list has no sign control (spec only).
+
+### Per-level subtotal labels (`rows[i].subtotalLabel`, `columns[i].subtotalLabel`)
+
+Same `{label}` template as `totals.subtotalLabel`, for that field's `subtotal: "end"` rows (row dimensions) or subtotal
+columns (column dimensions) only; `totals.subtotalLabel` (default `{label} Total`) stays the fallback for the other
+levels. `"{label}"` names a P&L section's subtotal row after the section (`Gross margin`). View-only; travels with the
+dimension between Rows and Columns. Labels are per level, not per group.
+
+**Not added:** hiding the blank expanded group row of `subtotal: "end"` (it carries the expand / collapse toggle, the
+row spans and the virtualized row index; a hidden-row mode would complicate all three). It reads as the section heading.
 
 ## Cross-language contract
 
@@ -824,5 +906,9 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
    (`subtotal` rows), distinct count without per-bucket sets, drill-through to source records (`pivotDrillThrough`,
    `PivotTable.onDrillThrough`, `PivotDrillThroughPanel`), and their editors in the field list
    (`PivotCalculatedMeasureForm`, `PivotShowAsMenu`, subtotal positions, Distinct Count).
-   Next: Σ Values in Rows, "% of parent" with a chosen base field, calculated items (formulas over keys), grouping of
+10. **Financial statements — done.** `percentOf` (Excel "% Of") with `showAsBase.scope: "all"` (one base item for every
+   row, also for differences), `measures[i].signField`, per-level `subtotalLabel`, "% of" and "Compare with" in
+   `PivotShowAsMenu`, the `planning-statement` golden and the [P&L recipe](./pivot-recipes.md).
+   Next: calculated items (formula rows over keys, e.g. EBITDA between sections), a per-group subtotal label, hiding the
+   section heading row of bottom subtotals, Σ Values in Rows, "% of parent" with a chosen base field, grouping of
    numeric fields into ranges.
