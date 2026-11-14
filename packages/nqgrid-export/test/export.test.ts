@@ -475,3 +475,36 @@ describe("analyst workbook: preamble, outline, print setup, statement rules, for
     expect(sh.cells[sh.frozenRows + 1]!.every((x) => x.f === undefined)).toBe(true);
   });
 });
+
+describe("FP&A goldens: measure filters, closing balance, average over time (planning-fpa / planning-fpa-bs)", async () => {
+  const rows = JSON.parse(readExample("planning-fpa.rows.json")) as PivotDataRow[];
+  const spec = JSON.parse(readExample("planning-fpa.spec.json")) as PivotSpec;
+  const bs = JSON.parse(readExample("planning-fpa-bs.spec.json")) as PivotSpec;
+
+  it("model / sheet / html match the golden files", async () => {
+    for (const [name, s] of [["planning-fpa", spec], ["planning-fpa-bs", bs]] as const) {
+      expect(await exportPivot({ spec: s, rows, format: "model" })).toBe(readExample(`${name}.model.json`));
+      expect(await exportPivot({ spec: s, rows, format: "sheet" })).toBe(readExample(`${name}.sheet.json`));
+      expect(await exportPivot({ spec: s, rows, format: "html", options: { generatedAt: GOLDEN_GENERATED_AT } })).toBe(readExample(`${name}.html`));
+    }
+  });
+
+  it("statement xlsx: units in the preamble and page header, real values with scaled numFmt, outline below", async () => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load((await exportPivot({ spec, rows, format: "xlsx", options: { profile: "statement", generatedAt: GOLDEN_GENERATED_AT } })) as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0]!;
+    expect([1, 2, 3].map((r) => ws.getCell(r, 1).value)).toEqual([spec.title, spec.subtitle, "USD thousands"]);
+    expect(ws.getCell(4, 1).value).toBe("Filters: Kind = flow");
+    expect(ws.headerFooter.oddHeader).toBe("&LManagement P&&L: budget vs actual&RUSD thousands");
+    const sheet = JSON.parse((await exportPivot({ spec, rows, format: "sheet", options: { profile: "statement" } })) as string) as PivotSheet;
+    const gt = sheet.tableRow + sheet.cells.length;
+    expect(ws.getCell(gt, 1).value).toBe("Operating income");
+    expect(ws.getCell(gt, 2).value).toBe(99_619); // Q1 actual operating income (real value; Excel shows $99.6)
+    expect(ws.getCell(gt, 2).numFmt).toBe('"$"#,##0.0,;("$"#,##0.0,)');
+    expect(ws.getCell(gt, 2).border?.bottom?.style).toBe("double");
+    expect(ws.properties.outlineProperties).toMatchObject({ summaryBelow: true });
+    if (!chromiumAvailable) return;
+    const pdf = (await exportPivot({ spec: bs, rows, format: "pdf", options: { profile: "statement", generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
+    expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
+});

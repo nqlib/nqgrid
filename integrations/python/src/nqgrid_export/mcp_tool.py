@@ -46,6 +46,8 @@ from .validation import (
     export_options_schema,
     fields_example_spec,
     filtered_example_spec,
+    fpa_balance_example_spec,
+    fpa_example_spec,
     infer_pivot_fields,
     multicol_example_spec,
     pivot_spec_schema,
@@ -475,6 +477,8 @@ class PivotReportService:
             "dates_example_spec": dates_example_spec(),
             "calc_example_spec": calc_example_spec(),
             "statement_example_spec": statement_example_spec(),
+            "fpa_example_spec": fpa_example_spec(),
+            "fpa_balance_example_spec": fpa_balance_example_spec(),
             "formats": ["pdf", "xlsx"],
         }
         if isinstance(self.row_provider, DatasetCatalog):

@@ -9,6 +9,7 @@ import {
   planningMultiColumnPivotSpec,
   planningPivotSpec,
 } from "../../fixtures/planning-pivot-mock";
+import { fpaBalancePivotSpec, fpaPivotSpec, generateFpaPivotRows } from "../../fixtures/fpa-pivot-mock";
 import { generateStatementPivotRows, statementPivotSpec } from "../../fixtures/statement-pivot-mock";
 import { buildPivotModel } from "./build-model";
 import { inferPivotFields, pivotFieldListState, resolvePivotFields } from "./fields";
@@ -120,5 +121,26 @@ describe("pivot golden contract", () => {
     await expect(json(buildPivotSheet(statementPivotSpec, statementRows).sheet)).toMatchFileSnapshot(`${dir}/planning-statement.sheet.json`);
     expect(JSON.parse(JSON.stringify(statementModel))).toEqual(statementModel);
     expect(statementModel.rows.filter((r) => r.kind === "subtotal").map((r) => r.label)).toEqual(["Gross margin", "Operating expenses"]);
+  });
+
+  // FP&A planning (docs/pivot-recipes.md): a long-format table (SCENARIO, KIND) with measure filters for
+  // Actual / Budget / prior year, variance and Var % calculations, a YTD running total, USD thousands
+  // (format.scale + units); and from the same rows a balance sheet (closingBalance) with headcount
+  // (averageOverTime) and a collapsed quarter (rows: generateFpaPivotRows()).
+  const fpaRows = generateFpaPivotRows();
+  const fpaModel = buildPivotModel(fpaPivotSpec, fpaRows);
+  const fpaBalanceModel = buildPivotModel(fpaBalancePivotSpec, fpaRows);
+
+  it("planning-fpa example (measure filters, variance, YTD, prior year, scale) and planning-fpa-bs (closing balance, average over time)", async () => {
+    await expect(json(fpaPivotSpec)).toMatchFileSnapshot(`${dir}/planning-fpa.spec.json`);
+    await expect(json(fpaRows)).toMatchFileSnapshot(`${dir}/planning-fpa.rows.json`);
+    await expect(json(fpaModel)).toMatchFileSnapshot(`${dir}/planning-fpa.model.json`);
+    await expect(json(buildPivotSheet(fpaPivotSpec, fpaRows).sheet)).toMatchFileSnapshot(`${dir}/planning-fpa.sheet.json`);
+    await expect(json(fpaBalancePivotSpec)).toMatchFileSnapshot(`${dir}/planning-fpa-bs.spec.json`);
+    await expect(json(fpaBalanceModel)).toMatchFileSnapshot(`${dir}/planning-fpa-bs.model.json`);
+    await expect(json(buildPivotSheet(fpaBalancePivotSpec, fpaRows).sheet)).toMatchFileSnapshot(`${dir}/planning-fpa-bs.sheet.json`);
+    expect(JSON.parse(JSON.stringify(fpaModel))).toEqual(fpaModel);
+    expect(fpaModel.diagnostics).toBeUndefined();
+    expect(fpaBalanceModel.diagnostics).toBeUndefined();
   });
 });

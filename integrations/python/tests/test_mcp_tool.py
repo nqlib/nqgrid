@@ -99,6 +99,11 @@ def test_describe_pivot_spec(tmp_path: Path, provider: DictRowProvider, planning
     assert info["dates_example_spec"]["columns"][0] == {"field": "orderDate:year"}
     assert info["calc_example_spec"]["measures"][2]["calculate"] == "actual / plan - 1"
     assert info["statement_example_spec"]["measures"][1]["showAsBase"]["scope"] == "all"
+    assert info["fpa_example_spec"]["measures"][0]["filter"][0] == {"field": "SCENARIO", "include": ["Actual"]}
+    assert info["fpa_balance_example_spec"]["measures"][0]["aggregate"] == {
+        "type": "closingBalance",
+        "timeField": "PERIOD",
+    }
     for topic in (
         "## Financial statements (P&L / income statement)",
         '"scope": "all"',

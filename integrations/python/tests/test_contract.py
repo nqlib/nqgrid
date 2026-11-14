@@ -31,6 +31,8 @@ from nqgrid_export.validation import (
     example_spec,
     fields_example_spec,
     filtered_example_spec,
+    fpa_balance_example_spec,
+    fpa_example_spec,
     humanize_pivot_field,
     infer_pivot_fields,
     multicol_example_spec,
@@ -129,6 +131,8 @@ def test_schema_copies_in_the_package_match_the_contract() -> None:
     assert multicol_example_spec() == load_example("planning-multicol.spec.json")
     assert calc_example_spec() == load_example("planning-calc.spec.json")
     assert statement_example_spec() == load_example("planning-statement.spec.json")
+    assert fpa_example_spec() == load_example("planning-fpa.spec.json")
+    assert fpa_balance_example_spec() == load_example("planning-fpa-bs.spec.json")
 
 
 def test_schemas_are_valid_2020_12() -> None:
@@ -320,6 +324,15 @@ def test_examples_directory_is_complete() -> None:
         "planning-statement.model.json",
         "planning-statement.sheet.json",
         "planning-statement.html",
+        "planning-fpa.spec.json",
+        "planning-fpa.rows.json",
+        "planning-fpa.model.json",
+        "planning-fpa.sheet.json",
+        "planning-fpa.html",
+        "planning-fpa-bs.spec.json",
+        "planning-fpa-bs.model.json",
+        "planning-fpa-bs.sheet.json",
+        "planning-fpa-bs.html",
     } <= names
     assert (CONTRACT / "calc-expressions.json").is_file()
 
@@ -375,6 +388,8 @@ def test_field_inference_matches_nqgrid() -> None:
         ("planning-dates.spec.json", "planning-dates.rows.json"),
         ("planning-calc.spec.json", "planning-dates.rows.json"),
         ("planning-statement.spec.json", "planning-statement.rows.json"),
+        ("planning-fpa.spec.json", "planning-fpa.rows.json"),
+        ("planning-fpa-bs.spec.json", "planning-fpa.rows.json"),
     ],
 )
 def test_column_hierarchy_and_date_specs_validate_everywhere(spec_name: str, rows_name: str) -> None:

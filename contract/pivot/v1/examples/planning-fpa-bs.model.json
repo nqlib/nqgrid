@@ -1,0 +1,1343 @@
+{
+  "version": 1,
+  "id": "fpa-balance-headcount",
+  "title": "Balance sheet and headcount",
+  "subtitle": "Actual 2026, month-end balances and average FTE",
+  "units": "USD thousands · FTE",
+  "layout": "compact",
+  "rowDimensions": [
+    {
+      "field": "SECTION",
+      "label": "Section",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    },
+    {
+      "field": "LINE",
+      "label": "Line",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    }
+  ],
+  "columnDimension": {
+    "field": "PERIOD:yearQuarter",
+    "label": "Quarter"
+  },
+  "columnDimensions": [
+    {
+      "field": "PERIOD:yearQuarter",
+      "label": "Quarter"
+    },
+    {
+      "field": "PERIOD:month",
+      "label": "Month"
+    }
+  ],
+  "columnKeys": [
+    {
+      "key": "2026-Q1",
+      "label": "Q1 2026"
+    },
+    {
+      "key": "2026-Q2/04",
+      "label": "Q2 2026 Apr"
+    },
+    {
+      "key": "2026-Q2/05",
+      "label": "Q2 2026 May"
+    },
+    {
+      "key": "2026-Q2/06",
+      "label": "Q2 2026 Jun"
+    }
+  ],
+  "columns": [
+    {
+      "id": "s:2026-Q1:balance",
+      "columnKey": "2026-Q1",
+      "columnLabel": "Q1 2026",
+      "measureId": "balance",
+      "measureLabel": "Balance",
+      "headerPath": [
+        "Q1 2026",
+        "Balance"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q1"
+      ],
+      "subtotal": true,
+      "collapsed": true
+    },
+    {
+      "id": "s:2026-Q1:fte",
+      "columnKey": "2026-Q1",
+      "columnLabel": "Q1 2026",
+      "measureId": "fte",
+      "measureLabel": "FTE",
+      "headerPath": [
+        "Q1 2026",
+        "FTE"
+      ],
+      "format": {
+        "decimals": 1
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q1"
+      ],
+      "subtotal": true,
+      "collapsed": true
+    },
+    {
+      "id": "c:2026-Q2%2F04:balance",
+      "columnKey": "2026-Q2/04",
+      "columnLabel": "Apr",
+      "measureId": "balance",
+      "measureLabel": "Balance",
+      "headerPath": [
+        "Q2 2026",
+        "Apr",
+        "Balance"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2",
+        "04"
+      ]
+    },
+    {
+      "id": "c:2026-Q2%2F04:fte",
+      "columnKey": "2026-Q2/04",
+      "columnLabel": "Apr",
+      "measureId": "fte",
+      "measureLabel": "FTE",
+      "headerPath": [
+        "Q2 2026",
+        "Apr",
+        "FTE"
+      ],
+      "format": {
+        "decimals": 1
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2",
+        "04"
+      ]
+    },
+    {
+      "id": "c:2026-Q2%2F05:balance",
+      "columnKey": "2026-Q2/05",
+      "columnLabel": "May",
+      "measureId": "balance",
+      "measureLabel": "Balance",
+      "headerPath": [
+        "Q2 2026",
+        "May",
+        "Balance"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2",
+        "05"
+      ]
+    },
+    {
+      "id": "c:2026-Q2%2F05:fte",
+      "columnKey": "2026-Q2/05",
+      "columnLabel": "May",
+      "measureId": "fte",
+      "measureLabel": "FTE",
+      "headerPath": [
+        "Q2 2026",
+        "May",
+        "FTE"
+      ],
+      "format": {
+        "decimals": 1
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2",
+        "05"
+      ]
+    },
+    {
+      "id": "c:2026-Q2%2F06:balance",
+      "columnKey": "2026-Q2/06",
+      "columnLabel": "Jun",
+      "measureId": "balance",
+      "measureLabel": "Balance",
+      "headerPath": [
+        "Q2 2026",
+        "Jun",
+        "Balance"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2",
+        "06"
+      ]
+    },
+    {
+      "id": "c:2026-Q2%2F06:fte",
+      "columnKey": "2026-Q2/06",
+      "columnLabel": "Jun",
+      "measureId": "fte",
+      "measureLabel": "FTE",
+      "headerPath": [
+        "Q2 2026",
+        "Jun",
+        "FTE"
+      ],
+      "format": {
+        "decimals": 1
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2",
+        "06"
+      ]
+    },
+    {
+      "id": "s:2026-Q2:balance",
+      "columnKey": "2026-Q2",
+      "columnLabel": "Q2 2026 Total",
+      "measureId": "balance",
+      "measureLabel": "Balance",
+      "headerPath": [
+        "Q2 2026 Total",
+        "Balance"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2"
+      ],
+      "subtotal": true
+    },
+    {
+      "id": "s:2026-Q2:fte",
+      "columnKey": "2026-Q2",
+      "columnLabel": "Q2 2026 Total",
+      "measureId": "fte",
+      "measureLabel": "FTE",
+      "headerPath": [
+        "Q2 2026 Total",
+        "FTE"
+      ],
+      "format": {
+        "decimals": 1
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0",
+      "excelPercentNumFmt": "#,##0%",
+      "columnPath": [
+        "2026-Q2"
+      ],
+      "subtotal": true
+    },
+    {
+      "id": "t:balance",
+      "columnKey": null,
+      "columnLabel": "H1 2026",
+      "measureId": "balance",
+      "measureLabel": "Balance",
+      "headerPath": [
+        "H1 2026",
+        "Balance"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:fte",
+      "columnKey": null,
+      "columnLabel": "H1 2026",
+      "measureId": "fte",
+      "measureLabel": "FTE",
+      "headerPath": [
+        "H1 2026",
+        "FTE"
+      ],
+      "format": {
+        "decimals": 1
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0",
+      "excelPercentNumFmt": "#,##0%"
+    }
+  ],
+  "headerRows": [
+    [
+      {
+        "label": "Q1 2026",
+        "colSpan": 2,
+        "rowSpan": 2,
+        "columnKey": "2026-Q1",
+        "columnPath": [
+          "2026-Q1"
+        ],
+        "columnLevel": 0,
+        "expanded": false
+      },
+      {
+        "label": "Q2 2026",
+        "colSpan": 6,
+        "columnKey": "2026-Q2",
+        "columnPath": [
+          "2026-Q2"
+        ],
+        "columnLevel": 0,
+        "expanded": true
+      },
+      {
+        "label": "Q2 2026 Total",
+        "colSpan": 2,
+        "rowSpan": 2,
+        "columnKey": "2026-Q2",
+        "columnPath": [
+          "2026-Q2"
+        ],
+        "columnLevel": 0,
+        "subtotal": true
+      },
+      {
+        "label": "H1 2026",
+        "colSpan": 2,
+        "rowSpan": 2,
+        "columnKey": null
+      }
+    ],
+    [
+      {
+        "label": "Apr",
+        "colSpan": 2,
+        "columnKey": "2026-Q2/04",
+        "columnPath": [
+          "2026-Q2",
+          "04"
+        ],
+        "columnLevel": 1
+      },
+      {
+        "label": "May",
+        "colSpan": 2,
+        "columnKey": "2026-Q2/05",
+        "columnPath": [
+          "2026-Q2",
+          "05"
+        ],
+        "columnLevel": 1
+      },
+      {
+        "label": "Jun",
+        "colSpan": 2,
+        "columnKey": "2026-Q2/06",
+        "columnPath": [
+          "2026-Q2",
+          "06"
+        ],
+        "columnLevel": 1
+      }
+    ],
+    [
+      {
+        "label": "Balance",
+        "colSpan": 1,
+        "columnKey": "2026-Q1",
+        "measureId": "balance"
+      },
+      {
+        "label": "FTE",
+        "colSpan": 1,
+        "columnKey": "2026-Q1",
+        "measureId": "fte"
+      },
+      {
+        "label": "Balance",
+        "colSpan": 1,
+        "columnKey": "2026-Q2/04",
+        "measureId": "balance"
+      },
+      {
+        "label": "FTE",
+        "colSpan": 1,
+        "columnKey": "2026-Q2/04",
+        "measureId": "fte"
+      },
+      {
+        "label": "Balance",
+        "colSpan": 1,
+        "columnKey": "2026-Q2/05",
+        "measureId": "balance"
+      },
+      {
+        "label": "FTE",
+        "colSpan": 1,
+        "columnKey": "2026-Q2/05",
+        "measureId": "fte"
+      },
+      {
+        "label": "Balance",
+        "colSpan": 1,
+        "columnKey": "2026-Q2/06",
+        "measureId": "balance"
+      },
+      {
+        "label": "FTE",
+        "colSpan": 1,
+        "columnKey": "2026-Q2/06",
+        "measureId": "fte"
+      },
+      {
+        "label": "Balance",
+        "colSpan": 1,
+        "columnKey": "2026-Q2",
+        "measureId": "balance"
+      },
+      {
+        "label": "FTE",
+        "colSpan": 1,
+        "columnKey": "2026-Q2",
+        "measureId": "fte"
+      },
+      {
+        "label": "Balance",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "balance"
+      },
+      {
+        "label": "FTE",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "fte"
+      }
+    ]
+  ],
+  "rows": [
+    {
+      "id": "r:Assets",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Assets"
+      ],
+      "label": "Assets",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 2,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": 310000,
+          "raw": 310000,
+          "text": "$310.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 320000,
+          "raw": 320000,
+          "text": "$320.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 330000,
+          "raw": 330000,
+          "text": "$330.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 340000,
+          "raw": 340000,
+          "text": "$340.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 340000,
+          "raw": 340000,
+          "text": "$340.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 340000,
+          "raw": 340000,
+          "text": "$340.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": "r:Assets/Cash",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Assets",
+        "Cash"
+      ],
+      "label": "Cash",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 230000,
+          "raw": 230000,
+          "text": "$230.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 240000,
+          "raw": 240000,
+          "text": "$240.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 250000,
+          "raw": 250000,
+          "text": "$250.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 260000,
+          "raw": 260000,
+          "text": "$260.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 260000,
+          "raw": 260000,
+          "text": "$260.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 260000,
+          "raw": 260000,
+          "text": "$260.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": "r:Assets/Receivables",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Assets",
+        "Receivables"
+      ],
+      "label": "Receivables",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": 80000,
+          "raw": 80000,
+          "text": "$80.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 80000,
+          "raw": 80000,
+          "text": "$80.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 80000,
+          "raw": 80000,
+          "text": "$80.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 80000,
+          "raw": 80000,
+          "text": "$80.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 80000,
+          "raw": 80000,
+          "text": "$80.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 80000,
+          "raw": 80000,
+          "text": "$80.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": "r:Liabilities",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Liabilities"
+      ],
+      "label": "Liabilities",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 1,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -66000,
+          "raw": -66000,
+          "text": "($66.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -68000,
+          "raw": -68000,
+          "text": "($68.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -70000,
+          "raw": -70000,
+          "text": "($70.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -72000,
+          "raw": -72000,
+          "text": "($72.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -72000,
+          "raw": -72000,
+          "text": "($72.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -72000,
+          "raw": -72000,
+          "text": "($72.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": "r:Liabilities/Payables",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Liabilities",
+        "Payables"
+      ],
+      "label": "Payables",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": -66000,
+          "raw": -66000,
+          "text": "($66.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -68000,
+          "raw": -68000,
+          "text": "($68.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -70000,
+          "raw": -70000,
+          "text": "($70.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -72000,
+          "raw": -72000,
+          "text": "($72.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -72000,
+          "raw": -72000,
+          "text": "($72.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": -72000,
+          "raw": -72000,
+          "text": "($72.0)"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": "r:Headcount",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Headcount"
+      ],
+      "label": "Headcount",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 2,
+      "sourceRowCount": 24,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 44,
+          "raw": 44,
+          "text": "44.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 46,
+          "raw": 46,
+          "text": "46.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 47,
+          "raw": 47,
+          "text": "47.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 48,
+          "raw": 48,
+          "text": "48.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 47,
+          "raw": 47,
+          "text": "47.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 45.5,
+          "raw": 45.5,
+          "text": "45.5"
+        }
+      ]
+    },
+    {
+      "id": "r:Headcount/Engineering",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Headcount",
+        "Engineering"
+      ],
+      "label": "Engineering",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 32,
+          "raw": 32,
+          "text": "32.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 34,
+          "raw": 34,
+          "text": "34.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 35,
+          "raw": 35,
+          "text": "35.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 36,
+          "raw": 36,
+          "text": "36.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 35,
+          "raw": 35,
+          "text": "35.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 33.5,
+          "raw": 33.5,
+          "text": "33.5"
+        }
+      ]
+    },
+    {
+      "id": "r:Headcount/Sales",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Headcount",
+        "Sales"
+      ],
+      "label": "Sales",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 12,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 12,
+          "raw": 12,
+          "text": "12.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 12,
+          "raw": 12,
+          "text": "12.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 12,
+          "raw": 12,
+          "text": "12.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 12,
+          "raw": 12,
+          "text": "12.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 12,
+          "raw": 12,
+          "text": "12.0"
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": 12,
+          "raw": 12,
+          "text": "12.0"
+        }
+      ]
+    },
+    {
+      "id": "__grandTotal__",
+      "kind": "grandTotal",
+      "depth": -1,
+      "path": [],
+      "label": "Net assets · total FTE",
+      "expandable": false,
+      "expanded": true,
+      "childCount": 3,
+      "sourceRowCount": 60,
+      "cells": [
+        {
+          "value": 244000,
+          "raw": 244000,
+          "text": "$244.0"
+        },
+        {
+          "value": 44,
+          "raw": 44,
+          "text": "44.0"
+        },
+        {
+          "value": 252000,
+          "raw": 252000,
+          "text": "$252.0"
+        },
+        {
+          "value": 46,
+          "raw": 46,
+          "text": "46.0"
+        },
+        {
+          "value": 260000,
+          "raw": 260000,
+          "text": "$260.0"
+        },
+        {
+          "value": 47,
+          "raw": 47,
+          "text": "47.0"
+        },
+        {
+          "value": 268000,
+          "raw": 268000,
+          "text": "$268.0"
+        },
+        {
+          "value": 48,
+          "raw": 48,
+          "text": "48.0"
+        },
+        {
+          "value": 268000,
+          "raw": 268000,
+          "text": "$268.0"
+        },
+        {
+          "value": 47,
+          "raw": 47,
+          "text": "47.0"
+        },
+        {
+          "value": 268000,
+          "raw": 268000,
+          "text": "$268.0"
+        },
+        {
+          "value": 45.5,
+          "raw": 45.5,
+          "text": "45.5"
+        }
+      ]
+    }
+  ],
+  "grandTotal": {
+    "id": "__grandTotal__",
+    "kind": "grandTotal",
+    "depth": -1,
+    "path": [],
+    "label": "Net assets · total FTE",
+    "expandable": false,
+    "expanded": true,
+    "childCount": 3,
+    "sourceRowCount": 60,
+    "cells": [
+      {
+        "value": 244000,
+        "raw": 244000,
+        "text": "$244.0"
+      },
+      {
+        "value": 44,
+        "raw": 44,
+        "text": "44.0"
+      },
+      {
+        "value": 252000,
+        "raw": 252000,
+        "text": "$252.0"
+      },
+      {
+        "value": 46,
+        "raw": 46,
+        "text": "46.0"
+      },
+      {
+        "value": 260000,
+        "raw": 260000,
+        "text": "$260.0"
+      },
+      {
+        "value": 47,
+        "raw": 47,
+        "text": "47.0"
+      },
+      {
+        "value": 268000,
+        "raw": 268000,
+        "text": "$268.0"
+      },
+      {
+        "value": 48,
+        "raw": 48,
+        "text": "48.0"
+      },
+      {
+        "value": 268000,
+        "raw": 268000,
+        "text": "$268.0"
+      },
+      {
+        "value": 47,
+        "raw": 47,
+        "text": "47.0"
+      },
+      {
+        "value": 268000,
+        "raw": 268000,
+        "text": "$268.0"
+      },
+      {
+        "value": 45.5,
+        "raw": 45.5,
+        "text": "45.5"
+      }
+    ]
+  },
+  "spans": [
+    [
+      {
+        "rowIndex": 0,
+        "span": 3,
+        "path": [
+          "Assets"
+        ]
+      },
+      {
+        "rowIndex": 3,
+        "span": 2,
+        "path": [
+          "Liabilities"
+        ]
+      },
+      {
+        "rowIndex": 5,
+        "span": 3,
+        "path": [
+          "Headcount"
+        ]
+      }
+    ],
+    [
+      {
+        "rowIndex": 1,
+        "span": 1,
+        "path": [
+          "Assets",
+          "Cash"
+        ]
+      },
+      {
+        "rowIndex": 2,
+        "span": 1,
+        "path": [
+          "Assets",
+          "Receivables"
+        ]
+      },
+      {
+        "rowIndex": 4,
+        "span": 1,
+        "path": [
+          "Liabilities",
+          "Payables"
+        ]
+      },
+      {
+        "rowIndex": 6,
+        "span": 1,
+        "path": [
+          "Headcount",
+          "Engineering"
+        ]
+      },
+      {
+        "rowIndex": 7,
+        "span": 1,
+        "path": [
+          "Headcount",
+          "Sales"
+        ]
+      }
+    ]
+  ],
+  "heat": null,
+  "headerSeries": null,
+  "kpis": [],
+  "filters": [
+    {
+      "field": "KIND",
+      "label": "Kind",
+      "kind": "items",
+      "text": "Kind ≠ flow"
+    }
+  ],
+  "recordCount": {
+    "total": 150,
+    "matched": 60
+  }
+}

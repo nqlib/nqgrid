@@ -19,6 +19,7 @@ from nqgrid_export import (
     PivotSpec,
     pdf_page_count,
     validate_pivot_spec,
+    write_xlsx_from_sheet,
 )
 
 from .conftest import EXAMPLES, GOLDEN_GENERATED_AT, ExportService, load_example
@@ -185,6 +186,8 @@ def test_filtered_spec_matches_the_golden_files(
         ("planning-dates", "planning-dates.rows.json"),
         ("planning-calc", "planning-dates.rows.json"),
         ("planning-statement", "planning-statement.rows.json"),
+        ("planning-fpa", "planning-fpa.rows.json"),
+        ("planning-fpa-bs", "planning-fpa.rows.json"),
     ],
 )
 def test_column_hierarchy_and_date_grouping_match_the_golden_files(
@@ -270,6 +273,52 @@ def test_financial_statement_from_python(client: NqgridExportClient) -> None:
             format="model",
         )
     assert any("signField" in d for d in err.value.details)
+
+
+@pytest.mark.e2e
+def test_fpa_planning_pack_from_python(chromium: ExportService) -> None:
+    """Long-format FP&A data: measure filters (Actual / Budget / prior year), closing balances and average FTE,
+    printed as a statement PDF and as an analyst workbook (Node exceljs and the openpyxl writer)."""
+    openpyxl = pytest.importorskip("openpyxl")
+    spec = load_example("planning-fpa.spec.json")
+    bs = load_example("planning-fpa-bs.spec.json")
+    rows = load_example("planning-fpa.rows.json")
+    options = {**OPTIONS, "profile": "statement"}
+    with NqgridExportClient(chromium.url) as c:
+        model = c.export(bs, rows, format="model")
+        cells = {r["label"]: r["cells"] for r in model["rows"]}
+        q1 = next(i for i, col in enumerate(model["columns"]) if col["headerPath"] == ["Q1 2026", "Balance"])
+        assert cells["Cash"][q1]["value"] == 230_000  # March balance, not Jan + Feb + Mar
+        fte = next(i for i, col in enumerate(model["columns"]) if col["headerPath"] == ["Q1 2026", "FTE"])
+        assert cells["Engineering"][fte]["value"] == 32  # (31 + 32 + 33) / 3
+        for s in (spec, bs):
+            pdf = c.export(s, rows, format="pdf", options=options)
+            assert pdf[:4] == b"%PDF" and pdf_page_count(pdf) >= 1
+        data = c.export(spec, rows, format="xlsx", options={**options, "xlsx": {"subtotalFormulas": True}})
+        sheet = c.export(spec, rows, format="sheet", options={**options, "xlsx": {"subtotalFormulas": True}})
+    ws = openpyxl.load_workbook(io.BytesIO(data)).worksheets[0]
+    assert [ws.cell(row=r, column=1).value for r in (1, 2, 3, 4)] == [
+        spec["title"],
+        spec["subtitle"],
+        "USD thousands",
+        "Filters: Kind = flow",
+    ]
+    top = sheet["tableRow"]
+    assert ws.freeze_panes == f"B{top + sheet['frozenRows'] + 1}"
+    assert ws.print_title_rows == f"${top + 1}:${top + sheet['frozenRows']}"
+    assert ws.page_setup.orientation == "landscape"
+    assert ws.sheet_properties.outlinePr.summaryBelow is True
+    total = top + len(sheet["cells"])
+    assert ws.cell(row=total, column=1).value == "Operating income"
+    assert str(ws.cell(row=total, column=2).value).startswith("=SUBTOTAL(9,")
+    assert ws.cell(row=total, column=2).border.bottom.style == "double"
+    py = openpyxl.load_workbook(io.BytesIO(write_xlsx_from_sheet(sheet, spec=spec, generated_at=GOLDEN_GENERATED_AT)))
+    pws = py.worksheets[0]
+    assert pws.cell(row=total, column=2).value == ws.cell(row=total, column=2).value
+    assert pws.print_title_rows == ws.print_title_rows
+    assert [pws.row_dimensions[r].outlineLevel for r in range(top + 2, total + 1)] == [
+        ws.row_dimensions[r].outlineLevel for r in range(top + 2, total + 1)
+    ]
 
 
 @pytest.mark.e2e

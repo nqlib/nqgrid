@@ -1,0 +1,2062 @@
+{
+  "version": 1,
+  "id": "fpa-budget-vs-actual",
+  "title": "Management P&L: budget vs actual",
+  "subtitle": "H1 2026 by quarter",
+  "units": "USD thousands",
+  "layout": "compact",
+  "rowDimensions": [
+    {
+      "field": "SECTION",
+      "label": "Section",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    },
+    {
+      "field": "LINE",
+      "label": "Line",
+      "sortBy": {
+        "measure": "ord",
+        "direction": "asc"
+      }
+    }
+  ],
+  "columnDimension": {
+    "field": "PERIOD:quarter",
+    "label": "Quarter"
+  },
+  "columnKeys": [
+    {
+      "key": "Q1",
+      "label": "Q1"
+    },
+    {
+      "key": "Q2",
+      "label": "Q2"
+    }
+  ],
+  "columns": [
+    {
+      "id": "c:Q1:actual",
+      "columnKey": "Q1",
+      "columnLabel": "Q1",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Q1",
+        "Actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q1:budget",
+      "columnKey": "Q1",
+      "columnLabel": "Q1",
+      "measureId": "budget",
+      "measureLabel": "Budget",
+      "headerPath": [
+        "Q1",
+        "Budget"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q1:variance",
+      "columnKey": "Q1",
+      "columnLabel": "Q1",
+      "measureId": "variance",
+      "measureLabel": "Var",
+      "headerPath": [
+        "Q1",
+        "Var"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q1:variancePct",
+      "columnKey": "Q1",
+      "columnLabel": "Q1",
+      "measureId": "variancePct",
+      "measureLabel": "Var %",
+      "headerPath": [
+        "Q1",
+        "Var %"
+      ],
+      "format": {
+        "style": "percent",
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0%;(#,##0.0%)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q1:ytd",
+      "columnKey": "Q1",
+      "columnLabel": "Q1",
+      "measureId": "ytd",
+      "measureLabel": "YTD actual",
+      "headerPath": [
+        "Q1",
+        "YTD actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q1:priorYear",
+      "columnKey": "Q1",
+      "columnLabel": "Q1",
+      "measureId": "priorYear",
+      "measureLabel": "PY actual",
+      "headerPath": [
+        "Q1",
+        "PY actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q2:actual",
+      "columnKey": "Q2",
+      "columnLabel": "Q2",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "Q2",
+        "Actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q2:budget",
+      "columnKey": "Q2",
+      "columnLabel": "Q2",
+      "measureId": "budget",
+      "measureLabel": "Budget",
+      "headerPath": [
+        "Q2",
+        "Budget"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q2:variance",
+      "columnKey": "Q2",
+      "columnLabel": "Q2",
+      "measureId": "variance",
+      "measureLabel": "Var",
+      "headerPath": [
+        "Q2",
+        "Var"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q2:variancePct",
+      "columnKey": "Q2",
+      "columnLabel": "Q2",
+      "measureId": "variancePct",
+      "measureLabel": "Var %",
+      "headerPath": [
+        "Q2",
+        "Var %"
+      ],
+      "format": {
+        "style": "percent",
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0%;(#,##0.0%)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q2:ytd",
+      "columnKey": "Q2",
+      "columnLabel": "Q2",
+      "measureId": "ytd",
+      "measureLabel": "YTD actual",
+      "headerPath": [
+        "Q2",
+        "YTD actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "c:Q2:priorYear",
+      "columnKey": "Q2",
+      "columnLabel": "Q2",
+      "measureId": "priorYear",
+      "measureLabel": "PY actual",
+      "headerPath": [
+        "Q2",
+        "PY actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:actual",
+      "columnKey": null,
+      "columnLabel": "H1",
+      "measureId": "actual",
+      "measureLabel": "Actual",
+      "headerPath": [
+        "H1",
+        "Actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:budget",
+      "columnKey": null,
+      "columnLabel": "H1",
+      "measureId": "budget",
+      "measureLabel": "Budget",
+      "headerPath": [
+        "H1",
+        "Budget"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:variance",
+      "columnKey": null,
+      "columnLabel": "H1",
+      "measureId": "variance",
+      "measureLabel": "Var",
+      "headerPath": [
+        "H1",
+        "Var"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:variancePct",
+      "columnKey": null,
+      "columnLabel": "H1",
+      "measureId": "variancePct",
+      "measureLabel": "Var %",
+      "headerPath": [
+        "H1",
+        "Var %"
+      ],
+      "format": {
+        "style": "percent",
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "#,##0.0%;(#,##0.0%)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:ytd",
+      "columnKey": null,
+      "columnLabel": "H1",
+      "measureId": "ytd",
+      "measureLabel": "YTD actual",
+      "headerPath": [
+        "H1",
+        "YTD actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    },
+    {
+      "id": "t:priorYear",
+      "columnKey": null,
+      "columnLabel": "H1",
+      "measureId": "priorYear",
+      "measureLabel": "PY actual",
+      "headerPath": [
+        "H1",
+        "PY actual"
+      ],
+      "format": {
+        "style": "currency",
+        "currency": "USD",
+        "scale": 1000,
+        "decimals": 1,
+        "negative": "parentheses"
+      },
+      "percentFormat": {
+        "style": "percent"
+      },
+      "excelNumFmt": "\"$\"#,##0.0,;(\"$\"#,##0.0,)",
+      "excelPercentNumFmt": "#,##0%"
+    }
+  ],
+  "headerRows": [
+    [
+      {
+        "label": "Q1",
+        "colSpan": 6,
+        "columnKey": "Q1"
+      },
+      {
+        "label": "Q2",
+        "colSpan": 6,
+        "columnKey": "Q2"
+      },
+      {
+        "label": "H1",
+        "colSpan": 6,
+        "columnKey": null
+      }
+    ],
+    [
+      {
+        "label": "Actual",
+        "colSpan": 1,
+        "columnKey": "Q1",
+        "measureId": "actual"
+      },
+      {
+        "label": "Budget",
+        "colSpan": 1,
+        "columnKey": "Q1",
+        "measureId": "budget"
+      },
+      {
+        "label": "Var",
+        "colSpan": 1,
+        "columnKey": "Q1",
+        "measureId": "variance"
+      },
+      {
+        "label": "Var %",
+        "colSpan": 1,
+        "columnKey": "Q1",
+        "measureId": "variancePct"
+      },
+      {
+        "label": "YTD actual",
+        "colSpan": 1,
+        "columnKey": "Q1",
+        "measureId": "ytd"
+      },
+      {
+        "label": "PY actual",
+        "colSpan": 1,
+        "columnKey": "Q1",
+        "measureId": "priorYear"
+      },
+      {
+        "label": "Actual",
+        "colSpan": 1,
+        "columnKey": "Q2",
+        "measureId": "actual"
+      },
+      {
+        "label": "Budget",
+        "colSpan": 1,
+        "columnKey": "Q2",
+        "measureId": "budget"
+      },
+      {
+        "label": "Var",
+        "colSpan": 1,
+        "columnKey": "Q2",
+        "measureId": "variance"
+      },
+      {
+        "label": "Var %",
+        "colSpan": 1,
+        "columnKey": "Q2",
+        "measureId": "variancePct"
+      },
+      {
+        "label": "YTD actual",
+        "colSpan": 1,
+        "columnKey": "Q2",
+        "measureId": "ytd"
+      },
+      {
+        "label": "PY actual",
+        "colSpan": 1,
+        "columnKey": "Q2",
+        "measureId": "priorYear"
+      },
+      {
+        "label": "Actual",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "actual"
+      },
+      {
+        "label": "Budget",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "budget"
+      },
+      {
+        "label": "Var",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "variance"
+      },
+      {
+        "label": "Var %",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "variancePct"
+      },
+      {
+        "label": "YTD actual",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "ytd"
+      },
+      {
+        "label": "PY actual",
+        "colSpan": 1,
+        "columnKey": null,
+        "measureId": "priorYear"
+      }
+    ]
+  ],
+  "rows": [
+    {
+      "id": "r:Revenue",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Revenue"
+      ],
+      "label": "Revenue",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 2,
+      "sourceRowCount": 36,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ],
+      "subtotal": "end"
+    },
+    {
+      "id": "r:Revenue/Product%20revenue",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Revenue",
+        "Product revenue"
+      ],
+      "label": "Product revenue",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 18,
+      "cells": [
+        {
+          "value": 318150,
+          "raw": 318150,
+          "text": "$318.2"
+        },
+        {
+          "value": 303000,
+          "raw": 303000,
+          "text": "$303.0"
+        },
+        {
+          "value": 15150,
+          "raw": 15150,
+          "text": "$15.2"
+        },
+        {
+          "value": 0.05,
+          "raw": 0.05,
+          "text": "5.0%"
+        },
+        {
+          "value": 318150,
+          "raw": 318150,
+          "text": "$318.2",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 273000,
+          "raw": 273000,
+          "text": "$273.0"
+        },
+        {
+          "value": 327600,
+          "raw": 327600,
+          "text": "$327.6"
+        },
+        {
+          "value": 312000,
+          "raw": 312000,
+          "text": "$312.0"
+        },
+        {
+          "value": 15600,
+          "raw": 15600,
+          "text": "$15.6"
+        },
+        {
+          "value": 0.05,
+          "raw": 0.05,
+          "text": "5.0%"
+        },
+        {
+          "value": 645750,
+          "raw": 327600,
+          "text": "$645.8",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 282000,
+          "raw": 282000,
+          "text": "$282.0"
+        },
+        {
+          "value": 645750,
+          "raw": 645750,
+          "text": "$645.8"
+        },
+        {
+          "value": 615000,
+          "raw": 615000,
+          "text": "$615.0"
+        },
+        {
+          "value": 30750,
+          "raw": 30750,
+          "text": "$30.8"
+        },
+        {
+          "value": 0.05,
+          "raw": 0.05,
+          "text": "5.0%"
+        },
+        {
+          "value": 645750,
+          "raw": 645750,
+          "text": "$645.8",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 555000,
+          "raw": 555000,
+          "text": "$555.0"
+        }
+      ]
+    },
+    {
+      "id": "r:Revenue/Services%20revenue",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Revenue",
+        "Services revenue"
+      ],
+      "label": "Services revenue",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 18,
+      "cells": [
+        {
+          "value": 114000,
+          "raw": 114000,
+          "text": "$114.0"
+        },
+        {
+          "value": 120000,
+          "raw": 120000,
+          "text": "$120.0"
+        },
+        {
+          "value": -6000,
+          "raw": -6000,
+          "text": "($6.0)"
+        },
+        {
+          "value": -0.05,
+          "raw": -0.05,
+          "text": "(5.0%)"
+        },
+        {
+          "value": 114000,
+          "raw": 114000,
+          "text": "$114.0",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 105000,
+          "raw": 105000,
+          "text": "$105.0"
+        },
+        {
+          "value": 114000,
+          "raw": 114000,
+          "text": "$114.0"
+        },
+        {
+          "value": 120000,
+          "raw": 120000,
+          "text": "$120.0"
+        },
+        {
+          "value": -6000,
+          "raw": -6000,
+          "text": "($6.0)"
+        },
+        {
+          "value": -0.05,
+          "raw": -0.05,
+          "text": "(5.0%)"
+        },
+        {
+          "value": 228000,
+          "raw": 114000,
+          "text": "$228.0",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 105000,
+          "raw": 105000,
+          "text": "$105.0"
+        },
+        {
+          "value": 228000,
+          "raw": 228000,
+          "text": "$228.0"
+        },
+        {
+          "value": 240000,
+          "raw": 240000,
+          "text": "$240.0"
+        },
+        {
+          "value": -12000,
+          "raw": -12000,
+          "text": "($12.0)"
+        },
+        {
+          "value": -0.05,
+          "raw": -0.05,
+          "text": "(5.0%)"
+        },
+        {
+          "value": 228000,
+          "raw": 228000,
+          "text": "$228.0",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 210000,
+          "raw": 210000,
+          "text": "$210.0"
+        }
+      ]
+    },
+    {
+      "id": "t:Revenue",
+      "kind": "subtotal",
+      "depth": 0,
+      "path": [
+        "Revenue"
+      ],
+      "label": "Revenue",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 2,
+      "sourceRowCount": 36,
+      "cells": [
+        {
+          "value": 432150,
+          "raw": 432150,
+          "text": "$432.2"
+        },
+        {
+          "value": 423000,
+          "raw": 423000,
+          "text": "$423.0"
+        },
+        {
+          "value": 9150,
+          "raw": 9150,
+          "text": "$9.2"
+        },
+        {
+          "value": 0.021631205673758865,
+          "raw": 0.021631205673758865,
+          "text": "2.2%"
+        },
+        {
+          "value": 432150,
+          "raw": 432150,
+          "text": "$432.2",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 378000,
+          "raw": 378000,
+          "text": "$378.0"
+        },
+        {
+          "value": 441600,
+          "raw": 441600,
+          "text": "$441.6"
+        },
+        {
+          "value": 432000,
+          "raw": 432000,
+          "text": "$432.0"
+        },
+        {
+          "value": 9600,
+          "raw": 9600,
+          "text": "$9.6"
+        },
+        {
+          "value": 0.022222222222222223,
+          "raw": 0.022222222222222223,
+          "text": "2.2%"
+        },
+        {
+          "value": 873750,
+          "raw": 441600,
+          "text": "$873.8",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 387000,
+          "raw": 387000,
+          "text": "$387.0"
+        },
+        {
+          "value": 873750,
+          "raw": 873750,
+          "text": "$873.8"
+        },
+        {
+          "value": 855000,
+          "raw": 855000,
+          "text": "$855.0"
+        },
+        {
+          "value": 18750,
+          "raw": 18750,
+          "text": "$18.8"
+        },
+        {
+          "value": 0.021929824561403508,
+          "raw": 0.021929824561403508,
+          "text": "2.2%"
+        },
+        {
+          "value": 873750,
+          "raw": 873750,
+          "text": "$873.8",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 765000,
+          "raw": 765000,
+          "text": "$765.0"
+        }
+      ]
+    },
+    {
+      "id": "r:Cost%20of%20sales",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Cost of sales"
+      ],
+      "label": "Cost of sales",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 1,
+      "sourceRowCount": 18,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ],
+      "subtotal": "end"
+    },
+    {
+      "id": "r:Cost%20of%20sales/COGS",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Cost of sales",
+        "COGS"
+      ],
+      "label": "COGS",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 18,
+      "cells": [
+        {
+          "value": -149531,
+          "raw": -149531,
+          "text": "($149.5)"
+        },
+        {
+          "value": -136350,
+          "raw": -136350,
+          "text": "($136.4)"
+        },
+        {
+          "value": -13181,
+          "raw": -13181,
+          "text": "($13.2)"
+        },
+        {
+          "value": -0.09667033370003666,
+          "raw": -0.09667033370003666,
+          "text": "(9.7%)"
+        },
+        {
+          "value": -149531,
+          "raw": -149531,
+          "text": "($149.5)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -122850,
+          "raw": -122850,
+          "text": "($122.9)"
+        },
+        {
+          "value": -153973,
+          "raw": -153973,
+          "text": "($154.0)"
+        },
+        {
+          "value": -140400,
+          "raw": -140400,
+          "text": "($140.4)"
+        },
+        {
+          "value": -13573,
+          "raw": -13573,
+          "text": "($13.6)"
+        },
+        {
+          "value": -0.09667378917378917,
+          "raw": -0.09667378917378917,
+          "text": "(9.7%)"
+        },
+        {
+          "value": -303504,
+          "raw": -153973,
+          "text": "($303.5)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -126900,
+          "raw": -126900,
+          "text": "($126.9)"
+        },
+        {
+          "value": -303504,
+          "raw": -303504,
+          "text": "($303.5)"
+        },
+        {
+          "value": -276750,
+          "raw": -276750,
+          "text": "($276.8)"
+        },
+        {
+          "value": -26754,
+          "raw": -26754,
+          "text": "($26.8)"
+        },
+        {
+          "value": -0.0966720867208672,
+          "raw": -0.0966720867208672,
+          "text": "(9.7%)"
+        },
+        {
+          "value": -303504,
+          "raw": -303504,
+          "text": "($303.5)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -249750,
+          "raw": -249750,
+          "text": "($249.8)"
+        }
+      ]
+    },
+    {
+      "id": "t:Cost%20of%20sales",
+      "kind": "subtotal",
+      "depth": 0,
+      "path": [
+        "Cost of sales"
+      ],
+      "label": "Cost of sales",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 1,
+      "sourceRowCount": 18,
+      "cells": [
+        {
+          "value": -149531,
+          "raw": -149531,
+          "text": "($149.5)"
+        },
+        {
+          "value": -136350,
+          "raw": -136350,
+          "text": "($136.4)"
+        },
+        {
+          "value": -13181,
+          "raw": -13181,
+          "text": "($13.2)"
+        },
+        {
+          "value": -0.09667033370003666,
+          "raw": -0.09667033370003666,
+          "text": "(9.7%)"
+        },
+        {
+          "value": -149531,
+          "raw": -149531,
+          "text": "($149.5)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -122850,
+          "raw": -122850,
+          "text": "($122.9)"
+        },
+        {
+          "value": -153973,
+          "raw": -153973,
+          "text": "($154.0)"
+        },
+        {
+          "value": -140400,
+          "raw": -140400,
+          "text": "($140.4)"
+        },
+        {
+          "value": -13573,
+          "raw": -13573,
+          "text": "($13.6)"
+        },
+        {
+          "value": -0.09667378917378917,
+          "raw": -0.09667378917378917,
+          "text": "(9.7%)"
+        },
+        {
+          "value": -303504,
+          "raw": -153973,
+          "text": "($303.5)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -126900,
+          "raw": -126900,
+          "text": "($126.9)"
+        },
+        {
+          "value": -303504,
+          "raw": -303504,
+          "text": "($303.5)"
+        },
+        {
+          "value": -276750,
+          "raw": -276750,
+          "text": "($276.8)"
+        },
+        {
+          "value": -26754,
+          "raw": -26754,
+          "text": "($26.8)"
+        },
+        {
+          "value": -0.0966720867208672,
+          "raw": -0.0966720867208672,
+          "text": "(9.7%)"
+        },
+        {
+          "value": -303504,
+          "raw": -303504,
+          "text": "($303.5)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -249750,
+          "raw": -249750,
+          "text": "($249.8)"
+        }
+      ]
+    },
+    {
+      "id": "r:Operating%20expenses",
+      "kind": "group",
+      "depth": 0,
+      "path": [
+        "Operating expenses"
+      ],
+      "label": "Operating expenses",
+      "expandable": true,
+      "expanded": true,
+      "childCount": 2,
+      "sourceRowCount": 36,
+      "cells": [
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        },
+        {
+          "value": null,
+          "raw": null,
+          "text": ""
+        }
+      ],
+      "subtotal": "end"
+    },
+    {
+      "id": "r:Operating%20expenses/Salaries",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Operating expenses",
+        "Salaries"
+      ],
+      "label": "Salaries",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 18,
+      "cells": [
+        {
+          "value": -153000,
+          "raw": -153000,
+          "text": "($153.0)"
+        },
+        {
+          "value": -150000,
+          "raw": -150000,
+          "text": "($150.0)"
+        },
+        {
+          "value": -3000,
+          "raw": -3000,
+          "text": "($3.0)"
+        },
+        {
+          "value": -0.02,
+          "raw": -0.02,
+          "text": "(2.0%)"
+        },
+        {
+          "value": -153000,
+          "raw": -153000,
+          "text": "($153.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -138000,
+          "raw": -138000,
+          "text": "($138.0)"
+        },
+        {
+          "value": -153000,
+          "raw": -153000,
+          "text": "($153.0)"
+        },
+        {
+          "value": -150000,
+          "raw": -150000,
+          "text": "($150.0)"
+        },
+        {
+          "value": -3000,
+          "raw": -3000,
+          "text": "($3.0)"
+        },
+        {
+          "value": -0.02,
+          "raw": -0.02,
+          "text": "(2.0%)"
+        },
+        {
+          "value": -306000,
+          "raw": -153000,
+          "text": "($306.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -138000,
+          "raw": -138000,
+          "text": "($138.0)"
+        },
+        {
+          "value": -306000,
+          "raw": -306000,
+          "text": "($306.0)"
+        },
+        {
+          "value": -300000,
+          "raw": -300000,
+          "text": "($300.0)"
+        },
+        {
+          "value": -6000,
+          "raw": -6000,
+          "text": "($6.0)"
+        },
+        {
+          "value": -0.02,
+          "raw": -0.02,
+          "text": "(2.0%)"
+        },
+        {
+          "value": -306000,
+          "raw": -306000,
+          "text": "($306.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -276000,
+          "raw": -276000,
+          "text": "($276.0)"
+        }
+      ]
+    },
+    {
+      "id": "r:Operating%20expenses/Rent",
+      "kind": "leaf",
+      "depth": 1,
+      "path": [
+        "Operating expenses",
+        "Rent"
+      ],
+      "label": "Rent",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 0,
+      "sourceRowCount": 18,
+      "cells": [
+        {
+          "value": -30000,
+          "raw": -30000,
+          "text": "($30.0)"
+        },
+        {
+          "value": -30000,
+          "raw": -30000,
+          "text": "($30.0)"
+        },
+        {
+          "value": 0,
+          "raw": 0,
+          "text": "$0.0"
+        },
+        {
+          "value": 0,
+          "raw": 0,
+          "text": "0.0%"
+        },
+        {
+          "value": -30000,
+          "raw": -30000,
+          "text": "($30.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -28500,
+          "raw": -28500,
+          "text": "($28.5)"
+        },
+        {
+          "value": -30000,
+          "raw": -30000,
+          "text": "($30.0)"
+        },
+        {
+          "value": -30000,
+          "raw": -30000,
+          "text": "($30.0)"
+        },
+        {
+          "value": 0,
+          "raw": 0,
+          "text": "$0.0"
+        },
+        {
+          "value": 0,
+          "raw": 0,
+          "text": "0.0%"
+        },
+        {
+          "value": -60000,
+          "raw": -30000,
+          "text": "($60.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -28500,
+          "raw": -28500,
+          "text": "($28.5)"
+        },
+        {
+          "value": -60000,
+          "raw": -60000,
+          "text": "($60.0)"
+        },
+        {
+          "value": -60000,
+          "raw": -60000,
+          "text": "($60.0)"
+        },
+        {
+          "value": 0,
+          "raw": 0,
+          "text": "$0.0"
+        },
+        {
+          "value": 0,
+          "raw": 0,
+          "text": "0.0%"
+        },
+        {
+          "value": -60000,
+          "raw": -60000,
+          "text": "($60.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -57000,
+          "raw": -57000,
+          "text": "($57.0)"
+        }
+      ]
+    },
+    {
+      "id": "t:Operating%20expenses",
+      "kind": "subtotal",
+      "depth": 0,
+      "path": [
+        "Operating expenses"
+      ],
+      "label": "Operating expenses",
+      "expandable": false,
+      "expanded": false,
+      "childCount": 2,
+      "sourceRowCount": 36,
+      "cells": [
+        {
+          "value": -183000,
+          "raw": -183000,
+          "text": "($183.0)"
+        },
+        {
+          "value": -180000,
+          "raw": -180000,
+          "text": "($180.0)"
+        },
+        {
+          "value": -3000,
+          "raw": -3000,
+          "text": "($3.0)"
+        },
+        {
+          "value": -0.016666666666666666,
+          "raw": -0.016666666666666666,
+          "text": "(1.7%)"
+        },
+        {
+          "value": -183000,
+          "raw": -183000,
+          "text": "($183.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -166500,
+          "raw": -166500,
+          "text": "($166.5)"
+        },
+        {
+          "value": -183000,
+          "raw": -183000,
+          "text": "($183.0)"
+        },
+        {
+          "value": -180000,
+          "raw": -180000,
+          "text": "($180.0)"
+        },
+        {
+          "value": -3000,
+          "raw": -3000,
+          "text": "($3.0)"
+        },
+        {
+          "value": -0.016666666666666666,
+          "raw": -0.016666666666666666,
+          "text": "(1.7%)"
+        },
+        {
+          "value": -366000,
+          "raw": -183000,
+          "text": "($366.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -166500,
+          "raw": -166500,
+          "text": "($166.5)"
+        },
+        {
+          "value": -366000,
+          "raw": -366000,
+          "text": "($366.0)"
+        },
+        {
+          "value": -360000,
+          "raw": -360000,
+          "text": "($360.0)"
+        },
+        {
+          "value": -6000,
+          "raw": -6000,
+          "text": "($6.0)"
+        },
+        {
+          "value": -0.016666666666666666,
+          "raw": -0.016666666666666666,
+          "text": "(1.7%)"
+        },
+        {
+          "value": -366000,
+          "raw": -366000,
+          "text": "($366.0)",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": -333000,
+          "raw": -333000,
+          "text": "($333.0)"
+        }
+      ]
+    },
+    {
+      "id": "__grandTotal__",
+      "kind": "grandTotal",
+      "depth": -1,
+      "path": [],
+      "label": "Operating income",
+      "expandable": false,
+      "expanded": true,
+      "childCount": 3,
+      "sourceRowCount": 90,
+      "cells": [
+        {
+          "value": 99619,
+          "raw": 99619,
+          "text": "$99.6"
+        },
+        {
+          "value": 106650,
+          "raw": 106650,
+          "text": "$106.7"
+        },
+        {
+          "value": -7031,
+          "raw": -7031,
+          "text": "($7.0)"
+        },
+        {
+          "value": -0.06592592592592593,
+          "raw": -0.06592592592592593,
+          "text": "(6.6%)"
+        },
+        {
+          "value": 99619,
+          "raw": 99619,
+          "text": "$99.6",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 88650,
+          "raw": 88650,
+          "text": "$88.7"
+        },
+        {
+          "value": 104627,
+          "raw": 104627,
+          "text": "$104.6"
+        },
+        {
+          "value": 111600,
+          "raw": 111600,
+          "text": "$111.6"
+        },
+        {
+          "value": -6973,
+          "raw": -6973,
+          "text": "($7.0)"
+        },
+        {
+          "value": -0.062482078853046595,
+          "raw": -0.062482078853046595,
+          "text": "(6.2%)"
+        },
+        {
+          "value": 204246,
+          "raw": 104627,
+          "text": "$204.2",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 93600,
+          "raw": 93600,
+          "text": "$93.6"
+        },
+        {
+          "value": 204246,
+          "raw": 204246,
+          "text": "$204.2"
+        },
+        {
+          "value": 218250,
+          "raw": 218250,
+          "text": "$218.3"
+        },
+        {
+          "value": -14004,
+          "raw": -14004,
+          "text": "($14.0)"
+        },
+        {
+          "value": -0.06416494845360825,
+          "raw": -0.06416494845360825,
+          "text": "(6.4%)"
+        },
+        {
+          "value": 204246,
+          "raw": 204246,
+          "text": "$204.2",
+          "showAs": "runningTotal"
+        },
+        {
+          "value": 182250,
+          "raw": 182250,
+          "text": "$182.3"
+        }
+      ]
+    }
+  ],
+  "grandTotal": {
+    "id": "__grandTotal__",
+    "kind": "grandTotal",
+    "depth": -1,
+    "path": [],
+    "label": "Operating income",
+    "expandable": false,
+    "expanded": true,
+    "childCount": 3,
+    "sourceRowCount": 90,
+    "cells": [
+      {
+        "value": 99619,
+        "raw": 99619,
+        "text": "$99.6"
+      },
+      {
+        "value": 106650,
+        "raw": 106650,
+        "text": "$106.7"
+      },
+      {
+        "value": -7031,
+        "raw": -7031,
+        "text": "($7.0)"
+      },
+      {
+        "value": -0.06592592592592593,
+        "raw": -0.06592592592592593,
+        "text": "(6.6%)"
+      },
+      {
+        "value": 99619,
+        "raw": 99619,
+        "text": "$99.6",
+        "showAs": "runningTotal"
+      },
+      {
+        "value": 88650,
+        "raw": 88650,
+        "text": "$88.7"
+      },
+      {
+        "value": 104627,
+        "raw": 104627,
+        "text": "$104.6"
+      },
+      {
+        "value": 111600,
+        "raw": 111600,
+        "text": "$111.6"
+      },
+      {
+        "value": -6973,
+        "raw": -6973,
+        "text": "($7.0)"
+      },
+      {
+        "value": -0.062482078853046595,
+        "raw": -0.062482078853046595,
+        "text": "(6.2%)"
+      },
+      {
+        "value": 204246,
+        "raw": 104627,
+        "text": "$204.2",
+        "showAs": "runningTotal"
+      },
+      {
+        "value": 93600,
+        "raw": 93600,
+        "text": "$93.6"
+      },
+      {
+        "value": 204246,
+        "raw": 204246,
+        "text": "$204.2"
+      },
+      {
+        "value": 218250,
+        "raw": 218250,
+        "text": "$218.3"
+      },
+      {
+        "value": -14004,
+        "raw": -14004,
+        "text": "($14.0)"
+      },
+      {
+        "value": -0.06416494845360825,
+        "raw": -0.06416494845360825,
+        "text": "(6.4%)"
+      },
+      {
+        "value": 204246,
+        "raw": 204246,
+        "text": "$204.2",
+        "showAs": "runningTotal"
+      },
+      {
+        "value": 182250,
+        "raw": 182250,
+        "text": "$182.3"
+      }
+    ]
+  },
+  "spans": [
+    [
+      {
+        "rowIndex": 0,
+        "span": 4,
+        "path": [
+          "Revenue"
+        ]
+      },
+      {
+        "rowIndex": 4,
+        "span": 3,
+        "path": [
+          "Cost of sales"
+        ]
+      },
+      {
+        "rowIndex": 7,
+        "span": 4,
+        "path": [
+          "Operating expenses"
+        ]
+      }
+    ],
+    [
+      {
+        "rowIndex": 1,
+        "span": 1,
+        "path": [
+          "Revenue",
+          "Product revenue"
+        ]
+      },
+      {
+        "rowIndex": 2,
+        "span": 1,
+        "path": [
+          "Revenue",
+          "Services revenue"
+        ]
+      },
+      {
+        "rowIndex": 5,
+        "span": 1,
+        "path": [
+          "Cost of sales",
+          "COGS"
+        ]
+      },
+      {
+        "rowIndex": 8,
+        "span": 1,
+        "path": [
+          "Operating expenses",
+          "Salaries"
+        ]
+      },
+      {
+        "rowIndex": 9,
+        "span": 1,
+        "path": [
+          "Operating expenses",
+          "Rent"
+        ]
+      }
+    ]
+  ],
+  "heat": null,
+  "headerSeries": null,
+  "kpis": [],
+  "filters": [
+    {
+      "field": "KIND",
+      "label": "Kind",
+      "kind": "items",
+      "text": "Kind = flow"
+    }
+  ],
+  "recordCount": {
+    "total": 150,
+    "matched": 90
+  }
+}

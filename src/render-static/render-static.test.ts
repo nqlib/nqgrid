@@ -11,6 +11,7 @@ import {
   planningMultiColumnPivotSpec,
   planningPivotSpec,
 } from "../fixtures/planning-pivot-mock";
+import { fpaBalancePivotSpec, fpaPivotSpec, generateFpaPivotRows } from "../fixtures/fpa-pivot-mock";
 import { generateStatementPivotRows, statementPivotSpec } from "../fixtures/statement-pivot-mock";
 import { pivotBodyGroups, pivotKpiPanelHeight } from "../pivot/layout";
 import { PIVOT_SERIES_COLORS } from "../styles";
@@ -82,6 +83,15 @@ describe("renderPivotHtml", () => {
     const groups = pivotBodyGroups(model);
     const camp = groups.find((g) => g.id === "r:Camp")!;
     expect(model.rows[camp.end - 1]!.kind).toBe("subtotal");
+  });
+
+  it("renders the FP&A goldens (planning-fpa.html budget vs actual in USD thousands, planning-fpa-bs.html balances and FTE)", async () => {
+    const rows = generateFpaPivotRows();
+    const out = renderPivotHtmlFromSpec(fpaPivotSpec, rows, { generatedAt });
+    await expect(out).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-fpa.html");
+    expect(out).toContain("USD thousands");
+    const bs = renderPivotHtmlFromSpec(fpaBalancePivotSpec, rows, { generatedAt });
+    await expect(bs).toMatchFileSnapshot("../../contract/pivot/v1/examples/planning-fpa-bs.html");
   });
 
   it("renders a financial statement (golden planning-statement.html: % of Revenue, section subtotals, Operating income)", async () => {

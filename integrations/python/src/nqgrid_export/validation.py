@@ -106,6 +106,18 @@ def statement_example_spec() -> dict[str, Any]:
     return _load("planning-statement.spec.json")
 
 
+def fpa_example_spec() -> dict[str, Any]:
+    """The golden ``planning-fpa.spec.json`` example (long-format scenario table: Actual / Budget / prior year as
+    measure filters, variance and Var % calculations, a YTD running total, USD thousands via ``format.scale``)."""
+    return _load("planning-fpa.spec.json")
+
+
+def fpa_balance_example_spec() -> dict[str, Any]:
+    """The golden ``planning-fpa-bs.spec.json`` example (balance sheet with ``closingBalance`` and headcount with
+    ``averageOverTime`` on the same long-format table, a collapsed quarter)."""
+    return _load("planning-fpa-bs.spec.json")
+
+
 SHOW_AS_WITH_BASE = (
     "percentOf",
     "differenceFrom",
