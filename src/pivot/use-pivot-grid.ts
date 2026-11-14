@@ -6,6 +6,7 @@ import {
   resolvePivotFields,
   type InferPivotFieldsOptions,
   type PivotFieldInfo,
+  type PivotSummarizeAggregate,
   type PivotFieldMove,
 } from "../core/pivot/fields";
 import type { PivotDrillThroughOptions, PivotDrillThroughResult, PivotDrillThroughTarget } from "../core/pivot/cube";
@@ -82,7 +83,8 @@ export interface PivotGridState {
   /** Field-list checkbox. */
   readonly toggleField: (field: string, checked: boolean) => void;
   readonly addMeasure: (field: string, aggregate?: PivotBuiltInAggregate, index?: number) => void;
-  readonly setMeasureAggregate: (measureId: string, aggregate: PivotBuiltInAggregate) => void;
+  /** "Summarize values by", also a semi-additive aggregate (`{ type: "closingBalance", timeField }`). */
+  readonly setMeasureAggregate: (measureId: string, aggregate: PivotSummarizeAggregate) => void;
   /** Σ Values position among the column fields (`0` = measures outermost). */
   readonly setValuesPosition: (index: number) => void;
   /** Transpose rows and columns (`swapPivotRowsColumns`). */
@@ -99,6 +101,8 @@ export interface PivotGridState {
   readonly setSubtotal: (field: string, position: "start" | "end" | "none") => void;
   /** Sign field of a measure (`setPivotMeasureSignField`; `null` removes it). */
   readonly setMeasureSignField: (measureId: string, signField: string | null) => void;
+  /** Measure-level filter (`setPivotMeasureFilter`; `null` removes it). */
+  readonly setMeasureFilter: (measureId: string, filter: PivotFilter | readonly PivotFilter[] | null) => void;
   /**
    * Source records behind a cell of the current spec (`pivotDrillThrough` on the cached encoding),
    * e.g. from `PivotTable`'s `onDrillThrough`.
@@ -187,6 +191,7 @@ export function usePivotGrid(
       setMeasureShowAs: (measureId, showAs, base, scope) => dispatch({ type: "setMeasureShowAs", measureId, showAs, base, scope }),
       setSubtotal: (field, position) => dispatch({ type: "setSubtotal", field, position }),
       setMeasureSignField: (measureId, signField) => dispatch({ type: "setMeasureSignField", measureId, signField }),
+      setMeasureFilter: (measureId, filter) => dispatch({ type: "setMeasureFilter", measureId, filter }),
       drillThrough: (target, drillOptions) => builder.drillThrough(current, rows, target, { aggregators, ...drillOptions }),
     }),
     [current, rows, model, dispatch, fields, builder, aggregators],

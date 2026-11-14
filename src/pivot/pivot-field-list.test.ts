@@ -35,6 +35,19 @@ describe("reducePivotGridSpec: field-list actions", () => {
     expect(reducePivotGridSpec(added, model, { type: "removeField", field: "units", from: "values", fields }).values).toEqual(["actual"]);
   });
 
+  it("measure filters and semi-additive aggregates (batch B)", () => {
+    const added = reducePivotGridSpec(spec, model, { type: "addMeasure", field: "units", fields });
+    const filtered = reducePivotGridSpec(added, model, { type: "setMeasureFilter", measureId: "units", filter: { field: "region", include: ["North"] } });
+    expect(filtered.measures.at(-1)!.filter).toEqual({ field: "region", include: ["North"] });
+    const fm = buildPivotModel(filtered, rows);
+    const north = fm.columns.reduce((t, c, i) => (c.measureId === "units" && c.columnKey !== null ? t + (fm.grandTotal.cells[i]!.value ?? 0) : t), 0);
+    expect(north).toBe(rows.filter((r) => r.region === "North").reduce((t, r) => t + Number(r.units), 0));
+    expect(reducePivotGridSpec(filtered, model, { type: "setMeasureFilter", measureId: "units", filter: null }).measures.at(-1)!.filter).toBeUndefined();
+    const closing = reducePivotGridSpec(added, model, { type: "setMeasureAggregate", measureId: "units", aggregate: { type: "closingBalance", timeField: "month" }, fields });
+    expect(closing.measures.at(-1)!.aggregate).toEqual({ type: "closingBalance", timeField: "month" });
+    expect(closing.measures.at(-1)!.label).toMatch(/^Closing balance of /);
+  });
+
   it("the builder serves facets for any field without rebuilding the model", () => {
     const builder = createPivotModelBuilder();
     const m = builder.build(spec, rows);

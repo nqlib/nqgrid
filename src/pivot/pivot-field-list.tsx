@@ -20,6 +20,7 @@ import {
   planPivotFieldMove,
   resolvePivotFields,
   setPivotDateGrouping,
+  pivotSummarizeAggregateOf,
   setPivotMeasureAggregate,
   swapPivotRowsColumns,
   togglePivotField,
@@ -31,12 +32,25 @@ import {
   type PivotFieldMove,
   type PivotFieldMovePlan,
   type PivotFieldMoveRefusal,
+  type PivotSummarizeAggregate,
 } from "../core/pivot/fields";
 import { clearPivotFilter, setPivotFilterValues, setPivotSort, setPivotTopN } from "../core/pivot/interaction";
 import { pivotColumnFields } from "../core/pivot/columns";
-import { removePivotMeasure, setPivotSubtotal } from "../core/pivot/measures";
-import { PIVOT_DATE_GROUPS } from "../core/pivot/dates";
-import type { PivotBuiltInAggregate, PivotDateGroup, PivotFacet, PivotFieldArea, PivotFieldSpec, PivotFieldType, PivotModel, PivotSpec } from "../core/pivot/types";
+import { describePivotFilter, pivotMeasureFilters } from "../core/pivot/filter";
+import { removePivotMeasure, setPivotMeasureFilter, setPivotSubtotal } from "../core/pivot/measures";
+import { PIVOT_DATE_GROUPS, resolvePivotDateField } from "../core/pivot/dates";
+import type {
+  PivotBuiltInAggregate,
+  PivotDateGroup,
+  PivotFacet,
+  PivotFieldArea,
+  PivotFieldSpec,
+  PivotFieldType,
+  PivotFilter,
+  PivotModel,
+  PivotSpec,
+  PivotTimeAggregateType,
+} from "../core/pivot/types";
 import {
   pivotFieldChipClass,
   pivotFieldChipLabelClass,
@@ -93,6 +107,20 @@ export interface PivotFieldListLabels {
   readonly filter: string;
   readonly summarizeBy: string;
   readonly aggregates: Readonly<Record<PivotBuiltInAggregate, string>>;
+  /** Semi-additive "Summarize values by" choices (they need a time field). */
+  readonly timeAggregates: Readonly<Record<PivotTimeAggregateType, string>>;
+  /** Label of the time-field picker of a semi-additive aggregate. */
+  readonly timeField: string;
+  /** Values chip: opens the measure-filter editor (`PivotMeasure.filter`). */
+  readonly measureFilter: string;
+  /** Heading of the measure-filter editor. */
+  readonly measureFilterTitle: string;
+  readonly measureFilterField: string;
+  readonly measureFilterApply: string;
+  /** Removes the measure filter (the measure counts every record again). */
+  readonly measureFilterClear: string;
+  /** Summary of an active measure filter on the chip menu, e.g. `Only: SCENARIO = Actual`. */
+  readonly measureFilterActive: (text: string) => string;
   /** Date fields: heading of the grouping toggles. */
   readonly groupBy: string;
   readonly dateGroups: Readonly<Record<PivotDateGroup, string>>;
@@ -142,6 +170,14 @@ export const PIVOT_FIELD_LIST_LABELS: PivotFieldListLabels = {
   filter: "Filter…",
   summarizeBy: "Summarize values by",
   aggregates: { sum: "Sum", count: "Count", avg: "Average", min: "Min", max: "Max", first: "First", last: "Last", distinctCount: "Distinct Count" },
+  timeAggregates: { closingBalance: "Closing balance", openingBalance: "Opening balance", averageOverTime: "Average over time" },
+  timeField: "Over",
+  measureFilter: "Filter this measure…",
+  measureFilterTitle: "Count only records where",
+  measureFilterField: "Field",
+  measureFilterApply: "Apply",
+  measureFilterClear: "All records",
+  measureFilterActive: (text) => `Only: ${text}`,
   groupBy: "Group by",
   dateGroups: { year: "Years", yearQuarter: "Year-Quarter", quarter: "Quarters", yearMonth: "Year-Month", month: "Months", week: "Weeks", day: "Days" },
   ungroup: "Ungroup",
@@ -299,6 +335,7 @@ export interface PivotFieldListProps {
 }
 
 const AGGREGATES: readonly PivotBuiltInAggregate[] = ["sum", "count", "distinctCount", "avg", "min", "max"];
+const TIME_AGGREGATES: readonly PivotTimeAggregateType[] = ["closingBalance", "openingBalance", "averageOverTime"];
 const VISUALLY_HIDDEN: CSSProperties = {
   position: "absolute",
   width: 1,
@@ -822,6 +859,7 @@ export function PivotFieldList({
           canMoveTo={(to) => canMovePivotField(latest(), { field: panelItem.field, from: panelItem.area, to }, moveOptions)}
           onMove={(move) => runMove(move, panelItem.label)}
           onAggregate={(aggregate) => update((s) => setPivotMeasureAggregate(s, panelItem.field, aggregate, moveOptions))}
+          catalog={state.fields}
           dateGroups={dateChoices(panelItem)}
           currentDateGroups={currentDateGroups(panelItem)}
           onDateGrouping={(groups) => regroup(panelItem, groups)}
@@ -872,7 +910,7 @@ export function PivotFieldList({
   );
 }
 
-type PanelView = "menu" | "filter" | "calc";
+type PanelView = "menu" | "filter" | "calc" | "measureFilter";
 const NEW_CALC_KEY = "calc:new";
 
 interface FieldPanelProps {
@@ -890,7 +928,9 @@ interface FieldPanelProps {
   readonly filterMenuProps: Partial<PivotFilterMenuProps> | undefined;
   readonly canMoveTo: (to: PivotFieldLocation) => boolean;
   readonly onMove: (move: PivotFieldMove) => PivotFieldMovePlan;
-  readonly onAggregate: (aggregate: PivotBuiltInAggregate) => void;
+  readonly onAggregate: (aggregate: PivotSummarizeAggregate) => void;
+  /** Catalogue fields (time-field and measure-filter pickers). */
+  readonly catalog: readonly { readonly field: string; readonly label: string; readonly type?: PivotFieldType }[];
   /** Date grouping choices of the chip's source date field (`[]` hides the section). */
   readonly dateGroups: readonly PivotDateGroup[];
   readonly currentDateGroups: readonly PivotDateGroup[];
@@ -899,6 +939,87 @@ interface FieldPanelProps {
   readonly onUpdate: (fn: (s: PivotSpec) => PivotSpec) => void;
   readonly onView: (view: PanelView) => void;
   readonly onClose: (refocus?: boolean) => void;
+}
+
+/**
+ * Measure-level filter editor (`PivotMeasure.filter`): pick a field and the values the measure keeps
+ * (one `include` filter). A filter that is not a single `include` (a list, `exclude`, a label match)
+ * is shown as text and can only be cleared here; edit it in the spec.
+ */
+function MeasureFilterEditor({
+  measureId,
+  filters,
+  fields,
+  getFacet,
+  labels,
+  buttonClassName,
+  onApply,
+}: {
+  readonly measureId: string;
+  readonly filters: readonly PivotFilter[];
+  readonly fields: readonly { readonly field: string; readonly label: string }[];
+  readonly getFacet?: (field: string) => PivotFacet | undefined;
+  readonly labels: PivotFieldListLabels;
+  readonly buttonClassName: string;
+  readonly onApply: (filter: PivotFilter | null) => void;
+}) {
+  const simple = filters.length === 0 || (filters.length === 1 && filters[0]!.include !== undefined && !filters[0]!.exclude?.length && !filters[0]!.match);
+  const [field, setField] = useState<string>(filters[0]?.field ?? fields[0]?.field ?? "");
+  const [selected, setSelected] = useState<readonly string[]>(filters[0]?.include ?? []);
+  const keys = field ? (getFacet?.(field)?.values ?? []) : [];
+  const row: CSSProperties = { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 };
+  const labelOf = (f: string) => fields.find((x) => x.field === f)?.label ?? f;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }} role="group" aria-label={labels.measureFilterTitle} data-nqg-measure-filter-editor={measureId}>
+      <span className={pivotFilterMenuLabelClass}>{labels.measureFilterTitle}</span>
+      {simple ? (
+        <>
+          <label style={row} className={pivotFilterMenuLabelClass}>
+            {labels.measureFilterField}
+            <select
+              className={pivotFilterMenuInputClass}
+              value={field}
+              onChange={(e) => {
+                setField(e.target.value);
+                setSelected([]);
+              }}
+            >
+              {fields.map((f) => (
+                <option key={f.field} value={f.field}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 180, overflowY: "auto" }}>
+            {keys.map((v) => (
+              <label key={v.key} style={row}>
+                <input
+                  type="checkbox"
+                  className={pivotFilterMenuCheckboxClass}
+                  checked={selected.includes(v.key)}
+                  onChange={(e) => setSelected(e.target.checked ? [...selected, v.key] : selected.filter((k) => k !== v.key))}
+                />
+                {v.label}
+              </label>
+            ))}
+          </div>
+        </>
+      ) : (
+        <span>{filters.flatMap((f) => describePivotFilter(f, labelOf(f.field)).map((d) => d.text)).join(" · ")}</span>
+      )}
+      <div style={row}>
+        {simple ? (
+          <button type="button" className={pivotFilterMenuPrimaryButtonClass} disabled={!field || selected.length === 0} onClick={() => onApply({ field, include: [...selected] })}>
+            {labels.measureFilterApply}
+          </button>
+        ) : null}
+        <button type="button" className={buttonClassName} disabled={filters.length === 0} onClick={() => onApply(null)}>
+          {labels.measureFilterClear}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /** Chip menu / filter menu, in flow under the areas. */
@@ -918,6 +1039,7 @@ function FieldPanel({
   canMoveTo,
   onMove,
   onAggregate,
+  catalog,
   dateGroups,
   currentDateGroups,
   onDateGrouping,
@@ -936,7 +1058,17 @@ function FieldPanel({
   const row: CSSProperties = { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 };
   const heading = pivotFilterMenuLabelClass;
   const measure = item.area === "values" ? spec.measures.find((m) => m.id === item.field) : undefined;
-  const aggregate = typeof measure?.aggregate === "string" || measure?.aggregate === undefined ? (measure?.aggregate ?? "sum") : null;
+  const summarize = measure ? pivotSummarizeAggregateOf(measure.aggregate) : null;
+  const aggregate = typeof summarize === "string" ? summarize : null;
+  const timeAggregate = summarize !== null && typeof summarize === "object" ? summarize : null;
+  // Time fields: date fields of the catalogue, then date groupings used in rows / columns (`PERIOD:yearMonth`).
+  const layoutFields = [...spec.rows.map((d) => d.field), ...pivotColumnFields(spec).map((d) => d.field)];
+  const timeFields = [
+    ...catalog.filter((f) => f.type === "date").map((f) => f.field),
+    ...layoutFields.filter((f) => resolvePivotDateField(spec, f) !== null),
+  ].filter((f, i, all) => all.indexOf(f) === i);
+  const fieldLabel = (f: string) => catalog.find((c) => c.field === f)?.label ?? f;
+  const measureFilters = measure ? pivotMeasureFilters(measure.filter) : [];
   const field = item.sourceField;
   const inFilters = item.area === "filters";
 
@@ -981,6 +1113,21 @@ function FieldPanel({
         }}
         onSubmit={(next) => {
           onUpdate(() => next);
+          onView("menu");
+        }}
+      />
+    );
+  } else if (view === "measureFilter" && measure) {
+    body = (
+      <MeasureFilterEditor
+        measureId={measure.id}
+        filters={measureFilters}
+        fields={catalog.filter((f) => f.type !== "measure" && f.field !== measure.field)}
+        getFacet={getFacet}
+        labels={labels}
+        buttonClassName={buttonClassName}
+        onApply={(filter) => {
+          onUpdate((s) => setPivotMeasureFilter(s, measure.id, filter));
           onView("menu");
         }}
       />
@@ -1069,7 +1216,7 @@ function FieldPanel({
             </div>
           </div>
         ) : null}
-        {item.area === "values" && aggregate !== null && measure?.calculate === undefined ? (
+        {item.area === "values" && summarize !== null && measure?.calculate === undefined ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }} role="group" aria-label={labels.summarizeBy}>
             <span className={heading}>{labels.summarizeBy}</span>
             <div style={row}>
@@ -1078,7 +1225,50 @@ function FieldPanel({
                   {labels.aggregates[a]}
                 </button>
               ))}
+              {measure?.field && timeFields.length
+                ? TIME_AGGREGATES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={buttonClassName}
+                      aria-pressed={timeAggregate?.type === t}
+                      data-nqg-time-aggregate={t}
+                      onClick={() => onAggregate({ type: t, timeField: timeAggregate?.timeField ?? timeFields[0]! })}
+                    >
+                      {labels.timeAggregates[t]}
+                    </button>
+                  ))
+                : null}
             </div>
+            {timeAggregate ? (
+              <label style={row} className={heading}>
+                {labels.timeField}
+                <select
+                  className={pivotFilterMenuInputClass}
+                  value={timeAggregate.timeField}
+                  data-nqg-time-field=""
+                  onChange={(e) => onAggregate({ type: timeAggregate.type, timeField: e.target.value })}
+                >
+                  {[...new Set([timeAggregate.timeField, ...timeFields])].map((f) => (
+                    <option key={f} value={f}>
+                      {fieldLabel(f)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+        ) : null}
+        {item.area === "values" && measure && measure.calculate === undefined ? (
+          <div style={row} data-nqg-measure-filter="">
+            <button type="button" className={buttonClassName} onClick={() => onView("measureFilter")}>
+              {labels.measureFilter}
+            </button>
+            {measureFilters.length ? (
+              <span className={heading}>
+                {labels.measureFilterActive(measureFilters.flatMap((f) => describePivotFilter(f, fieldLabel(f.field)).map((d) => d.text)).join(" · "))}
+              </span>
+            ) : null}
           </div>
         ) : null}
         {dateGroups.length ? (

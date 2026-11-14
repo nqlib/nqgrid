@@ -24,11 +24,13 @@ import {
   swapPivotRowsColumns,
   togglePivotField,
   type PivotFieldMove,
+  type PivotSummarizeAggregate,
 } from "../core/pivot/fields";
 import {
   removePivotMeasure,
   setPivotCalculatedMeasure,
   setPivotMeasureShowAs,
+  setPivotMeasureFilter,
   setPivotMeasureSignField,
   setPivotSubtotal,
   type PivotCalculatedMeasureInput,
@@ -76,7 +78,7 @@ export type PivotGridAction =
       readonly index?: number;
       readonly fields?: readonly PivotFieldSpec[];
     }
-  | { readonly type: "setMeasureAggregate"; readonly measureId: string; readonly aggregate: PivotBuiltInAggregate; readonly fields?: readonly PivotFieldSpec[] }
+  | { readonly type: "setMeasureAggregate"; readonly measureId: string; readonly aggregate: PivotSummarizeAggregate; readonly fields?: readonly PivotFieldSpec[] }
   | { readonly type: "setValuesPosition"; readonly index: number }
   | { readonly type: "swapRowsColumns" }
   | {
@@ -97,7 +99,9 @@ export type PivotGridAction =
       readonly scope?: "all" | "leaf" | "group";
     }
   | { readonly type: "setSubtotal"; readonly field: string; readonly position: "start" | "end" | "none" }
-  | { readonly type: "setMeasureSignField"; readonly measureId: string; readonly signField: string | null };
+  | { readonly type: "setMeasureSignField"; readonly measureId: string; readonly signField: string | null }
+  /** Measure-level filter (`PivotMeasure.filter`); `null` removes it. */
+  | { readonly type: "setMeasureFilter"; readonly measureId: string; readonly filter: PivotFilter | readonly PivotFilter[] | null };
 
 /**
  * Pure spec transition behind `usePivotGrid`. `model` must be built from `spec`
@@ -163,5 +167,7 @@ export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: 
       return setPivotSubtotal(spec, action.field, action.position);
     case "setMeasureSignField":
       return setPivotMeasureSignField(spec, action.measureId, action.signField);
+    case "setMeasureFilter":
+      return setPivotMeasureFilter(spec, action.measureId, action.filter);
   }
 }
