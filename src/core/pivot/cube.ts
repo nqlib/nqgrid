@@ -83,16 +83,17 @@ interface CompiledMeasure {
   readonly kind: Kind;
   /** Slot offset within a bucket (slot 0 is the record count). */
   readonly off: number;
-  readonly a: Float64Array | null;
-  readonly b: Float64Array | null;
-  readonly p: Uint8Array | null;
+  /** Per-record columns (released once the cube is built, see `releaseColumns`). */
+  a: Float64Array | null;
+  b: Float64Array | null;
+  p: Uint8Array | null;
   readonly offset: number;
   /** Distinct count: key codes of the field, number of keys and the blank key's code (`-1`: none). */
-  readonly distinct?: { readonly codes: Int32Array; readonly keyCount: number; readonly blank: number };
+  distinct?: { readonly codes: Int32Array; readonly keyCount: number; readonly blank: number };
   /** Calculated measure: compiled expression, its references (same set) and a scratch buffer. */
   readonly calc?: { readonly program: PivotCalcProgram; readonly refs: readonly CompiledMeasure[]; readonly scratch: Float64Array };
   /** Semi-additive measures (`closingBalance` / `openingBalance` / `averageOverTime`). */
-  readonly time?: TimeAxis;
+  time?: TimeAxis;
   /** Custom aggregators with a measure filter: records that pass it (others aggregate through masked columns). */
   readonly keep?: Uint8Array;
 }
@@ -911,21 +912,25 @@ function countDistinct(t: TreeInput, nodes: readonly MutableNode[], leafOf: Int3
  */
 function sortRecordsBy(key: Int32Array, keyCount: number, desc: boolean, leafOf: Int32Array, values: Float64Array, rank: Int32Array, from?: Int32Array): Int32Array {
   const start = new Int32Array(keyCount + 1);
-  const src = from ?? null;
-  const len = src ? src.length : key.length;
-  const slot = (k: number) => (desc ? keyCount - 1 - k : k);
-  for (let q = 0; q < len; q++) {
-    const i = src ? src[q]! : q;
-    if (src === null && (leafOf[i]! < 0 || rank[i]! < 0 || values[i] !== values[i])) continue;
-    start[slot(key[i]!) + 1]!++;
+  // Slot of key k: k ascending, keyCount - 1 - k descending.
+  const mul = desc ? -1 : 1;
+  const add = desc ? keyCount - 1 : 0;
+  let src = from;
+  if (!src) {
+    // Records that count: in a leaf (not filtered out), with a time key and a value.
+    let count = 0;
+    const all = new Int32Array(key.length);
+    for (let i = 0; i < key.length; i++) if (leafOf[i]! >= 0 && rank[i]! >= 0 && values[i] === values[i]) all[count++] = i;
+    src = all.subarray(0, count);
   }
+  const len = src.length;
+  for (let q = 0; q < len; q++) start[key[src[q]!]! * mul + add + 1]!++;
   for (let k = 0; k < keyCount; k++) start[k + 1] += start[k]!;
-  const out = new Int32Array(start[keyCount]!);
+  const out = new Int32Array(len);
   const fill = start.slice(0, keyCount);
   for (let q = 0; q < len; q++) {
-    const i = src ? src[q]! : q;
-    if (src === null && (leafOf[i]! < 0 || rank[i]! < 0 || values[i] !== values[i])) continue;
-    out[fill[slot(key[i]!)]!++] = i;
+    const i = src[q]!;
+    out[fill[key[i]! * mul + add]!++] = i;
   }
   return out;
 }
@@ -993,14 +998,9 @@ function accumulateOverTime(t: TreeInput, nodes: readonly MutableNode[], leafOf:
     // Period order (latest first for closing), then a stable sort by series.
     const byPeriod = sortRecordsBy(rank, time.periods, m.kind === Kind.Closing, leafOf, values, rank);
     const order = sortRecordsBy(series, seriesCount, false, leafOf, values, rank, byPeriod);
-    const visit = (idx: number, x: number, acc: Float64Array, tag: number, p: number, v: number) => {
-      if (stamp![idx] !== tag) {
-        stamp![idx] = tag;
-        period![idx] = p;
-      } else if (period![idx] !== p) return;
-      acc[x] += v;
-      acc[x + 1]!++;
-    };
+    const st = stamp!;
+    const per = period!;
+    const pb = parentBucket!;
     for (let q = 0; q < order.length; q++) {
       const i = order[q]!;
       const tag = series[i]! + 1;
@@ -1010,10 +1010,34 @@ function accumulateOverTime(t: TreeInput, nodes: readonly MutableNode[], leafOf:
       for (let node: MutableNode | null = nodes[leafOf[i]!]!; node !== null; node = node.parent) {
         const base = node.id * B1;
         const acc = node.acc;
-        visit(base + buckets, buckets * S + off, acc, tag, p, v);
-        for (let b = cb; b >= 0; b = parentBucket![b]!) visit(base + b, b * S + off, acc, tag, p, v);
+        // The total bucket (b = buckets), then the record's column and its column groups.
+        for (let b = buckets; b >= 0; b = b === buckets ? cb : pb[b]!) {
+          const idx = base + b;
+          if (st[idx] !== tag) {
+            st[idx] = tag;
+            per[idx] = p;
+          } else if (per[idx] !== p) continue;
+          const x = b * S + off;
+          acc[x] += v;
+          acc[x + 1]!++;
+        }
       }
     }
+  }
+}
+
+/**
+ * Drop the per-record columns of compiled measures once the cube's tree is built: reading values
+ * needs only accumulators, so masked (measure filter) and time-axis (semi-additive) copies are not
+ * retained with a cached cube.
+ */
+function releaseColumns(list: readonly CompiledMeasure[]): void {
+  for (const m of list) {
+    m.a = null;
+    m.b = null;
+    m.p = null;
+    delete m.time;
+    delete m.distinct;
   }
 }
 
@@ -1555,6 +1579,7 @@ export function buildPivotCube(spec: PivotSpec, rows: readonly PivotDataRow[], o
     custom,
   });
   const value = valueFor(S, compiledMeasures);
+  releaseColumns(measureSet.list);
 
   const ordered: MutableNode[] = [];
   const walk = (node: MutableNode) => {

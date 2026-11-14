@@ -4,7 +4,7 @@
 field-list move scenarios of step 2 ([below](#step-2-field-list-moves-excel-parity-step-2)) and the column-hierarchy /
 date-grouping scenarios of step 3 ([below](#step-3-several-column-fields-and-date-grouping-excel-parity-step-3)) and the calculated-measure / distinct-count / drill-through scenarios of step 4 ([below](#step-4-calculated-measures-distinct-count-show-values-as-drill-through-excel-parity-step-4)). The [performance review](#performance-review) at the end covers the React layer and the export service too, with fixes and recommended limits.
 The [financial-statement features](#financial-statements-sign-field-and--of-with-a-global-base) (sign field, % Of with a global base) follow.
-The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts`, `bench/pivot-step4.bench.ts` and `bench/pivot-statement.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
+The harness is `bench/pivot.bench.ts`, `bench/pivot-columns.bench.ts`, `bench/pivot-step4.bench.ts`, `bench/pivot-statement.bench.ts` and `bench/pivot-planning.bench.ts` (`pnpm bench`, i.e. `vitest bench --run --dir bench`).
 
 ## Setup
 
@@ -578,3 +578,59 @@ The vitest medians swing ±10–20 % between runs of the *same* tree on this VM 
 field −9 %, add measure −9 %, calculated measure −8 %). The rows above +10 % (`signField` at 100k, the 100k step-4
 reference, sub-10 ms view-only rows) are not reproduced by the min-of-N runs above, which put the signed build at
 +2–5 %. The view stage itself only gained a loop over the measures, and validation 0.003 ms per build.
+
+## Batch B: measure filters, semi-additive aggregates, analyst XLSX
+
+What changed on the build path: `compileMeasure` folds a measure filter into the measure's columns (one filter pass,
+one masked copy) and builds a time axis for semi-additive measures; `buildTree` runs one extra pass over sorted records
+per semi-additive measure after the roll-up (like distinct counts); compiled measures drop their per-record columns once
+the cube is built (`releaseColumns`), so cached cubes retain no masked or time-axis copies. Specs without the new
+features take exactly the old record pass: the accumulation `switch` only gained a case label, `mergeBucket` another.
+
+**Regression check, min of N** (same process, interleaved 3× per tree, HEAD `eea8872` worktree vs this tree; min of
+25 runs at 100k, 8 at 500k; Intel Xeon 2.80 GHz, 4 vCPU shared VM, Node 22). Last column: best after vs best before.
+
+| Scenario | Records | before (3 rounds) | after (3 rounds) | Δ |
+|---|---:|---|---|---:|
+| Base spec, cold | 100,000 | 33.2 / 33.8 / 33.0 | 33.4 / 33.0 / 32.5 | −1.7 % |
+| Filters + facets + Top 5 + sortBy, cold | 100,000 | 35.9 / 36.0 / 36.1 | 35.6 / 36.0 / 35.0 | −2.4 % |
+| `signField` on 2 measures, cold | 100,000 | 35.8 / 35.6 / 35.9 | 35.4 / 35.8 / 36.7 | −0.4 % |
+| Date columns (`orderDate:year` → quarter), cold | 100,000 | 52.2 / 51.6 / 50.6 | 52.7 / 52.2 / 52.5 | +3.1 % |
+| Calculated measure as a 4th value, cold | 100,000 | 35.7 / 37.4 / 36.9 | 37.2 / 40.7 / 36.7 | +2.8 % |
+| View-only change (builder, cube reused) | 100,000 | 0.6 / 0.5 / 0.6 | 0.6 / 0.6 / 0.5 | ±0 |
+| Filter change: slicer click (builder) | 100,000 | 6.7 / 7.0 / 6.9 | 7.1 / 6.9 / 6.9 | +2.1 % |
+| Base spec, cold | 500,000 | 151.5 / 153.5 / 152.0 | 151.0 / 149.1 / 151.1 | −1.6 % |
+| Filters + facets + Top 5 + sortBy, cold | 500,000 | 169.3 / 180.2 / 181.9 | 171.9 / 187.5 / 178.5 | +1.5 % |
+| `signField` on 2 measures, cold | 500,000 | 165.2 / 161.8 / 161.7 | 165.9 / 161.8 / 160.8 | −0.5 % |
+| Date columns, cold | 500,000 | 251.8 / 248.5 / 248.5 | 251.2 / 248.0 / 254.0 | −0.2 % |
+| Calculated measure as a 4th value, cold | 500,000 | 163.8 / 156.3 / 153.9 | 155.1 / 156.4 / 151.6 | −1.5 % |
+| View-only change (builder, cube reused) | 500,000 | 0.7 / 0.6 / 0.7 | 0.7 / 0.7 / 0.6 | ±0 |
+| Filter change: slicer click (builder) | 500,000 | 25.9 / 25.7 / 26.1 | 26.5 / 26.3 / 25.8 | +0.5 % |
+
+Every scenario is within ±3 %, i.e. within this VM's noise; none reaches the 5 % budget.
+
+**Cost of the new features** (this tree, min of N, 3 rounds; the reference rows are the same spec without the feature):
+
+| Scenario | 100k | 500k |
+|---|---|---|
+| Reference: base spec | 33.7 / 34.0 / 34.0 | 152.8 / 153.0 / 153.0 |
+| Measure filter on 2 of the 3 values (`region` in 3 of 6) | 35.7 / 35.7 / 35.4 (+5 %) | 176.6 / 178.3 / 175.6 (+15 %) |
+| Reference: date columns, `units` as `avg` | 53.9 / 52.1 / 52.2 | 259.9 / 255.7 / 260.3 |
+| `units` as `closingBalance` over `orderDate` (730 days; 288 series) | 68.4 / 67.7 / 67.2 (+29 %) | 359.1 / 373.8 / 362.4 (+40 %) |
+| `units` as `averageOverTime` over `orderDate:yearMonth` | 64.8 / 64.8 / 65.5 (+24 %) | 306.0 / 330.0 / 312.5 (+20 %) |
+| `closingBalance` + a measure filter | 66.3 / 66.5 / 66.2 | 384.8 / 361.7 / 368.0 |
+
+A measure filter costs one filter pass plus a masked copy of the measure's value column (about 10 ms per measure at
+500k). A closing balance costs about as much as a distinct count (two counting sorts plus a walk of each record's
+nodes × buckets, ~100 ms at 500k in this layout); an average over time about half of it (one sort, distinct periods
+per slot). Transient memory: `Int32Array`s of the record count (time rank, series, two sort orders) plus two
+`Int32Array`s of nodes × buckets, all released after the build. The first version of the balance pass called a closure
+per (node, bucket) slot; inlining it and filtering the records once before the sorts took the 500k closing build from
+395 to 343–373 ms. Reported numbers are after that change.
+
+**XLSX.** `buildPivotSheet` builds a second model with `expanded: "all"` only when groups are collapsed, from the same
+cube (view stage only: a few ms at 500k, see "View-only change"); the sheet itself is O(cells). Outline, print setup and
+formulas add no measurable time to `writePivotXlsx`.
+
+The harness was a temporary script (min-of-N, interleaved, importing both trees' `build-model.ts` into one process);
+`bench/pivot-planning.bench.ts` keeps the feature scenarios for `pnpm bench`.
