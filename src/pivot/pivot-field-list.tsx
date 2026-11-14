@@ -38,6 +38,7 @@ import { clearPivotFilter, setPivotFilterValues, setPivotSort, setPivotTopN } fr
 import { pivotColumnFields } from "../core/pivot/columns";
 import { describePivotFilter, pivotMeasureFilters } from "../core/pivot/filter";
 import { removePivotMeasure, setPivotMeasureFilter, setPivotSubtotal } from "../core/pivot/measures";
+import { removePivotCalculatedItem } from "../core/pivot/calculated-items";
 import { PIVOT_DATE_GROUPS, resolvePivotDateField } from "../core/pivot/dates";
 import type {
   PivotBuiltInAggregate,
@@ -81,7 +82,14 @@ import { pivotDropZoneProps, startPivotFieldDrag, type PivotFieldDragSource, typ
 import { cx } from "./heat";
 import { PivotFilterMenu, type PivotFilterMenuProps } from "./pivot-filter-menu";
 import { PivotFilterIcon } from "./pivot-header-indicator";
-import { PivotCalculatedMeasureForm, PivotShowAsMenu, type PivotCalculatedMeasureLabels, type PivotShowAsLabels } from "./pivot-measure-menus";
+import {
+  PivotCalculatedItemForm,
+  PivotCalculatedMeasureForm,
+  PivotShowAsMenu,
+  type PivotCalculatedItemLabels,
+  type PivotCalculatedMeasureLabels,
+  type PivotShowAsLabels,
+} from "./pivot-measure-menus";
 import type { PivotGridState } from "./use-pivot-grid";
 import type { PivotLayoutDraftState } from "./use-pivot-layout-draft";
 
@@ -134,8 +142,14 @@ export interface PivotFieldListLabels {
   readonly addCalculated: string;
   /** Values chip of a calculated measure: edit its formula. */
   readonly editFormula: string;
-  /** Labels of the embedded `PivotCalculatedMeasureForm` / `PivotShowAsMenu`. */
+  /** Rows chip: heading of the field's calculated items and the button opening `PivotCalculatedItemForm`. */
+  readonly calculatedItems: string;
+  readonly addCalculatedItem: string;
+  /** Rows chip: edit one calculated item. */
+  readonly editItem: (label: string) => string;
+  /** Labels of the embedded `PivotCalculatedMeasureForm` / `PivotCalculatedItemForm` / `PivotShowAsMenu`. */
   readonly calculatedForm?: Partial<PivotCalculatedMeasureLabels>;
+  readonly calculatedItemForm?: Partial<PivotCalculatedItemLabels>;
   readonly showAs?: Partial<PivotShowAsLabels>;
   readonly fieldOptions: (label: string) => string;
   readonly close: string;
@@ -186,6 +200,9 @@ export const PIVOT_FIELD_LIST_LABELS: PivotFieldListLabels = {
   columnSubtotals: { start: "Before", end: "After", none: "Off" },
   addCalculated: "Calculated measure…",
   editFormula: "Edit formula…",
+  calculatedItems: "Calculated items",
+  addCalculatedItem: "Calculated item…",
+  editItem: (label) => `Edit ${label}`,
   fieldOptions: (label) => `${label} options`,
   close: "Close",
   back: "Back",
@@ -910,7 +927,7 @@ export function PivotFieldList({
   );
 }
 
-type PanelView = "menu" | "filter" | "calc" | "measureFilter";
+type PanelView = "menu" | "filter" | "calc" | "measureFilter" | "item";
 const NEW_CALC_KEY = "calc:new";
 
 interface FieldPanelProps {
@@ -1069,6 +1086,9 @@ function FieldPanel({
   ].filter((f, i, all) => all.indexOf(f) === i);
   const fieldLabel = (f: string) => catalog.find((c) => c.field === f)?.label ?? f;
   const measureFilters = measure ? pivotMeasureFilters(measure.filter) : [];
+  // Rows chips: the calculated item being edited (`undefined`: a new one) in the "item" view.
+  const [itemKey, setItemKey] = useState<string | undefined>(undefined);
+  const rowDim = item.area === "rows" ? spec.rows.find((d) => d.field === item.field) : undefined;
   const field = item.sourceField;
   const inFilters = item.area === "filters";
 
@@ -1099,7 +1119,33 @@ function FieldPanel({
   const subtotalLabels = item.area === "rows" ? labels.rowSubtotals : labels.columnSubtotals;
 
   let body: ReactNode;
-  if (view === "calc" && measure?.calculate !== undefined) {
+  if (view === "item" && rowDim) {
+    const keys = (getFacet?.(rowDim.field)?.values ?? []).map((v) => ({ key: v.key, label: v.label }));
+    body = (
+      <PivotCalculatedItemForm
+        key={itemKey ?? "\u0000new"}
+        spec={spec}
+        field={rowDim.field}
+        itemKey={itemKey}
+        keys={keys}
+        labels={labels.calculatedItemForm}
+        style={{ width: "100%" }}
+        onCancel={() => onView("menu")}
+        onRemove={
+          itemKey !== undefined
+            ? () => {
+                onUpdate((s) => removePivotCalculatedItem(s, rowDim.field, itemKey));
+                onView("menu");
+              }
+            : undefined
+        }
+        onSubmit={(next) => {
+          onUpdate(() => next);
+          onView("menu");
+        }}
+      />
+    );
+  } else if (view === "calc" && measure?.calculate !== undefined) {
     body = (
       <PivotCalculatedMeasureForm
         spec={spec}
@@ -1196,6 +1242,40 @@ function FieldPanel({
             onChange={(next) => onUpdate(() => next)}
             style={{ width: "100%" }}
           />
+        ) : null}
+        {rowDim ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }} role="group" aria-label={labels.calculatedItems} data-nqg-calculated-items="">
+            <span className={heading}>{labels.calculatedItems}</span>
+            <div style={row}>
+              {(rowDim.calculatedItems ?? []).map((it) => (
+                <button
+                  key={it.key}
+                  type="button"
+                  className={buttonClassName}
+                  title={it.formula}
+                  aria-label={labels.editItem(it.label ?? it.key)}
+                  data-nqg-edit-item={it.key}
+                  onClick={() => {
+                    setItemKey(it.key);
+                    onView("item");
+                  }}
+                >
+                  {it.label ?? it.key}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={buttonClassName}
+                data-nqg-add-item=""
+                onClick={() => {
+                  setItemKey(undefined);
+                  onView("item");
+                }}
+              >
+                {labels.addCalculatedItem}
+              </button>
+            </div>
+          </div>
         ) : null}
         {groupLevel && subtotal !== null ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }} role="group" aria-label={labels.subtotals} data-nqg-subtotals="">

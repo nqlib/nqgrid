@@ -18,6 +18,7 @@ import {
   fpaBalancePivotSpec,
   fpaPivotSpec,
   generateFpaPivotRows,
+  generateIncomePivotRows,
   generatePlanningPivotRows,
   generateStatementPivotRows,
   PIVOT_VALUES_FIELD,
@@ -25,6 +26,7 @@ import {
   planningDatesPivotSpec,
   planningFieldCatalog,
   planningPivotSpec,
+  incomePivotSpec,
   pivotExportFilename,
   setPivotTopN,
   statementPivotSpec,
@@ -184,7 +186,7 @@ interface Preset {
  * catalogue (labels, types, allowed areas) for the field list; plus an income statement (P&L recipe,
  * docs/pivot-recipes.md). Filters, sort, Top N and the layout are changed by the controls.
  */
-const PRESETS: Readonly<Record<"planning" | "dates" | "calc" | "statement" | "fpa" | "balance", Preset>> = {
+const PRESETS: Readonly<Record<"planning" | "dates" | "calc" | "statement" | "income" | "fpa" | "balance", Preset>> = {
   planning: {
     label: "Fiscal months",
     spec: { ...planningPivotSpec, facets: ["department", "line"], fields: planningFieldCatalog } as PivotSpec,
@@ -204,6 +206,12 @@ const PRESETS: Readonly<Record<"planning" | "dates" | "calc" | "statement" | "fp
     label: "Income statement (P&L)",
     spec: { ...statementPivotSpec, facets: ["SECTION", "LINE"] },
     rows: generateStatementPivotRows,
+    slicers: ["SECTION", "LINE"],
+  },
+  income: {
+    label: "Income statement · calculated items",
+    spec: { ...incomePivotSpec, facets: ["SECTION", "LINE"] },
+    rows: generateIncomePivotRows,
     slicers: ["SECTION", "LINE"],
   },
   fpa: {
@@ -508,7 +516,9 @@ function PlanningPivotView({ preset, onPresetChange }: { preset: PresetId; onPre
                   ? "vs Plan = actual / plan - 1 · YoY = % difference from the previous year · double-click a cell for its records."
                   : preset === "statement"
                     ? "Amounts signed by SIGN · lines ordered by LINE_SORT · % of Revenue against the Revenue line across sections."
-                    : preset === "fpa"
+                    : preset === "income"
+                      ? "Gross margin, Gross margin % and EBITDA are calculated items on Section (left out of the totals) · Section chip → Calculated items to edit."
+                      : preset === "fpa"
                       ? "One long table: Actual, Budget and PY are measure filters on SCENARIO / year · USD thousands."
                       : preset === "balance"
                         ? "Balances are closing balances (Q1 = March) · FTE is the average of the monthly headcount."

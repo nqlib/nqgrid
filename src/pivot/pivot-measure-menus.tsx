@@ -1,6 +1,7 @@
 import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { formatPivotCalcError, type PivotCalcError } from "../core/pivot/calc";
+import { checkPivotCalculatedItem, pivotItemReference, pivotItemReferencers, planPivotCalculatedItem, type PivotCalculatedItemInput } from "../core/pivot/calculated-items";
 import { pivotColumnFields } from "../core/pivot/columns";
 import { checkPivotCalculatedMeasure, planPivotCalculatedMeasure, setPivotMeasureShowAs } from "../core/pivot/measures";
 import type { PivotFacet, PivotNumberFormat, PivotShowAs, PivotShowAsBase, PivotSpec } from "../core/pivot/types";
@@ -185,6 +186,231 @@ export function PivotCalculatedMeasureForm({ spec, measureId, onSubmit, onCancel
           </button>
         ) : null}
         <button type="submit" className={pivotFilterMenuPrimaryButtonClass} disabled={!valid} data-nqg-calc-submit="">
+          {existing ? labels.save : labels.add}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Calculated item form
+// ---------------------------------------------------------------------------
+
+export interface PivotCalculatedItemLabels {
+  readonly titleNew: string;
+  readonly titleEdit: string;
+  readonly name: string;
+  readonly formula: string;
+  readonly placeholder: string;
+  readonly insert: string;
+  readonly placement: string;
+  readonly placements: Readonly<Record<"end" | "start", string>>;
+  readonly after: (label: string) => string;
+  readonly before: (label: string) => string;
+  readonly format: string;
+  readonly formats: Readonly<Record<"keep" | "number" | "percent" | "integer", string>>;
+  readonly includeInTotals: string;
+  readonly hint: string;
+  /** Shown instead of Delete while another item's formula reads this one. */
+  readonly usedBy: (keys: string) => string;
+  readonly add: string;
+  readonly save: string;
+  readonly cancel: string;
+  readonly remove: string;
+}
+
+export const PIVOT_CALCULATED_ITEM_LABELS: PivotCalculatedItemLabels = {
+  titleNew: "New calculated item",
+  titleEdit: "Edit calculated item",
+  name: "Name",
+  formula: "Formula",
+  placeholder: "e.g. [Revenue] + [Cost of sales]",
+  insert: "Insert item…",
+  placement: "Position",
+  placements: { end: "At the end", start: "At the start" },
+  after: (label) => `After ${label}`,
+  before: (label) => `Before ${label}`,
+  format: "Format",
+  formats: { keep: "Measure format", number: "Number", percent: "Percent", integer: "Integer" },
+  includeInTotals: "Add to totals",
+  hint: "Items of this field in [brackets], + - * / % ^, abs, round, min, max, if, coalesce. Evaluated per column on each item's totals; left out of subtotals and the grand total unless added.",
+  usedBy: (keys) => `Used by ${keys}`,
+  add: "Add",
+  save: "Save",
+  cancel: "Cancel",
+  remove: "Delete",
+};
+
+const ITEM_FORMATS: Readonly<Record<"number" | "percent" | "integer", PivotNumberFormat>> = {
+  number: {},
+  percent: { style: "percent", decimals: 1 },
+  integer: { decimals: 0 },
+};
+
+export interface PivotCalculatedItemFormProps {
+  readonly spec: PivotSpec;
+  /** Row field the item belongs to. */
+  readonly field: string;
+  /** Edit this calculated item (default: create a new one). */
+  readonly itemKey?: string;
+  /** Keys of the field, for the insert and position pickers (e.g. `grid.facet(field)`). */
+  readonly keys?: readonly { readonly key: string; readonly label: string }[];
+  /** Called with the new spec (and the item key) when the item is valid and submitted. */
+  readonly onSubmit: (next: PivotSpec, key: string) => void;
+  readonly onCancel?: () => void;
+  /** Shows a Delete button (editing only; disabled while another item reads this one). */
+  readonly onRemove?: () => void;
+  readonly className?: string;
+  readonly style?: CSSProperties;
+  readonly labels?: Partial<PivotCalculatedItemLabels>;
+}
+
+/**
+ * Excel's "Insert calculated item" for a row field: name, formula over keys of the field (validated as you
+ * type with `checkPivotCalculatedItem`: grammar, a taken name, reference cycles among items — message and
+ * position inline), an "insert item" picker, the position among the siblings (after / before a key, start,
+ * end), a format and "add to totals". Submits through `planPivotCalculatedItem`.
+ */
+export function PivotCalculatedItemForm({ spec, field, itemKey, keys = [], onSubmit, onCancel, onRemove, className, style, labels: overrides }: PivotCalculatedItemFormProps) {
+  const labels = { ...PIVOT_CALCULATED_ITEM_LABELS, ...overrides };
+  const id = useId();
+  const dim = spec.rows.find((d) => d.field === field);
+  const items = dim?.calculatedItems ?? [];
+  const existing = itemKey !== undefined ? items.find((it) => it.key === itemKey) : undefined;
+  const [name, setName] = useState(existing?.key ?? "");
+  const [formula, setFormula] = useState(existing?.formula ?? "");
+  const initialPlacement = existing?.after !== undefined ? `after:${existing.after}` : existing?.before !== undefined ? `before:${existing.before}` : existing?.position === "start" ? "start" : "end";
+  const [placement, setPlacement] = useState(initialPlacement);
+  // "keep": the measures' format for a new item, the item's own format when editing one.
+  const [format, setFormat] = useState<"keep" | "number" | "percent" | "integer">("keep");
+  const [includeInTotals, setIncludeInTotals] = useState(existing?.includeInTotals === true);
+  const [touched, setTouched] = useState(false);
+  const key = name.trim();
+  const input: PivotCalculatedItemInput = useMemo(() => {
+    const [kind, ...rest] = placement.split(":");
+    const anchor = rest.join(":");
+    return {
+      key,
+      formula,
+      ...(existing?.label !== undefined ? { label: existing.label } : {}),
+      ...(kind === "after" ? { after: anchor } : kind === "before" ? { before: anchor } : kind === "start" ? { position: "start" as const } : {}),
+      ...(format !== "keep" ? { format: ITEM_FORMATS[format] } : {}),
+      ...(includeInTotals ? { includeInTotals: true } : {}),
+    };
+  }, [key, formula, placement, format, includeInTotals, existing?.label]);
+  const error = useMemo(() => (formula.trim() ? checkPivotCalculatedItem(spec, field, input.key ? input : { ...input, key: itemKey ?? "\u0000new" }, itemKey) : null), [spec, field, input, itemKey]);
+  const valid = formula.trim() !== "" && key !== "" && error === null;
+  const errorText = error ? ("code" in error && (error.code === "cycle" || error.code === "keyTaken" || error.code === "notRowField" || error.code === "emptyKey") ? error.message : formatPivotCalcError(error as PivotCalcError)) : null;
+  const referencers = existing ? pivotItemReferencers(spec, field, existing.key) : [];
+  // Insert / position choices: the field's keys, then the other calculated items.
+  const choices = [
+    ...keys.filter((k) => !items.some((it) => it.key === k.key)),
+    ...items.filter((it) => it.key !== existing?.key).map((it) => ({ key: it.key, label: it.label ?? it.key })),
+  ];
+
+  const submit = () => {
+    setTouched(true);
+    if (!valid) return;
+    const plan = planPivotCalculatedItem(spec, field, existing?.format && format === "keep" ? { ...input, format: existing.format } : input, existing?.key);
+    if (!plan.error && (plan.changed || existing)) onSubmit(plan.spec, key);
+  };
+
+  const column: CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
+  return (
+    <form
+      className={cx(pivotFilterMenuClass, className)}
+      style={style}
+      aria-label={existing ? labels.titleEdit : labels.titleNew}
+      data-nqg-item-form={field}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <span className={pivotFilterMenuLabelClass}>{existing ? labels.titleEdit : labels.titleNew}</span>
+      <label style={column}>
+        <span className={pivotFilterMenuLabelClass}>{labels.name}</span>
+        <input className={pivotFilterMenuInputClass} value={name} onChange={(e) => setName(e.target.value)} data-nqg-item-name="" />
+      </label>
+      <label style={column}>
+        <span className={pivotFilterMenuLabelClass}>{labels.formula}</span>
+        <textarea
+          className={pivotCalcInputClass}
+          value={formula}
+          placeholder={labels.placeholder}
+          spellCheck={false}
+          aria-invalid={Boolean(errorText && (touched || formula.length > 0))}
+          aria-describedby={`${id}-error ${id}-hint`}
+          onChange={(e) => setFormula(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          data-nqg-item-formula=""
+        />
+      </label>
+      <span id={`${id}-error`} className={pivotCalcErrorClass} aria-live="polite" data-nqg-item-error="">
+        {errorText && (touched || formula.length > 0) ? errorText : ""}
+      </span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <select
+          className={pivotFilterMenuInputClass}
+          aria-label={labels.insert}
+          value=""
+          onChange={(e) => {
+            const ref = e.target.value;
+            if (ref) setFormula((f) => (f && !/\s$/.test(f) ? `${f} ${pivotItemReference(ref)}` : `${f}${pivotItemReference(ref)}`));
+          }}
+        >
+          <option value="">{labels.insert}</option>
+          {choices.map((k) => (
+            <option key={k.key} value={k.key}>
+              {k.label}
+            </option>
+          ))}
+        </select>
+        <select className={pivotFilterMenuInputClass} aria-label={labels.placement} value={placement} onChange={(e) => setPlacement(e.target.value)} data-nqg-item-placement="">
+          <option value="end">{labels.placements.end}</option>
+          <option value="start">{labels.placements.start}</option>
+          {[...choices, ...(placement.includes(":") && !choices.some((c) => placement.endsWith(`:${c.key}`)) ? [{ key: placement.slice(placement.indexOf(":") + 1), label: placement.slice(placement.indexOf(":") + 1) }] : [])].flatMap((k) => [
+            <option key={`after:${k.key}`} value={`after:${k.key}`}>
+              {labels.after(k.label)}
+            </option>,
+            <option key={`before:${k.key}`} value={`before:${k.key}`}>
+              {labels.before(k.label)}
+            </option>,
+          ])}
+        </select>
+        <select className={pivotFilterMenuInputClass} aria-label={labels.format} value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
+          {(["keep", "number", "percent", "integer"] as const).map((f) => (
+            <option key={f} value={f}>
+              {labels.format}: {labels.formats[f]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <label className={pivotFilterMenuLabelClass} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <input type="checkbox" checked={includeInTotals} onChange={(e) => setIncludeInTotals(e.target.checked)} data-nqg-item-totals="" />
+        {labels.includeInTotals}
+      </label>
+      <span id={`${id}-hint`} className={pivotCalcErrorClass} style={{ color: "var(--muted-foreground, inherit)" }}>
+        {labels.hint}
+      </span>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+        {existing && onRemove ? (
+          <button type="button" className={pivotFilterMenuButtonClass} onClick={onRemove} disabled={referencers.length > 0} title={referencers.length ? labels.usedBy(referencers.join(", ")) : undefined} style={{ marginRight: "auto" }}>
+            {labels.remove}
+          </button>
+        ) : null}
+        {onCancel ? (
+          <button type="button" className={pivotFilterMenuButtonClass} onClick={onCancel}>
+            {labels.cancel}
+          </button>
+        ) : null}
+        <button type="submit" className={pivotFilterMenuPrimaryButtonClass} disabled={!valid} data-nqg-item-submit="">
           {existing ? labels.save : labels.add}
         </button>
       </div>

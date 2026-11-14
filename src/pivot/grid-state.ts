@@ -35,6 +35,7 @@ import {
   setPivotSubtotal,
   type PivotCalculatedMeasureInput,
 } from "../core/pivot/measures";
+import { removePivotCalculatedItem, setPivotCalculatedItem, setPivotSubtotalLabel, type PivotCalculatedItemInput } from "../core/pivot/calculated-items";
 import type {
   PivotBuiltInAggregate,
   PivotDateGroup,
@@ -101,7 +102,13 @@ export type PivotGridAction =
   | { readonly type: "setSubtotal"; readonly field: string; readonly position: "start" | "end" | "none" }
   | { readonly type: "setMeasureSignField"; readonly measureId: string; readonly signField: string | null }
   /** Measure-level filter (`PivotMeasure.filter`); `null` removes it. */
-  | { readonly type: "setMeasureFilter"; readonly measureId: string; readonly filter: PivotFilter | readonly PivotFilter[] | null };
+  | { readonly type: "setMeasureFilter"; readonly measureId: string; readonly filter: PivotFilter | readonly PivotFilter[] | null }
+  /** Add a calculated item to a row field, or replace the item `replaceKey` (`setPivotCalculatedItem`; invalid items are ignored). */
+  | { readonly type: "setCalculatedItem"; readonly field: string; readonly item: PivotCalculatedItemInput; readonly replaceKey?: string }
+  /** Remove a calculated item (`removePivotCalculatedItem`; refused while another item's formula reads it). */
+  | { readonly type: "removeCalculatedItem"; readonly field: string; readonly key: string }
+  /** Subtotal label of one group (`subtotalLabels`); `null` clears it. */
+  | { readonly type: "setSubtotalLabel"; readonly field: string; readonly key: string; readonly label: string | null };
 
 /**
  * Pure spec transition behind `usePivotGrid`. `model` must be built from `spec`
@@ -169,5 +176,11 @@ export function reducePivotGridSpec(spec: PivotSpec, model: PivotModel, action: 
       return setPivotMeasureSignField(spec, action.measureId, action.signField);
     case "setMeasureFilter":
       return setPivotMeasureFilter(spec, action.measureId, action.filter);
+    case "setCalculatedItem":
+      return setPivotCalculatedItem(spec, action.field, action.item, action.replaceKey);
+    case "removeCalculatedItem":
+      return removePivotCalculatedItem(spec, action.field, action.key);
+    case "setSubtotalLabel":
+      return setPivotSubtotalLabel(spec, action.field, action.key, action.label);
   }
 }
