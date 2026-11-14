@@ -207,8 +207,10 @@ only describe the layout. The PDF/XLSX matches what users see in the app.
   `{"type": "weightedAvg", "weightField": "units"}`, or
   `{"type": "ratio", "numeratorField": "actual", "denominatorField": "priorYear", "offset": -1}` (offset -1 = growth).
   `field` is required except for `count` and `ratio`. Custom aggregators are not available.
-  `first` / `last` are the first / last **row in input order** (a group total takes one row, not each account's last
-  value), and `avg` averages rows: see "Traps" before using them for balances or headcount.
+  Balances and headcount: `{"type": "closingBalance", "timeField": "PERIOD"}` / `"openingBalance"` /
+  `{"type": "averageOverTime", "timeField": "PERIOD"}` (see "Planning"). `first` / `last` are the first / last
+  **row in input order** (a group total takes one row), and `avg` averages rows: never use them for balances or
+  headcount.
   Measure properties (inside a measure, never at the top level):
   - `format`: `{"style": "currency", "currency": "USD", "compact": true}`, `{"style": "percent", "signDisplay":
     "exceptZero"}`, `{"style": "decimal", "decimals": 1}`; "in $k": `{"style": "currency", "currency": "USD",
@@ -216,6 +218,8 @@ only describe the layout. The PDF/XLSX matches what users see in the app.
   - `showAs` / `groupShowAs`: `percentOfColumnTotal | percentOfParentRow | percentOfParentColumn | percentOfRowTotal |
     percentOfGrandTotal`, or the kinds along a base field (see "Calculated measures and show values as");
     `percentFormat` formats them.
+  - `filter`: a measure-level filter, `{"field": "SCENARIO", "include": ["Actual"]}` or a list of filters (ANDed):
+    this measure aggregates only those rows (see "Planning").
 
 ## Optional (top-level keys)
 - `id` (also the file name), `title`, `subtitle`, `units` (unit note printed under the title and in the XLSX page
@@ -347,38 +351,58 @@ Rows SECTION → LINE, months as columns, an amount, a subtotal per section, Ope
   under the grand total, no grey bands). In thousands: `"scale": 1000` in the amount's `format` plus
   `"units": "EUR thousands"`.
 
+## Planning (budget vs actual, balances, headcount)
+- **Scenarios in one long table** (a `SCENARIO` column): one measure per scenario with a measure filter, never
+  `SCENARIO` in `columns`:
+  `{"id": "actual", "field": "AMOUNT", "filter": {"field": "SCENARIO", "include": ["Actual"]}}`,
+  `{"id": "budget", "field": "AMOUNT", "filter": {"field": "SCENARIO", "include": ["Budget"]}}`,
+  `{"id": "var", "calculate": "actual - budget"}`, `{"id": "varPct", "calculate": "(actual - budget) / abs(budget)"}`.
+  Rows, columns and totals come from all rows that pass `filters`; each measure only adds its own rows.
+- **Prior year / current year**: put the year in the measure filter, not in `filters` (a report filter would remove the
+  prior-year rows): `"filter": [{"field": "SCENARIO", "include": ["Actual"]}, {"field": "PERIOD:year", "include":
+  ["2025"]}]`, with columns on `PERIOD:month` or `PERIOD:quarter` (month / quarter of any year) so both years share
+  a column. YTD: `"showAs": "runningTotal", "showAsBase": {"field": "PERIOD:month"}`.
+- **Latest estimate** (actual for closed months, else budget): two filtered measures (actual on the closed
+  `PERIOD:yearMonth` keys, budget on the others) and `{"calculate": "coalesce(leActual, 0) + coalesce(leBudget, 0)"}`.
+- **Balance sheet** (month-end balances): `"aggregate": {"type": "closingBalance", "timeField": "PERIOD"}`. A quarter
+  shows its last month, a year its last month, groups add their accounts; keep the account as the innermost row level
+  (it is the unit that is carried forward when a month is missing). `openingBalance` = the first period.
+- **Headcount / FTE**: `"aggregate": {"type": "averageOverTime", "timeField": "PERIOD"}` = the average over months of
+  the monthly totals (Jan 31, Feb 32, Mar 33 → Q1 32).
+- One table can hold P&L, balance and headcount rows (a `KIND` column): filter each measure on its kind.
+- Examples: `fpa_example_spec` (budget vs actual, variance, YTD, prior year, USD thousands) and
+  `fpa_balance_example_spec` (balance sheet and headcount on the same rows).
+- Workbook options (`options.xlsx`): `"rowLabels": "repeat" | "first" | "merge"` (tabular layout; default repeat, so
+  the recipient can filter and sort) and `"subtotalFormulas": true` (Excel `SUBTOTAL` formulas on totals of plain
+  sums). The XLSX always has the title / units / filters above the table, a collapsible row outline and print setup.
+
 ## Traps (believable but wrong numbers)
-- **Balances are not summed over periods.** A balance sheet by quarter with `sum` adds the monthly balances; `last`
-  takes one row of the whole group (input order), not each account's closing balance. Filter to period-end months
-  (`{"field": "PERIOD:month", "include": ["Mar", "Jun", "Sep", "Dec"]}`) with no row total, or send period-end rows.
-- **`avg` averages rows**, not per-period totals: average headcount per department over a quarter needs rows already
-  summed to department × month (do it in SQL), then `avg`.
-- **Calculated measures see aggregated values only.** `coalesce(actual, budget)` ("latest estimate") is right per
-  month but the year total is actual-to-date only. Compute row-level values (LE, YTD, prior year) in SQL as their own
-  columns.
+- **Balances are not summed over periods.** `sum` adds monthly balances and `last` takes one row in input order:
+  use `closingBalance` (see "Planning").
+- **`avg` averages rows**, not per-period totals: use `averageOverTime` for headcount.
+- **Calculated measures see aggregated values only.** `coalesce(actual, budget)` is right per month but the year total
+  is actual-to-date only: use the latest-estimate pattern in "Planning".
 - **`compact` is not "in thousands"**: it picks k / M per cell (`$950`, `$1.5k`, `$43.2k` in one column). Use
   `format.scale` + `decimals` for one unit, and say so in `units`.
 - **Scenario as a column dimension adds scenarios up**: the total column and outer subtotals become Actual + Budget,
-  and a calculated measure cannot reference `Actual`. Send scenarios as separate value columns (`ACTUAL`, `BUDGET`,
-  `PY_ACTUAL`, `YTD_ACTUAL`, …) with one measure each; calculated measures then do `actual - budget`.
+  and a calculated measure cannot reference `Actual`. Use measure filters (see "Planning").
+- **A report filter on the year removes the prior year**: filter years inside the measures.
 - **Variance % on negative bases**: `percentDifferenceFrom` divides by the signed base, so a cost overrun on a signed
   cost line shows +10 %. Use a calculated measure `(actual - budget) / abs(budget)`.
 - **Currencies are not converted**: rows in EUR and USD are summed as they are. Convert to one reporting currency
   first and name it in `units`.
-- **Data shape for FP&A**: one row per entity × account × month with signed amounts and one column per scenario
-  (`ACTUAL`, `BUDGET`, `FORECAST`) and per pre-computed comparison (`PY_ACTUAL`, `YTD_ACTUAL`, `LE`). That avoids every
-  trap above.
 
 ## Rules
 - Every `field` must exist in the rows (see `datasets[].fields`), including filter fields (for `orderDate:year`
   the rows need `orderDate`); every measure id you reference (also in `sortBy` / `topN`) must be defined.
   `sortBy` / `topN` go on `rows` dimensions only.
 - Unknown keys and invalid values are rejected (by this server's validator and by nqgrid-export itself, with the same
-  messages, e.g. `measures[0]: unknown key(s) ('filter' was unexpected)`). There is no measure-level `filter`, no
-  per-row format and no value filter: do not invent keys. Never put HTML or CSS anywhere: styling is built in.
+  messages, e.g. `measures[0].filter: unknown key(s) ('where' was unexpected)`). There is no per-row format and no
+  value filter, and calculated measures cannot have a `filter` (filter the measures they reference): do not invent
+  keys. Never put HTML or CSS anywhere: styling is built in.
 - Render `options` (separate argument): `theme` (`light | dark`), `profile` (`report | statement`), `page` (`size`
   A4 | A3 | Letter | Legal | Tabloid, `orientation`), `title` / `subtitle` / `units`, `maxColumnsPerPage`, `kpiPanel`,
-  `locale`.
+  `locale`, `xlsx` (`rowLabels`, `subtotalFormulas`).
 
 ## Workflow
 1. Call `describe_pivot_spec` and pick a dataset and its fields.

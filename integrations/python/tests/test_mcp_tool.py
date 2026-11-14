@@ -116,8 +116,14 @@ def test_describe_pivot_spec(tmp_path: Path, provider: DictRowProvider, planning
         "## Calculated measures, show values as, subtotals, distinct count",
         "showAsBase",
         "distinctCount",
+        "## Planning (budget vs actual, balances, headcount)",
+        '"filter": {"field": "SCENARIO", "include": ["Actual"]}',
+        "closingBalance",
+        "averageOverTime",
+        "fpa_balance_example_spec",
     ):
         assert topic in info["guide"]
+    assert "There is no measure-level `filter`" not in info["guide"]
 
 
 def test_describe_pivot_spec_field_catalog(tmp_path: Path, provider: DictRowProvider) -> None:

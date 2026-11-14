@@ -57,7 +57,10 @@ The playground-style fixture lives in `@nqlib/nqgrid/fixtures`:
   first / last record **in input order** with a value; a group or total takes one record, not the sum of each
   account's last value, so they are not opening / closing balances),
   `{ type: "weightedAvg", weightField }`, `{ type: "ratio", numeratorField, denominatorField, offset }`
-  (`offset: -1` = growth), or `{ type: "custom", name }` resolved from `options.aggregators`. Calculated measures:
+  (`offset: -1` = growth), the semi-additive `{ type: "closingBalance" | "openingBalance" | "averageOverTime", timeField }`
+  (see [Planning](#planning-measure-filters-and-semi-additive-aggregates)), or `{ type: "custom", name }` resolved
+  from `options.aggregators`. `filter` restricts the records one measure aggregates (Actual / Budget / prior year
+  from one long table, see [Planning](#planning-measure-filters-and-semi-additive-aggregates)). Calculated measures:
   `calculate: "actual / plan - 1"` (see [step 4](#calculated-measures-show-values-as-subtotals-distinct-count-drill-through-excel-parity-step-4)).
   `signField` multiplies each record's value by a sign column before aggregation (see
   [Financial statements](#financial-statements)).
@@ -180,9 +183,9 @@ const renderDimensionHeader = useCallback(
 
 **Exports.** `renderPivotHtml` prints "Filters: Department = Camp, Packs · Line: Top 3 by Actual, rest as Other"
 under the title (`locale.filters` renames the label). `PivotSheet.filters` carries the same lines. The
-`nqgrid-export` XLSX lists them on the hidden `Spec` sheet, and under the KPIs on the `KPIs` sheet when the spec has
-KPIs. Without KPIs the visible report sheet does not show the filters yet (a title / filter block on the report sheet
-is planned with the XLSX work).
+XLSX writers print them as a `Filters: …` line above the table on the report sheet (`PivotSheet.preamble`), and the
+`nqgrid-export` workbook also lists them on the hidden `Spec` sheet and under the KPIs on the `KPIs` sheet when the
+spec has KPIs.
 
 **Performance.** Filters and facets run in one pass over column-encoded records, and the aggregated cube is reused
 for view-only changes (expanded state, heat, labels, formats). `usePivotGrid` does this automatically. Headless
@@ -606,7 +609,10 @@ group), subtotal / collapsed columns (group key paths) and totals (`path: []`, `
 an "Other" row lists the records of the keys it folds, and keys cut by Top N without "Other" match nothing. `total`
 counts every match (equals the row's `sourceRowCount` for whole rows), `records` are in data order up to `limit`
 (default 1000). `fields` suggests display columns: row and column fields (the source of date-derived ones), then the
-source fields of `measureId` (calculated measures: of the measures they reference), else of every value. It costs one
+source fields of `measureId` (calculated measures: of the measures they reference), else of every value. With a
+`measureId` whose measure has a `filter`, only the records that pass it are listed (the records the cell counted; a
+calculated measure lists the records of any measure it references, every record when one of them is unfiltered). A
+semi-additive cell (closing balance) lists all of the cell's records, not only the latest period's. It costs one
 filter pass plus one partial aggregation per Top-N level, and nothing for specs that never drill.
 
 ### React
@@ -630,8 +636,8 @@ const result = useMemo(() => (drill ? grid.drillThrough(drill, { limit: 500 }) :
 | `PivotDrillThroughPanel` | Records table with a sticky header, one column per field (`fields`, default `result.fields`), numbers right-aligned in `formats`, "Showing 500 of 4,210 records", close button; `renderCell`, `classNames`, `labels`. `pivotDrillThroughFieldInfo(spec, fields)` gives labels and formats, `pivotDrillThroughTitle(model, target)` a heading (`Camp › Tents · FY26 · Actual`). |
 | `PivotCalculatedMeasureForm` | Name, formula (validated as you type with `checkPivotCalculatedMeasure`: the message and position show inline, Add stays disabled), insert-measure picker (`pivotCalcReference` brackets ids when needed), format; edit / delete an existing one with `measureId` / `onRemove`. |
 | `PivotShowAsMenu` | The show-as kind, base field (row / column fields), base item ((previous), (next) or a key from `getFacet`; % of needs a key) and, for a key on a row field, "Compare with" (same group / across all groups = `scope`). |
-| `PivotFieldList` | "Calculated measure…" button under the checklist; on value chips "Show values as" (and "Edit formula…" for calculated measures, which skip "Summarize values by"); "Subtotals" At top / At bottom / Off on group-level row chips (Before / After / Off on column chips); Distinct Count in "Summarize values by". |
-| `usePivotGrid` / `reducePivotGridSpec` | `setCalculatedMeasure(input)`, `removeMeasure(id)`, `setMeasureShowAs(id, showAs, base?, scope?)`, `setSubtotal(field, position)`, `setMeasureSignField(id, field \| null)`, `drillThrough(target, options?)`. |
+| `PivotFieldList` | "Calculated measure…" button under the checklist; on value chips "Show values as" (and "Edit formula…" for calculated measures, which skip "Summarize values by"); "Subtotals" At top / At bottom / Off on group-level row chips (Before / After / Off on column chips); Distinct Count, Closing balance, Opening balance and Average over time (with an "Over" time-field picker) in "Summarize values by"; "Filter this measure…" (field + values → a measure filter). |
+| `usePivotGrid` / `reducePivotGridSpec` | `setCalculatedMeasure(input)`, `removeMeasure(id)`, `setMeasureShowAs(id, showAs, base?, scope?)`, `setSubtotal(field, position)`, `setMeasureSignField(id, field \| null)`, `setMeasureFilter(id, filter \| null)`, `setMeasureAggregate(id, aggregate)` (also `{ type, timeField }`), `drillThrough(target, options?)`. |
 
 **Exports.** Static HTML / PDF and both XLSX writers render calculated measures and the new show-as kinds as numbers
 with their formats. Subtotal rows ("Camp Total" in the Department column of the sheet) are bold in both XLSX writers.
@@ -676,7 +682,8 @@ HTTP service and the Python validator accept and reject the same specs:
 
 - unknown keys everywhere the schema says `additionalProperties: false` (the spec, dimensions, measures, formats,
   `sortBy`, `topN`, `showAsBase`, aggregates, totals, heat, header charts, KPIs, filters, label matches, facets,
-  catalogue fields), with the Python validator's message: `measures[0]: unknown key(s) ('filter' was unexpected)`;
+  catalogue fields, measure filters, semi-additive aggregates), with the Python validator's message:
+  `measures[0].filter: unknown key(s) ('where' was unexpected)`;
 - enums, types and ranges (`layout`, `totals.*`, `heat.applyTo` / `domain`, `headerCharts.type`, `kpiLevels`, every
   number-format key, labels, `attributes`, `topN.otherLabel`, …);
 - keys the engine would ignore: `keepEmpty` on a row dimension (`rows[0].keepEmpty is only supported on column
@@ -686,7 +693,9 @@ HTTP service and the Python validator accept and reject the same specs:
   group rows then read the group's aggregate, as Excel calculated fields do). Put the show-as on the calculated
   measure instead: `{ "id": "ytdVar", "calculate": "actual - budget", "showAs": "runningTotal", "showAsBase": { "field":
   "PERIOD:month" } }`;
-- `format.scale` with `compact` or percent style.
+- `format.scale` with `compact` or percent style;
+- a measure `filter` on a calculated measure (`measures[1]: filter cannot be combined with calculate (filter the
+  measures it references)`), a semi-additive aggregate without `timeField`.
 
 `contract/pivot/v1/invalid-specs.json` holds the shared vectors: both test suites assert that every invalid spec is
 rejected, with identical messages where listed (unknown keys and the checks above) or at the same path (schema
@@ -707,7 +716,7 @@ and problem, with at most 5 samples:
 | `missingField` | No record has a field the spec reads (a typo) | `No record has the field "regionn" (filters[0].field); check the spelling.` |
 | `invalidDates` | Values of a date-grouped field that are not ISO 8601 / epoch ms (grouped as `(blank)`) | `2 values of "d" (rows[0].field) are not dates …, e.g. "31/12/2026" (row 1)` |
 | `mixedKeyTypes` | A key field mixes JS types (`2024` and `"2024"` are one key, `1` and `"1.0"` two) | `"k" (rows[0].field) mixes number and string values …` |
-| `filterItemsNotFound` | `filters[].include` / `exclude` items no record has (case-sensitive) | `filters[0].include: "x" is not a value of "a" …` |
+| `filterItemsNotFound` | `filters[].include` / `exclude` (or a measure filter's) items no record has (case-sensitive) | `filters[0].include: "x" is not a value of "a" …`, `measures[0].filter.include: "actual" is not a value of "SCENARIO" …` |
 | `baseItemNotFound` | `showAsBase.item` is not a key of its field | `measures[0].showAsBase.item "Revenue " is not a value of "LINE" …` |
 
 Each entry has `code`, `field`, `path`, `message` and, by code, `count`, `samples` (`[{ row, value }]`, 0-based input
@@ -799,6 +808,100 @@ dimension between Rows and Columns. Labels are per level, not per group.
 **Not added:** hiding the blank expanded group row of `subtotal: "end"` (it carries the expand / collapse toggle, the
 row spans and the virtualized row index; a hidden-row mode would complicate all three). It reads as the section heading.
 
+## Planning: measure filters and semi-additive aggregates
+
+Two additions for FP&A data, where scenarios arrive as a column of a long table and balances and headcount are not
+additive over time. Recipes with tested result tables: [Budget vs actual (long format)](./pivot-recipes.md#budget-vs-actual-long-format),
+[Balance sheet](./pivot-recipes.md#balance-sheet) and [Headcount](./pivot-recipes.md#headcount); golden examples
+`contract/pivot/v1/examples/planning-fpa.*` and `planning-fpa-bs.*`.
+
+### Measure filters (`measures[i].filter`)
+
+```jsonc
+"measures": [
+  { "id": "actual", "field": "AMOUNT", "filter": { "field": "SCENARIO", "include": ["Actual"] } },
+  { "id": "budget", "field": "AMOUNT", "filter": { "field": "SCENARIO", "include": ["Budget"] } },
+  { "id": "py",     "field": "AMOUNT", "filter": [{ "field": "SCENARIO", "include": ["Actual"] },
+                                                  { "field": "PERIOD:year", "include": ["2025"] }] },
+  { "id": "var",    "calculate": "actual - budget" }
+]
+```
+
+A measure filter is one filter or a list (ANDed), with the same shape and rules as `spec.filters` (`include`,
+`exclude`, `match`; any record field, including derived date fields such as `PERIOD:year`). Semantics are DAX's
+`CALCULATE` / Excel's `SUMIFS`:
+
+- The measure aggregates only records that pass the report filters **and** its own filter.
+- Rows, columns, totals, facets, `sourceRowCount` and Top N come from every record that passes the report filters, so a
+  line with budget records only still shows (empty `actual`, `count` 0), and Actual and Budget are never added together
+  in the row total or in outer subtotals.
+- A measure filter only narrows: a prior-year measure needs the report filters to let 2025 through (filter the current
+  year inside the measures instead of in `spec.filters`).
+- Calculated measures over filtered measures work (`actual - budget`, `(actual - budget) / abs(budget)`); a calculated
+  measure itself cannot have a filter (`validatePivotSpec`: `filter cannot be combined with calculate`).
+- Every aggregate honours it: values outside the filter count as no value (`sum`, `avg`, `min`, `max`, `first`,
+  `last`, `weightedAvg`, `ratio`, the semi-additive ones), `count` counts the records that pass, `distinctCount` the
+  distinct keys among them, custom aggregators receive only them. A cell whose records all fail is empty (`count`: 0).
+- Show-as, sort by value, Top N, heat and KPIs read the filtered values like any other measure.
+- `pivotSpecDataKey` includes the filter (only when set); drill-through with the measure's id lists only the records it
+  counted; `diagnostics` report filter items that match no record (`path: "measures[0].filter.include"`).
+
+**Cost.** Nothing for specs without measure filters: the filter is folded into the measure's columns when the cube is
+built (values outside it become `NaN`, presence and distinct-key columns are masked), so the record pass is unchanged.
+A filtered measure costs one filter pass plus one masked column copy per build (about +10 ms per measure at 500k
+records); the copies are released once the cube is built. See [pivot-performance.md](./pivot-performance.md#batch-b-measure-filters-semi-additive-aggregates-analyst-xlsx).
+
+**Period-relative measures** have no preset; build them from measure filters and show-as:
+
+| Measure | Spec |
+|---|---|
+| Current year (with the year in the measure, not in `spec.filters`) | `filter: [{ field: "SCENARIO", include: ["Actual"] }, { field: "PERIOD:year", include: ["2026"] }]` |
+| Prior year, side by side by month or quarter | the same with `"2025"`, and columns on `PERIOD:month` / `PERIOD:quarter` (month of any year), so both years share a column |
+| YTD | `showAs: "runningTotal", showAsBase: { field: "PERIOD:month" }` (resets per year under a year column), or `groupShowAs` for subtotals too |
+| YoY % | a calculated measure `(cy - py) / abs(py)`, or `percentDifferenceFrom` along `PERIOD:year` with `position: "previous"` |
+| Month vs YTD vs full-year budget in one table | three measures; full-year budget = a budget measure without a month filter, read in the row-total column |
+
+### Semi-additive aggregates (`closingBalance`, `openingBalance`, `averageOverTime`)
+
+```jsonc
+{ "id": "balance", "field": "BALANCE", "aggregate": { "type": "closingBalance", "timeField": "PERIOD" } }
+{ "id": "fte",     "field": "FTE",     "aggregate": { "type": "averageOverTime", "timeField": "PERIOD" } }
+```
+
+`timeField` is a date field (`PERIOD`), a derived date field (`PERIOD:yearMonth`) or any field whose keys sort in time
+order (numbers, ISO dates, `2026-01`). Derived date fields order chronologically; other fields by `comparePivotKeys`
+(numbers numerically, else as text, which is chronological for ISO dates). Records without a value or without a time
+key are skipped.
+
+- **`closingBalance`** (Power BI's `LASTNONBLANK`, Excel's "last" per item): in every cell, each **series** — one
+  combination of the layout's non-time row and column keys, e.g. an account (or account × region) — contributes the
+  sum of its records at the **latest time key it has in that cell**; series are then added up. A quarter shows its last
+  month's balance, a year its last month, a group adds its accounts' balances, the grand total all accounts'. Because
+  the latest period is taken per series, an account without a March record counts with its February balance in Q1 (and
+  is absent from the March column). Time levels are the `timeField`, its source date field and every other grouping of
+  that source (`PERIOD:year`, `PERIOD:yearQuarter` for `timeField: "PERIOD"`), wherever they sit (rows or columns).
+  Accounts that are not in the layout are not separate series: keep the account as the innermost row level (collapse it
+  with `expanded` if needed) so that sparse accounts are carried forward.
+- **`openingBalance`**: the same with the earliest time key.
+- **`averageOverTime`**: the cell's sum divided by the number of distinct time keys with a value in the cell, i.e. the
+  average over periods of the per-period total (headcount: Jan 31, Feb 32, Mar 33 FTE → Q1 32, not the average record).
+  Periods without data in the cell are not counted (as `AVERAGEX` over the periods present).
+
+They are correct at every level the cube computes — leaves, groups (expanded or collapsed), `subtotal: "end"` rows,
+column subtotals and collapsed column groups, the row-total column and the grand total — and work with report filters,
+measure filters, `signField` (the value is signed before the period is picked), show-as, calculated measures, heat,
+`sortBy` and Top N ("Other" adds its folded series). `showAsBase.scope: "all"` over a key that occurs under several
+parents cannot merge them, so such a base is empty (as for distinct counts). The `aggregatePivotRows` reference treats
+its rows as one series.
+
+**Cost.** Nothing for specs without them. A semi-additive measure adds one pass over the records sorted by time key
+(and series, for balances) after the tree is built, like a distinct count: +40 % (closing) / +20 % (average over time)
+on a 500k-record cold build in the benchmark layout, with transient `Int32Array`s of the record count, released once
+the cube is built.
+
+**`first` / `last`** keep their meaning: the first / last record **in input order**; a group takes one record of all
+its records. Use them for attributes, not balances.
+
 ## Cross-language contract
 
 Everything a non-JS producer needs is in [`contract/pivot/v1`](../contract/pivot/v1):
@@ -816,6 +919,9 @@ Everything a non-JS producer needs is in [`contract/pivot/v1`](../contract/pivot
 | `examples/planning-multicol.{spec,model,sheet}.json` + `.html` | Rows of `planning-fields`; Region → Channel in Columns with Σ Values between them, region subtotals, a grand total column, `percentOfParentColumn` and column-scoped heat (4 PDF chunks, one per region). |
 | `examples/planning-dates.{spec,rows,model,sheet}.json` + `.html` | Two fiscal years of rows with an ISO `orderDate`; `orderDate:year` → `orderDate:quarter` (fiscal year from November), FY25 collapsed, FY26 with a subtotal. |
 | `examples/planning-calc.{spec,model,sheet}.json` + `.html` | Rows of `planning-dates`; a calculated measure (`actual / plan - 1`, also heat, KPI and sort key), % difference from the previous fiscal year, % running total along Line, a distinct count of regions and department subtotals at the bottom. |
+| `examples/planning-statement.{spec,rows,model,sheet}.json` + `.html` | The [P&L recipe](./pivot-recipes.md#financial-statement-pl--income-statement): sign field, % of Revenue with `scope: "all"`, section subtotals labelled with the section. |
+| `examples/planning-fpa.{spec,rows,model,sheet}.json` + `.html` | A long-format FP&A table (`SCENARIO`, `KIND`, `SIGN`): Actual / Budget / prior year as measure filters, variance and Var %, YTD, USD thousands. |
+| `examples/planning-fpa-bs.{spec,model,sheet}.json` + `.html` | Rows of `planning-fpa`: balance sheet with `closingBalance` (Q1 collapsed = March) and headcount with `averageOverTime`. |
 | `calc-expressions.json` | Shared calculated-measure test vectors: valid expressions with values and expected results, invalid ones with error codes and positions (TypeScript and Python tests). |
 | `export-request.schema.json` + `examples/planning.request.json` | The export request `{ spec, rows \| dataset, format?, options? }` (CLI / `POST /export`, and app → backend with a `dataset` reference). TS: `buildPivotExportRequest`, `PIVOT_EXPORT_REQUEST_JSON_SCHEMA`; Python: [`integrations/python`](../integrations/python/README.md). |
 
@@ -829,11 +935,27 @@ references to show-as measures; `showAsBase` on a row or column field and only w
 column dimensions; `format.scale` not with `compact` / percent). `invalid-specs.json` holds the shared validation
 vectors for both languages.
 
-### XLSX without Node
+### Workbooks (XLSX) and the sheet shape
 
-`PivotSheet` is already spreadsheet-shaped (cells with `v` / `numFmt` / `bold` / `heat`,
-`merges`, `frozenRows`, `frozenCols`), so a Python service can write `.xlsx` with openpyxl
-directly from the sheet JSON. PDF still goes through the Node renderer (below) so it matches the app.
+`pivotModelToSheet(model, options)` is the one layout both XLSX writers paint (exceljs in `nqgrid-export`, openpyxl
+in the Python package), and `buildPivotSheet(spec, rows, options)` is how the exporters call it. A workbook is meant
+for an analyst who filters, sorts, regroups and prints it:
+
+| Sheet field / option | Workbook |
+|---|---|
+| `preamble`, `tableRow` | Title (bold), subtitle, units and one `Filters: …` line above the table on the report sheet, then a blank row; panes are frozen below the header rows. Options `title` / `subtitle` / `units` override them (`null` drops one), like the PDF options. |
+| `bodyRows[].outlineLevel`, `summaryBelow`, `outlineLevels` | Excel row outline (+ / − buttons): the number of groups a row is detail of. With subtotals at the top a group row is the summary of the rows below it; with `subtotal: "end"` the group's heading row collapses with its children and the subtotal row below stays (one level up). Excel has one summary position per sheet: below when the sheet has `subtotal: "end"` rows, else above. At most 7 levels. |
+| `bodyRows[].hidden`, `collapsed`; option `detail` | Groups collapsed in the view (`expanded`) are written **with** their rows, hidden, so the recipient can expand them; `buildPivotSheet` builds the expanded report from the same cube (view stage only). The row carrying the outline button gets Excel's `collapsed` flag. A collapsed `subtotal: "none"` group shows the view's totals on its row. |
+| `cells[].indent` | Compact layout: indent levels (Excel alignment indent) instead of leading spaces, so labels stay exact for filters and lookups. `pivotSheetToMatrix` re-adds two spaces per level for text output; option `indent: "  "` restores the old spaces. |
+| option `rowLabels` | Tabular layout: `repeat` (default) writes a group's label on every row of the group (Excel's "Repeat all item labels"), so AutoFilter and sort keep each row's context; `first` writes it once (Excel's pivot default); `merge` merges the cells like the PDF (filtering and sorting then fail in Excel). No body merges unless `merge` (the grand-total label is merged only then). |
+| option `profile: "statement"` → `profile`, `cells[].border` | Thin rule above subtotal values, thin rule above and double rule below the grand total, totals bold, no grey bands. |
+| option `subtotalFormulas` (needs `spec`) → `cells[].f` | Opt-in `SUBTOTAL(9, C5:C9)` formulas on group, subtotal and grand-total cells of plain `sum` / `count` measures without show-as (others keep values). `SUBTOTAL` skips nested `SUBTOTAL` cells, so each range spans all of a group's detail rows and still adds each leaf once; function 9 includes rows hidden by the outline (collapsed groups keep their totals) and drops rows hidden by an AutoFilter (Excel's behaviour). The computed value stays cached in the Node workbook; openpyxl cannot store cached values, so a Python-written workbook shows them after Excel / LibreOffice recalculates on open (readers with `data_only=True` see `None`). Off by default because a reader that does not calculate would see empty totals, and because rows the analyst deletes would change them. Both writers' formulas were checked against a LibreOffice recalculation (all equal). |
+| print setup (writers) | Landscape, fit to one page wide (any height), header rows repeated on every page (print titles), title left / units right in the page header, generated-at left and "Page N of M" right in the footer. |
+| unchanged | Numeric cells with Excel `numFmt` (percent values are ratios, `format.scale` as scaling commas), heat fills, bold subtotals, column widths, the `KPIs` sheet and the hidden `Spec` sheet. |
+
+Export options: `profile`, `title`, `subtitle`, `units` and `xlsx: { rowLabels, subtotalFormulas }` apply to
+`format=xlsx` and to `format=sheet` (so the Python writer paints the same rows). PDF still goes through the Node
+renderer (below) so it matches the app.
 
 ## React renderer (`@nqlib/nqgrid/pivot`)
 
@@ -922,8 +1044,9 @@ Pure helpers: `pivotStaticLayout`, `resolvePivotStaticPage`, `pivotColumnChunks`
 
 `@nqlib/nqgrid-export` (bin `nqgrid-export`) turns `{ spec, rows, options? }` into PDF (Playwright Chromium:
 `setContent` + `page.pdf`, running header with the title and "Page X of Y" footer), XLSX (exceljs from
-`pivotModelToSheet`: values + numFmt, merges, frozen panes, bold, heat fills, widths, `KPIs` sheet, hidden `Spec`
-sheet), HTML, or the model / sheet JSON. Full reference: [`packages/nqgrid-export/README.md`](../packages/nqgrid-export/README.md).
+`buildPivotSheet`: preamble lines, row outline with collapsed groups hidden, values + numFmt, frozen panes, print
+setup, statement rules, optional `SUBTOTAL` formulas, heat fills, widths, `KPIs` sheet, hidden `Spec` sheet; see
+[Workbooks](#workbooks-xlsx-and-the-sheet-shape)), HTML, or the model / sheet JSON. Full reference: [`packages/nqgrid-export/README.md`](../packages/nqgrid-export/README.md).
 
 ```bash
 nqgrid-export --input req.json --format pdf --out report.pdf          # or --input - / --out -
@@ -1006,6 +1129,11 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
 10. **Financial statements — done.** `percentOf` (Excel "% Of") with `showAsBase.scope: "all"` (one base item for every
    row, also for differences), `measures[i].signField`, per-level `subtotalLabel`, "% of" and "Compare with" in
    `PivotShowAsMenu`, the `planning-statement` golden and the [P&L recipe](./pivot-recipes.md).
-   Next: calculated items (formula rows over keys, e.g. EBITDA between sections), a per-group subtotal label, hiding the
-   section heading row of bottom subtotals, Σ Values in Rows, "% of parent" with a chosen base field, grouping of
-   numeric fields into ranges.
+11. **Planning (analyst review, batches A and B) — done.** Strict validation with shared vectors, `diagnostics`,
+   `format.scale` / `units`, the statement print profile; measure-level filters, `closingBalance` / `openingBalance` /
+   `averageOverTime`, analyst workbooks (outline, print setup, preamble, statement rules, optional `SUBTOTAL`
+   formulas) and the `planning-fpa` goldens.
+   Next: calculated items (formula rows over keys, e.g. EBITDA between sections), row-level computed fields (latest
+   estimate = actual where closed, else budget), a per-group subtotal label, hiding the section heading row of bottom
+   subtotals, Σ Values in Rows, "% of parent" with a chosen base field, grouping of numeric fields into ranges,
+   sentiment (favourable / unfavourable) flags.

@@ -4,7 +4,30 @@ All notable changes to `@nqlib/nqgrid` are documented here. The format follows [
 
 ## [Unreleased]
 
-### Analyst review, batch A: strict validation, diagnostics, scaling, statement print
+### Analyst review, batch B: measure filters, semi-additive aggregates, analyst workbooks
+
+`PivotSpec` stays `version: 1`; the schema changes are additive (`measures[].filter`, the `TimeAggregate` variant, export
+option `xlsx`). Existing specs produce identical models and HTML; the **sheet shape** (`pivotModelToSheet`, `format=sheet`)
+and the **XLSX layout** changed (see "Changed (behaviour)").
+
+#### Added
+
+- **Pivot core** — `measures[i].filter`: one filter or a list (same shape as `filters[]`, derived date fields included) restricting the records **that measure** aggregates (DAX `CALCULATE`): rows, columns and totals still come from every record passing the report filters. Long-format Actual / Budget / prior year side by side, variance calculations over them, drill-through with `measureId` lists only the records the measure counted, `filterItemsNotFound` diagnostics for measure filters. Folded into the measure's columns at compile time: zero cost for specs without measure filters. `setPivotMeasureFilter`, `pivotMeasureFilters`, `pivotFilterMask`.
+- **Pivot core** — semi-additive aggregates `{ type: "closingBalance" | "openingBalance", timeField }` (per series — the layout's non-time row / column keys — the sum at its latest / earliest time key in the cell, then summed: Q1 = March balance, groups add accounts) and `{ type: "averageOverTime", timeField }` (cell sum / distinct periods: headcount (31 + 32 + 33) / 3 = 32). Correct for groups (expanded and collapsed), subtotal rows, column subtotals, collapsed column groups and totals; work with filters, measure filters, `signField`, show-as, calculated measures, heat, `sortBy` and Top N. `PivotTimeAggregateType`, `pivotTimeAggregateField`, `PivotSummarizeAggregate`, `pivotSummarizeAggregateOf`; `setPivotMeasureAggregate` accepts them (labels "Closing balance of …").
+- **Pivot core (sheet)** — `PivotSheet.preamble` / `tableRow` (title, subtitle, units, filters line above the table), `subtitle`, `bodyRows` (Excel outline level, `hidden` rows of collapsed groups, `collapsed` button rows), `summaryBelow`, `outlineLevels`, `profile`, cell `indent`, `border` (statement rules) and `f` (formulas); options `rowLabels`, `detail`, `profile`, `subtotalFormulas` + `spec`, `title` / `subtitle` / `units`; `buildPivotSheet(spec, rows, options)` (model + sheet with collapsed rows from one aggregation), `pivotSheetColumnLetter`, `pivotSheetToMatrix(sheet, { includeHidden })`.
+- **nqgrid-export / Python XLSX** — analyst workbooks from both writers: preamble rows, frozen panes below the header, row outline with collapsed groups hidden (not dropped), alignment indent, repeated tabular labels, statement rules and no grey bands with `profile: "statement"`, print setup (landscape, fit to width, print titles, title / units header, generated-at and "Page N of M" footer), opt-in `SUBTOTAL(9, …)` formulas (`options.xlsx.subtotalFormulas`; Node keeps cached values, openpyxl cannot). Export options `xlsx.rowLabels` / `xlsx.subtotalFormulas` (schema, TS and Python validation, models); `writePivotXlsx(model, { sheet, profile })`; `write_xlsx_from_sheet(..., generated_at=)`.
+- **`@nqlib/nqgrid/pivot`** — field list: Closing balance / Opening balance / Average over time in "Summarize values by" with an "Over" time-field picker, and "Filter this measure…" (field + values); reducer action `setMeasureFilter`, `usePivotGrid().setMeasureFilter`, `setMeasureAggregate` with semi-additive aggregates.
+- **Contract** — goldens `examples/planning-fpa.{spec,rows,model,sheet}.json` + `.html` (long-format budget vs actual with measure filters, variance, YTD, prior year, USD thousands) and `examples/planning-fpa-bs.*` (closing balance, average over time); fixture `generateFpaPivotRows` / `fpaPivotSpec` / `fpaBalancePivotSpec`; new shared validation vectors. Python: `fpa_example_spec()`, `fpa_balance_example_spec()` (also in `describe_pivot_spec`), validation mirror (`filter` on calculated measures, measure filter / time fields in `check_fields`), JSON-type branch errors for `anyOf` (a measure filter's own path and message), e2e tests through `nqgrid-export serve` (PDF, XLSX, openpyxl parity).
+- **Docs** — recipes "Budget vs actual (long format)", "Balance sheet", "Headcount", "Analyst workbook (XLSX)" with tested tables; `docs/pivot-headless.md` "Planning" and "Workbooks" sections; authoring-guide sections for measure filters and semi-additive aggregates.
+- **Playground** — `?pivot=fpa` and `?pivot=balance` presets.
+
+#### Changed (behaviour)
+
+- **Sheet shape** (`pivotModelToSheet`, `format=sheet`, both XLSX writers): compact labels carry `indent` instead of leading spaces (`v: "Tents"`, `indent: 2`; `pivotSheetToMatrix` re-adds the spaces; option `indent: "  "` restores the old cells); tabular labels repeat on every row of their group and the body has no merges by default (`rowLabels: "merge"` restores them); the sheet always has `tableRow`, `bodyRows`, `summaryBelow`, `outlineLevels`. Golden `*.sheet.json` files changed accordingly; `format=sheet` / `format=xlsx` (via `buildPivotSheet`) now include the rows of collapsed groups, marked `hidden` (`pivotModelToSheet(model)` alone still writes only visible rows). Models and HTML goldens are unchanged.
+- **XLSX layout**: the table starts below the preamble rows (`sheet.tableRow`, e.g. row 3 with a title), so cell addresses moved; the page header always carries the title (units on the right when set) and the footer the page numbers.
+- `setPivotMeasureAggregate` takes `PivotSummarizeAggregate` (a superset of `PivotBuiltInAggregate`; the reducer action and `usePivotGrid().setMeasureAggregate` too). No public export was removed or renamed.
+
+: strict validation, diagnostics, scaling, statement print
 
 `PivotSpec` stays `version: 1` and the schema changes are additive (`units`, `format.scale`, export option
 `profile` / `units`), but validation is now strict: **specs that were accepted and silently half-ignored are now

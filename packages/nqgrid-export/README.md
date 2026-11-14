@@ -24,13 +24,14 @@ user sees in the app. Use it as a CLI, a Node API, or a small HTTP service.
     "kpiPanel": true,              // department KPI side panels
     "headerFooter": true,          // PDF running header (title) + footer (generated · Page X of Y)
     "locale": { "lang": "de", "page": "Seite", "of": "von", "continued": "(Forts.)", "columns": "Spalten", "generated": "Erstellt" },
-    "table": { "dimensionWidths": [184, 152], "valueWidth": 76, "rowHeight": 36, "headerChart": true }
+    "table": { "dimensionWidths": [184, 152], "valueWidth": 76, "rowHeight": 36, "headerChart": true },
+    "xlsx": { "rowLabels": "repeat", "subtotalFormulas": false } // XLSX / sheet: "repeat" | "first" | "merge"; SUBTOTAL formulas
   }
 }
 ```
 
 Specs are validated with `validatePivotSpec`, as strictly as the JSON Schema (unknown keys and invalid enums are
-errors, e.g. `spec: measures[0]: unknown key(s) ('filter' was unexpected)`); unknown option keys, custom aggregators
+errors, e.g. `spec: measures[0]: unknown key(s) ('formats' was unexpected)`); unknown option keys, custom aggregators
 and `options.css` are rejected too (they cannot cross JSON). Every problem is reported at once.
 
 Data problems that do not stop an export (amounts that are not numbers, fields no row has, invalid dates, filter
@@ -127,9 +128,15 @@ Errors are `PivotExportError` (`code: "invalid_input" | "payload_too_large" | "i
   column headers repeated on every page, each department kept on one page, wide pivots split into balanced column
   chunks (dimension columns repeated, "(cont.)" titles), KPI side panels, heat colors, light or dark; active spec
   filters / Top N print as "Filters: …" under the title.
-- **XLSX** — from `pivotModelToSheet`: numeric values with Excel `numFmt`, merges, frozen panes, bold subtotals, heat
-  fills, column widths; a `KPIs` sheet (grand + department KPIs, "vs Plan" deltas, then the active filters); a hidden
-  `Spec` sheet with the filters and the spec JSON for traceability.
+- **XLSX** — from `buildPivotSheet` / `pivotModelToSheet`: title, subtitle, units and the filters line above the
+  table; numeric values with Excel `numFmt`; frozen panes below the header rows; a row outline (Excel grouping) in
+  which groups collapsed in the spec are written hidden, not dropped; indented compact labels; tabular labels
+  repeated on every row (`xlsx.rowLabels`, no body merges by default, so AutoFilter and sort work); bold subtotals,
+  statement rules with `profile: "statement"`, heat fills, column widths; print setup (landscape, fit to width,
+  header rows repeated, title / units header, "Page N of M" footer); optional `SUBTOTAL(9, …)` formulas with cached
+  values (`xlsx.subtotalFormulas`); a `KPIs` sheet (grand + department KPIs, "vs Plan" deltas, then the active
+  filters); a hidden `Spec` sheet with the filters and the spec JSON for traceability. `format=sheet` returns the
+  same sheet JSON (with the same options) for other writers.
 
 ## Requirements
 

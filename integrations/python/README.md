@@ -91,7 +91,7 @@ timeout / missing binary → `NqgridUnavailable`). Each PDF launches Chromium (~
 from nqgrid_export import PivotSpec, validate_pivot_spec, validate_export_request, check_fields
 
 spec = PivotSpec.model_validate(raw)                         # structural (Pydantic)
-errors = validate_pivot_spec(raw)                            # JSON Schema + referential checks → ["measures[0]: unknown key(s) ('filter' was unexpected)", …]
+errors = validate_pivot_spec(raw)                            # JSON Schema + referential checks → ["measures[0]: unknown key(s) ('formats' was unexpected)", …]
 errors += check_fields(raw, rows)                            # fields the rows do not have (typos)
 validate_export_request({"spec": raw, "dataset": "sales"})   # the whole request, incl. options (css is rejected)
 ```
@@ -111,6 +111,10 @@ check_calculated_measure(spec, "vsPlan * 2", "vsPlan")               # "referenc
 Financial statements (P&L): `nqgrid_export.validation.statement_example_spec()` returns the golden income-statement spec (`signField`,
 `percentOf` with `showAsBase.scope: "all"`, a per-level `subtotalLabel`); `validate_pivot_spec` mirrors their rules.
 Recipe and limits: [docs/pivot-recipes.md](../../docs/pivot-recipes.md).
+
+Planning: `fpa_example_spec()` (long-format budget vs actual: measure filters on `SCENARIO` / `PERIOD:year`, variance,
+YTD, prior year, `format.scale`) and `fpa_balance_example_spec()` (`closingBalance` and `averageOverTime` on the same
+rows) return the `planning-fpa` goldens; the validator mirrors `measures[].filter` and the semi-additive aggregates.
 
 Field catalogues (what the app's field list shows) use the same inference as nqgrid core:
 
@@ -138,13 +142,19 @@ the referential checks (`keepEmpty` on rows, an unused `showAsBase`, calculated 
 ```python
 from nqgrid_export import write_xlsx_from_sheet
 
-sheet = client.export(spec, rows, format="sheet")        # all pivot logic done by nqgrid core
-xlsx = write_xlsx_from_sheet(sheet, spec=spec)           # values + numFmt, merges, frozen panes, bold, heat fills
+sheet = client.export(spec, rows, format="sheet", options={"profile": "statement"})   # all pivot logic done by nqgrid core
+xlsx = write_xlsx_from_sheet(sheet, spec=spec, generated_at=stamp)
 ```
 
+The sheet carries the layout and both writers paint it the same way: title / subtitle / units / filters above the
+table, frozen header rows, a row outline (collapsed groups written hidden, so they can be expanded in Excel),
+alignment indent, repeated tabular labels (`options={"xlsx": {"rowLabels": "merge"}}` merges instead), statement
+rules, heat fills and the print setup (landscape, fit to width, header rows on every page, page numbers).
 Use this when you want to customise workbooks in Python (extra sheets, charts, house styles). `format="xlsx"`
-gives the reference workbook (adds a `KPIs` sheet and measured column widths). Strings starting with `=` are written
-as text, never formulas.
+gives the reference workbook (adds a `KPIs` sheet and measured column widths). Strings starting with `=` in data are
+written as text, never formulas; only `SUBTOTAL` formulas requested with `options={"xlsx": {"subtotalFormulas": True}}`
+are written as formulas, without cached results (openpyxl cannot store them: Excel / LibreOffice compute them on open,
+`data_only=True` readers see `None`).
 
 ## MCP tool
 
@@ -175,7 +185,7 @@ Or, configured entirely from env: `nqgrid-export-mcp` / `python -m nqgrid_export
 | Tool | Signature | Returns |
 |------|-----------|---------|
 | `export_pivot_report` | `(spec: dict, rows: list[dict] \| None = None, dataset: str \| None = None, format: "pdf" \| "xlsx" = "pdf", email_to: list[str] \| None = None, subject: str \| None = None, options: dict \| None = None, body: str \| None = None)` | `{ok, format, path, filename, bytes, pages, rows, dataset, recipients, emailed, validation_errors, diagnostics, error}` (`diagnostics`: data problems found while building a report that was still made) |
-| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, calc_example_spec, statement_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields, date grouping, calculated measures, show values as, subtotal positions and distinct count) |
+| `describe_pivot_spec` | `(dataset: str \| None = None)` | `{guide, pivot_spec_schema, export_options_schema, example_spec, filtered_example_spec, fields_example_spec, multicol_example_spec, dates_example_spec, calc_example_spec, statement_example_spec, fpa_example_spec, fpa_balance_example_spec, formats, datasets?}`, plus `dataset` and `field_catalog` (labels, types, allowed areas, default aggregates) when `dataset` is given (the guide covers filters, sort by value, Top N, the field catalogue, several column fields, date grouping, calculated measures, show values as, subtotal positions and distinct count) |
 
 Resources: `nqgrid://pivot-spec/v1/schema` (JSON) and `nqgrid://pivot-spec/v1/guide` (Markdown).
 

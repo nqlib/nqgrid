@@ -60,6 +60,22 @@ describe("recipe: budget vs actual (long format)", () => {
     expect(drill.records.every((r) => r.SCENARIO === "Budget" && String(r.PERIOD).startsWith("2026"))).toBe(true);
   });
 
+  it("latest estimate: actual on closed months plus budget on open months, correct at totals", () => {
+    const closed = ["2026-01", "2026-02", "2026-03"];
+    const le: PivotSpec = {
+      ...fpaPivotSpec,
+      measures: [
+        ...fpaPivotSpec.measures,
+        { id: "leActual", field: "AMOUNT", signField: "SIGN", filter: [{ field: "SCENARIO", include: ["Actual"] }, { field: "PERIOD:yearMonth", include: closed }] },
+        { id: "leBudget", field: "AMOUNT", signField: "SIGN", filter: [{ field: "SCENARIO", include: ["Budget"] }, { field: "PERIOD:year", include: ["2026"] }, { field: "PERIOD:yearMonth", exclude: closed }] },
+        { id: "le", label: "LE", calculate: "coalesce(leActual, 0) + coalesce(leBudget, 0)", format: fpaPivotSpec.measures[0]!.format },
+      ],
+      values: ["actual", "budget", "le"],
+    };
+    expect(table(buildPivotModel(le, rows), ["Q1 > LE", "Q2 > LE", "H1 > LE"])["Product revenue"]).toEqual(["$318.2", "$312.0", "$630.2"]);
+    expect(rows.length).toBe(150);
+  });
+
   it("without measure filters the same layout adds Actual + Budget + prior year (the trap the filters remove)", () => {
     const naive: PivotSpec = { ...fpaPivotSpec, measures: fpaPivotSpec.measures.map((m) => ({ ...m, filter: undefined })) };
     const m = buildPivotModel(naive, rows);
