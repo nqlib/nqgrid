@@ -2,20 +2,31 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-11-14
 
-The next release, a **minor** bump. `PivotSpec` stays `version: 1`, but 0.3 users must check
-three changes before they upgrade (details under each "Changed (behaviour)" below):
+A **minor** release: calculated items, measure filters, semi-additive aggregates, analyst
+workbooks and financial statements for the pivot. `PivotSpec` stays `version: 1`.
 
-- **Stricter validation:** `validatePivotSpec` now rejects unknown keys and invalid values that
-  0.3.0 accepted and half-ignored.
-- **Sheet and XLSX layout:** labels carry `indent` instead of leading spaces, and the table starts
-  below the title rows, so cell addresses move.
-- **New row kind:** `PivotBodyRow["kind"]` gains `"calculated"`, so an exhaustive `switch` needs a
-  case.
+### Breaking
 
-Every change on `dev` goes in this section until 0.4.0 is published; then set the date and tag
-`v0.4.0`.
+Check these before you upgrade from 0.3. Details are under each "Changed (behaviour)" below.
+
+- **Stricter validation.** `validatePivotSpec` rejects unknown keys and invalid values that 0.3.0
+  accepted and half-ignored, and some referential cases (`keepEmpty` on a row dimension, an unused
+  `showAsBase`, a calculated measure over a shown-as measure). `nqgrid-export` rejects unknown
+  `options` keys. Validate your stored specs before you deploy.
+- **Sheet and XLSX layout.** Compact labels carry `indent` instead of leading spaces (option
+  `indent: "  "` restores the old cells), tabular labels repeat and the body has no merges
+  (`rowLabels: "merge"` restores them), and the table starts below the title rows, so cell
+  addresses move.
+- **New row kind.** `PivotBodyRow["kind"]` gains `"calculated"` and `PivotDimensionSlot` a
+  `calculated` variant: an exhaustive `switch` needs a case.
+- **Interfaces gained members.** `PivotRowEncoding` has `stats` and the nqgrid-export
+  `PivotExporter` has `exportDetailed`: a custom implementation must add them.
+- **Number parsing.** `"0x10"`, `"0b11"` and `"0o7"` are no longer numbers; they are reported as
+  `unparsedNumbers`.
+
+No public export was removed or renamed.
 
 ### Analyst review, batch C: calculated items, cascading totals, per-group subtotal labels
 
@@ -62,7 +73,7 @@ and the **XLSX layout** changed (see "Changed (behaviour)").
 - **XLSX layout**: the table starts below the preamble rows (`sheet.tableRow`, e.g. row 3 with a title), so cell addresses moved; the page header always carries the title (units on the right when set) and the footer the page numbers.
 - `setPivotMeasureAggregate` takes `PivotSummarizeAggregate` (a superset of `PivotBuiltInAggregate`; the reducer action and `usePivotGrid().setMeasureAggregate` too). No public export was removed or renamed.
 
-: strict validation, diagnostics, scaling, statement print
+### Analyst review, batch A: strict validation, diagnostics, scaling, statement print
 
 `PivotSpec` stays `version: 1` and the schema changes are additive (`units`, `format.scale`, export option
 `profile` / `units`), but validation is now strict: **specs that were accepted and silently half-ignored are now
