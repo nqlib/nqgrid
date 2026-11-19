@@ -221,6 +221,13 @@ export const pivotStickyHeadClass = "nqg-pivot-sticky-head sticky z-20";
 export const pivotToggleClass =
   "nqg-pivot-toggle inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+/**
+ * Column / row resize handle (`PivotTable` `onValueWidthChange`, `onDimensionWidthChange`,
+ * `onRowHeightChange`). Position and size are inline; this only shows it on hover and focus.
+ */
+export const pivotResizeHandleClass =
+  "nqg-pivot-resize bg-transparent outline-none transition-colors hover:bg-primary/40 focus-visible:bg-primary/70";
+
 /** Child-count chip next to a group label. */
 export const pivotCountClass =
   "nqg-pivot-count inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-border/70 bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground";

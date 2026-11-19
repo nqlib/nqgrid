@@ -27,7 +27,7 @@ import {
   pivotShowAsFormatKind,
   toExcelNumFmt,
 } from "./format";
-import { pivotHeatLevel, type PivotHeatDomain } from "./heat";
+import { pivotScaledHeatLevel, type PivotHeatDomain } from "./heat";
 import { computePivotRowSpans } from "./row-spans";
 import {
   PIVOT_SPEC_VERSION,
@@ -875,7 +875,9 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     const scope = spec.heat.scope ?? "all";
     const levelCount = spec.heat.levels ?? 9;
     const applyTo = spec.heat.applyTo ?? "leaf";
-    heatInfo = { measureId, scope, levels: levelCount, applyTo };
+    const diverging = spec.heat.scale === "diverging";
+    const midpoint = spec.heat.midpoint ?? 0;
+    heatInfo = diverging ? { measureId, scope, levels: levelCount, applyTo, scale: "diverging", midpoint } : { measureId, scope, levels: levelCount, applyTo };
 
     const eligible = (n: PivotCubeNode) => applyTo === "all" || (applyTo === "leaf") === isLeaf(n);
     // Leaf columns; group totals only with `column` scope (their own domain); never the grand total.
@@ -914,7 +916,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
       for (const i of eligibleCols) {
         const domain = fixed ?? domains.get(scopeKey(rowKey, i)) ?? null;
         if (!domain) continue;
-        const level = pivotHeatLevel(valueAt(n, heatMeasure, columnBuckets[i]!), domain.min, domain.max, levelCount);
+        const level = pivotScaledHeatLevel(valueAt(n, heatMeasure, columnBuckets[i]!), domain, levelCount, spec.heat.scale, midpoint, !fixed);
         if (level === undefined) continue;
         if (!byCol) heatLevels.set(n, (byCol = new Map()));
         byCol.set(i, level);
