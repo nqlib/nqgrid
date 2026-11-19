@@ -66,7 +66,7 @@ const FORMAT_KEYS = keySet(
   "style currency currencySymbol decimals compact significantDigits compactUnits signDisplay negative prefix suffix groupSeparator decimalSeparator empty scale",
 );
 const TOTALS_KEYS = keySet("grandTotal grandTotalPosition grandTotalLabel rowTotal rowTotalLabel subtotalLabel");
-const HEAT_KEYS = keySet("measure scope levels applyTo domain");
+const HEAT_KEYS = keySet("measure scope levels applyTo domain scale midpoint");
 const HEADER_CHART_KEYS = keySet("measure type breakdown");
 const KPI_KEYS = keySet("id label measure compareTo format deltaFormat");
 const FILTER_KEYS = keySet("field include exclude match label");
@@ -502,6 +502,10 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
   if (isObject(input.heat)) {
     unknown(input.heat, HEAT_KEYS, "heat");
     optEnum(input.heat.applyTo, ["leaf", "group", "all"], "heat.applyTo");
+    optEnum(input.heat.scale, ["sequential", "diverging"], "heat.scale");
+    if (input.heat.midpoint !== undefined && (typeof input.heat.midpoint !== "number" || !Number.isFinite(input.heat.midpoint))) {
+      errors.push("heat.midpoint must be a finite number");
+    }
     const domain = input.heat.domain;
     if (domain !== undefined && !(Array.isArray(domain) && domain.length === 2 && domain.every((v) => typeof v === "number"))) {
       errors.push("heat.domain must be [min, max] numbers");

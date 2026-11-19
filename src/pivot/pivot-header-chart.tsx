@@ -111,6 +111,10 @@ export interface PivotHeaderChartBandProps {
   /** Top-left cell content (default `PivotHeaderSummary`); `null` leaves it empty. */
   readonly summary?: ReactNode;
   readonly className?: string;
+  /** Interactive mode: keep the band at the top while the body scrolls (default true). */
+  readonly stickyTop?: boolean;
+  /** Interactive mode: keep the summary cell at the left while the columns scroll (default true). */
+  readonly stickyLeft?: boolean;
 }
 
 /**
@@ -125,40 +129,48 @@ export function PivotHeaderChartBand({
   height = chartHeight + 32,
   summary,
   className,
+  stickyTop = true,
+  stickyLeft = true,
 }: PivotHeaderChartBandProps) {
   const series = model.headerSeries;
   if (!series) return null;
   const pointByKey = new Map(series.points.map((p) => [p.columnKey, p] as const));
-  const sticky = mode === "interactive";
+  const interactive = mode === "interactive";
+  const sticky = interactive && stickyTop;
+  const summarySticky = interactive && (stickyTop || stickyLeft);
   const rowStyle: CSSProperties = { height };
   const first = model.headerRows[0] ?? [];
   // One band cell per run of adjacent columns with the same column key (a leaf with its measures, a
   // subtotal, the grand total), so bars sit over their columns. With Σ Values outermost
   // (`valuesIndex: 0`) every column is its own cell and only the series measure gets bars.
   const byMeasure = !first.every((h) => h.columnKey !== undefined);
-  const runs: { columnKey: string | null; colSpan: number; hasMeasure: boolean; subtotal: boolean }[] = [];
-  for (const c of model.columns) {
+  const runs: { columnKey: string | null; colSpan: number; width: number; hasMeasure: boolean; subtotal: boolean }[] = [];
+  model.columns.forEach((c, i) => {
+    const w = geometry.valueWidths?.[i] ?? geometry.valueWidth;
     const last = runs[runs.length - 1];
     if (!byMeasure && last && last.columnKey === c.columnKey && last.subtotal === (c.subtotal === true && !c.collapsed)) {
       last.colSpan++;
+      last.width += w;
       last.hasMeasure ||= c.measureId === series.measureId;
     } else {
-      runs.push({ columnKey: c.columnKey, colSpan: 1, hasMeasure: c.measureId === series.measureId, subtotal: c.subtotal === true && !c.collapsed });
+      runs.push({ columnKey: c.columnKey, colSpan: 1, width: w, hasMeasure: c.measureId === series.measureId, subtotal: c.subtotal === true && !c.collapsed });
     }
-  }
+  });
+  const uniform = !geometry.valueWidths?.some((w) => w !== geometry.valueWidth);
   return (
     <tr className={className} style={rowStyle} data-nqg-band="">
       <th
         colSpan={geometry.dimensionColumns}
-        className={cx(pivotBandSummaryCellClass, sticky && pivotPinnedHeadClass)}
-        style={sticky ? { left: 0, top: 0 } : undefined}
+        className={cx(pivotBandSummaryCellClass, summarySticky && pivotPinnedHeadClass)}
+        style={summarySticky ? (stickyTop && stickyLeft ? { left: 0, top: 0 } : stickyTop ? { top: 0 } : { left: 0 }) : undefined}
         scope="colgroup"
       >
         {summary === undefined ? <PivotHeaderSummary model={model} /> : summary}
       </th>
       {runs.map((run, i) => {
         const point = run.columnKey === null || run.subtotal || !run.hasMeasure ? undefined : pointByKey.get(run.columnKey);
-        const width = geometry.valueWidth * run.colSpan;
+        // Uniform widths: the 0.4.0 product (a float sum can differ in the last digit).
+        const width = uniform ? geometry.valueWidth * run.colSpan : run.width;
         return (
           <th
             key={`${run.columnKey ?? "total"}:${i}`}

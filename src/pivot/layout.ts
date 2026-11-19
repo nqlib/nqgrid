@@ -1,8 +1,10 @@
 import { formatPivotNumber } from "../core/pivot/format";
+import { pivotCellDesigns, type PivotBarSpec, type PivotCellDesigns } from "./design";
 import type {
   PivotBodyRow,
   PivotHeaderCell,
   PivotHeaderSeriesPoint,
+  PivotHeatSpec,
   PivotKpiValue,
   PivotModel,
   PivotRowSpan,
@@ -24,19 +26,57 @@ export interface PivotTableGeometry {
   readonly dimensionWidths: readonly number[];
   /** Sticky `left` of each dimension column in px. */
   readonly dimensionOffsets: readonly number[];
+  /** Value column width in px when `valueWidths` has no entry for the column. */
   readonly valueWidth: number;
   /** Total table width in px (fixed layout). */
   readonly width: number;
+  /**
+   * Resolved width of each value column in px, in `model.columns` order (`valueWidths[column.id]`,
+   * else `valueWidth`). Always set by `pivotTableGeometry`.
+   */
+  readonly valueWidths?: readonly number[];
+  /** Every column left to right in px: the dimension columns, then the value columns. Always set by `pivotTableGeometry`. */
+  readonly columnWidths?: readonly number[];
+  /**
+   * Header rows to freeze, e.g. an XLSX `ySplit` under any title rows: `model.headerRows.length`, or
+   * 0 with `freezeHeader: false`. The header chart band is not counted. Always set by `pivotTableGeometry`.
+   */
+  readonly frozenRows?: number;
+  /** Row-label columns to freeze (XLSX `xSplit`): `dimensionColumns`, or 0 with `freezeDimensions: false`. Always set by `pivotTableGeometry`. */
+  readonly frozenColumns?: number;
+  /**
+   * Heat and bar level of every body cell (`[rowIndex][columnIndex]`, see `pivotCellDesigns`); present
+   * when `heat` or `bars` is passed.
+   */
+  readonly cells?: PivotCellDesigns;
+}
+
+export interface PivotTableGeometryOptions {
+  readonly dimensionWidths?: readonly number[];
+  readonly valueWidth?: number;
+  /** Width per value column, by `PivotValueColumn.id` (falls back to `valueWidth`). */
+  readonly valueWidths?: Readonly<Record<string, number>>;
+  /** Default true. */
+  readonly freezeHeader?: boolean;
+  /** Default true. */
+  readonly freezeDimensions?: boolean;
+  /** As `PivotTable` `heat`: fills `cells` (pass `undefined` with `bars` for the model's own heat). */
+  readonly heat?: PivotHeatSpec | readonly PivotHeatSpec[];
+  /** As `PivotTable` `bars`: fills `cells`. */
+  readonly bars?: readonly PivotBarSpec[];
 }
 
 export const PIVOT_DEFAULT_DIMENSION_WIDTHS = [208, 172] as const;
 export const PIVOT_DEFAULT_COMPACT_WIDTH = 260;
 export const PIVOT_DEFAULT_VALUE_WIDTH = 84;
 
-export function pivotTableGeometry(
-  model: PivotModel,
-  options: { readonly dimensionWidths?: readonly number[]; readonly valueWidth?: number } = {},
-): PivotTableGeometry {
+/**
+ * Column widths, sticky offsets and frozen counts of a `PivotTable`, plus (with `heat` / `bars`) the
+ * level of each cell, so an exporter can write the same design (e.g. XLSX column widths, freeze
+ * panes and fills). Pass the model `PivotTable` renders (after `pivotOrderMeasures` when you use
+ * `measureOrder`).
+ */
+export function pivotTableGeometry(model: PivotModel, options: PivotTableGeometryOptions = {}): PivotTableGeometry {
   const dimensionColumns = model.layout === "compact" ? 1 : model.rowDimensions.length;
   const defaults = model.layout === "compact" ? [PIVOT_DEFAULT_COMPACT_WIDTH] : PIVOT_DEFAULT_DIMENSION_WIDTHS;
   const dimensionWidths = Array.from(
@@ -45,8 +85,23 @@ export function pivotTableGeometry(
   );
   const dimensionOffsets = dimensionWidths.map((_, i) => dimensionWidths.slice(0, i).reduce((a, b) => a + b, 0));
   const valueWidth = options.valueWidth ?? PIVOT_DEFAULT_VALUE_WIDTH;
-  const width = dimensionWidths.reduce((a, b) => a + b, 0) + valueWidth * model.columns.length;
-  return { dimensionColumns, dimensionWidths, dimensionOffsets, valueWidth, width };
+  const byKey = options.valueWidths;
+  const valueWidths = model.columns.map((c) => byKey?.[c.id] ?? valueWidth);
+  // Uniform widths: a product, exactly as 0.4.0 computed it (a float sum can differ in the last digit).
+  const uniform = valueWidths.every((w) => w === valueWidth);
+  const width = dimensionWidths.reduce((a, b) => a + b, 0) + (uniform ? valueWidth * model.columns.length : valueWidths.reduce((a, b) => a + b, 0));
+  return {
+    dimensionColumns,
+    dimensionWidths,
+    dimensionOffsets,
+    valueWidth,
+    width,
+    valueWidths,
+    columnWidths: [...dimensionWidths, ...valueWidths],
+    frozenRows: options.freezeHeader === false ? 0 : model.headerRows.length,
+    frozenColumns: options.freezeDimensions === false ? 0 : dimensionColumns,
+    ...(options.heat !== undefined || options.bars !== undefined ? { cells: pivotCellDesigns(model, { heat: options.heat, bars: options.bars }) } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------

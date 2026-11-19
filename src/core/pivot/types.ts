@@ -439,7 +439,19 @@ export interface PivotHeatSpec {
   readonly applyTo?: "leaf" | "group" | "all";
   /** Fixed `[min, max]` instead of the data range. */
   readonly domain?: readonly [number, number];
+  /**
+   * `sequential` (default): low → high over `0 … levels-1`. `diverging`: below `midpoint` → levels
+   * under the middle one, above it → levels over it, at it → the middle level (`floor(levels / 2)`);
+   * use an odd `levels` for a symmetric ramp. Without `domain`, both sides share the larger distance
+   * from the midpoint, so equal distances get equal levels.
+   */
+  readonly scale?: PivotHeatScale;
+  /** Diverging only: the neutral value (default 0). */
+  readonly midpoint?: number;
 }
+
+/** Color ramp of a heat spec (see `PivotHeatSpec.scale`). */
+export type PivotHeatScale = "sequential" | "diverging";
 
 export interface PivotHeaderChartSpec {
   /** Measure id (default: first entry of `values`). */
@@ -758,6 +770,10 @@ export interface PivotModel {
     readonly scope: PivotHeatScope;
     readonly levels: number;
     readonly applyTo: "leaf" | "group" | "all";
+    /** Present when the spec asks for a `diverging` ramp. */
+    readonly scale?: "diverging";
+    /** Diverging only: the neutral value. */
+    readonly midpoint?: number;
   } | null;
   readonly headerSeries: PivotHeaderSeries | null;
   /** Grand-level KPIs. */

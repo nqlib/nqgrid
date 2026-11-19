@@ -97,3 +97,12 @@ tbody tr[data-stripe="even"][data-state="selected"] > [data-pinned]:not([data-ro
 body[data-nqgrid-column-dragging] :is(button, [role="button"], [role="menuitem"]) {
   pointer-events: none;
 }
+
+/* Pivot design stories (?pivot=design): host styling of the PivotTable data attributes. */
+.nqgrid-design-demo [data-nq-band="even"] > td:not([data-nq-heat]) {
+  background-color: color-mix(in oklab, var(--muted) 55%, var(--card));
+}
+.nqgrid-design-demo [data-nq-negative] {
+  color: var(--destructive);
+}
+

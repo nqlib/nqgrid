@@ -248,6 +248,30 @@ lookups only for measures that use them.
    object. `usePivotGrid` uses one builder per grid. `PivotTable` is wrapped in `React.memo`, so parent
    re-renders with the same model skip it. Rows use stable `row.id` keys and cells use column ids.
 
+## Rendering with design props (0.5.0)
+
+`bench/pivot-render.bench.ts` renders `PivotTable` with `renderToStaticMarkup` (the whole React render and
+markup, no browser layout): the base bench model at 100k records (343 rows × 39 value columns), `virtualize: true`
+and an `overscan` that puts **10,062 value cells** in the window. Apple M5 Pro, Node 22.22.2, Vitest 3.2.4;
+30 samples after 5 warm-ups.
+
+| Scenario | Mean ms | Min ms |
+|---|---|---|
+| No design props (0.4.0 markup) | 35.6 | 31.4 |
+| Heat on two measures (one diverging) + bars on a third (**budget: < 50 ms**) | 48.1 | 43.3 |
+| Resize frame: same, with new `valueWidths` | 47.5 | 42.9 |
+| Cold: same, levels computed for a new model object | 47.7 | 42.7 |
+| Everything: heat + bars + bands + `dataAttributes` + resize and reorder handles | 53.6 | 48.2 |
+
+- The heat / bar levels, the measure order and the header layout are cached per model object (`WeakMap`, up to 8
+  orders or designs per model), so a resize frame costs the same as any re-render and never rebuilds the model. The
+  cold row is within noise of the cached one: computing the levels is small next to rendering the markup.
+- The added cost is mostly markup: a bar is one empty span with five inline style properties (an earlier version with
+  a text wrapper and nine properties cost 13 ms more). Heat style objects are shared per step.
+- The budget case passes on the mean with little headroom; single samples reach 90–100 ms when GC runs. With every
+  option on, the mean is about 54 ms. In a browser, `virtualize` keeps the window near the viewport (about 60 rows),
+  so a resize frame renders far fewer than 10,000 cells.
+
 ## Caveats
 
 - Group and grand totals are now sums of leaf partials rather than one sequential sum over records. For

@@ -2,6 +2,60 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
+## [0.5.0] - Unreleased
+
+A **minor** release: a host app can let a person customize the design of a `PivotTable`. Every new
+prop is optional, and with none set the markup is byte-identical to 0.4.0 (checked against snapshots
+of the 0.4.0 renderer). No default changed, and no export was removed or renamed. `PivotSpec` stays
+`version: 1`.
+
+### Added
+
+- **`PivotTable` design props** (`@nqlib/nqgrid/pivot`). The grid keeps no design state: each change
+  comes out through a callback and the host passes it back as a prop. See
+  [Customize the design](docs/pivot-headless.md#customize-the-design-050) and the README section.
+  - **Column widths:** `valueWidths` (by `PivotValueColumn.id`), `onValueWidthChange(key, width, info)`,
+    `onDimensionWidthChange(index, width, info)`. A `role="separator"` handle on the right edge of each
+    header: drag (48–800 px), double-click to fit the widest rendered cell, ArrowLeft / ArrowRight
+    (8 px, Shift 32 px). `info` says the source and whether the gesture ended (`final`).
+  - **Row height:** `onRowHeightChange(height, info)`, a handle on the first body row (20–96 px).
+  - **Measure order:** `measureOrder`, `onMeasureOrderChange(order)`. Drag a measure header (drop
+    indicator, Escape cancels) or press Alt+ArrowLeft / Alt+ArrowRight on it. Column-dimension members
+    keep the model's sort.
+  - **Freeze:** `freezeHeader`, `freezeDimensions` (on by default in interactive mode, as before; work
+    with `virtualize` and `pagination`).
+  - **Style hooks:** `cellClassName`, `rowClassName`, `headerClassName`, `bandedRows`
+    (`data-nq-band`), `dataAttributes` (`data-nq-measure`, `data-nq-row-kind`, `data-nq-negative`).
+  - **Heat on several measures:** `heat` takes one `PivotHeatSpec` or a list. Cells get
+    `data-nq-heat`, `data-nq-heat-scale` and a `var(--nq-pivot-heat-N)` /
+    `var(--nq-pivot-heat-diverging-N)` background.
+  - **Data bars:** `bars: PivotBarSpec[]` (`measure`, `applyTo`, `domain`, `negative: "left" | "hide"`),
+    colored by `--nq-pivot-bar` / `--nq-pivot-bar-negative`; the number stays selectable text.
+  - **Per-measure layout:** `measureLayout` (`align`, `wrap`) by measure id.
+- **`PivotHeatSpec.scale`** (`"sequential" | "diverging"`) and **`midpoint`**, in `spec.heat` too
+  (model, `validatePivotSpec`, JSON schema). `PivotModel.heat` carries `scale` / `midpoint` for a
+  diverging spec. New `pivotDivergingHeatLevel`, `pivotScaledHeatLevel` (`@nqlib/nqgrid/core`).
+- **`pivotTableGeometry` for export:** new options `valueWidths`, `freezeHeader`, `freezeDimensions`,
+  `heat`, `bars`; new result fields `valueWidths`, `columnWidths`, `frozenRows`, `frozenColumns` and
+  `cells` (heat / bar level of each cell), so a host can write the same design to XLSX. The new
+  fields are optional on the `PivotTableGeometry` type.
+- New exports: `PivotBarSpec`, `PivotMeasureLayout`, `PivotResizeInfo`, `PivotValueWidthChangeHandler`,
+  `PivotDimensionWidthChangeHandler`, `PivotRowHeightChangeHandler`, `PivotMeasureOrderChangeHandler`,
+  `PivotCellClassName`, `PivotRowClassName`, `PivotHeaderClassName`, `PivotRowClassContext`,
+  `PivotCellDesign(s)`, `PivotHeatScale` (also re-exported with `PivotHeatSpec` from `/pivot`),
+  `pivotCellDesigns`, `pivotOrderMeasures`, `pivotMeasureOrder`, `pivotMoveMeasure`,
+  `pivotHeaderLayout`, `pivotRowDesignKind`, `pivotHeatPaletteStep`, `pivotClampColumnWidth`,
+  `pivotClampRowHeight`, the `PIVOT_COLUMN_WIDTH_*` / `PIVOT_ROW_HEIGHT_*` limits, and
+  `pivotResizeHandleClass` (`@nqlib/nqgrid/styles`).
+- `PivotHeaderChartBand` props `stickyTop` / `stickyLeft` (default true).
+- `bench/pivot-render.bench.ts`: 10,000 visible cells with heat + bars + `virtualize` render in about
+  48 ms (results in `docs/pivot-performance.md`).
+
+### Notes
+
+- `@nqlib/nqgrid/render-static` does not pass the design props through yet, and it (like the Python
+  XLSX writer) colors a diverging `spec.heat` with the sequential ramp.
+
 ## [0.4.0] - 2026-11-14
 
 A **minor** release: calculated items, measure filters, semi-additive aggregates, analyst
