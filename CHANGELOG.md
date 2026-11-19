@@ -61,8 +61,16 @@ of the 0.4.0 renderer). No default changed, and no export was removed or renamed
   `PivotDesignChangeInfo`, `PivotDesignProps`, `PivotMeasureWidthChangeHandler`, the `PIVOT_COLUMN_WIDTH_*` / `PIVOT_ROW_HEIGHT_*` limits, and
   `pivotResizeHandleClass` (`@nqlib/nqgrid/styles`).
 - `PivotHeaderChartBand` props `stickyTop` / `stickyLeft` (default true).
-- `bench/pivot-render.bench.ts`: 10,000 visible cells with heat + bars + `virtualize` render in about
-  48 ms (results in `docs/pivot-performance.md`).
+- `bench/pivot-render.bench.ts`: 10,000 visible cells with heat + bars + `virtualize` render in 44 ms
+  at best and 49–53 ms on average (budget 50 ms, borderline; results in `docs/pivot-performance.md`).
+
+### Playground
+
+Playground only (`apps/playground`); not in the npm package.
+
+- Pivot showcase → **Design** (`?pivot=design:<story>`): one story per design feature (column widths,
+  row height, measure order, freeze, style hooks, heat, data bars, per-measure layout, number formats,
+  saved view) plus "All together", with the page acting as the host that stores the design.
 
 ### Notes
 

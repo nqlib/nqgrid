@@ -375,15 +375,18 @@ interface PivotDesignHeatProps {
 }
 
 const heatStyles = (ramp: string): readonly CSSProperties[] => Array.from({ length: 9 }, (_, i) => ({ backgroundColor: `var(${ramp}${i})` }));
-const SEQUENTIAL_HEAT_STYLES = heatStyles("--nq-pivot-heat-");
-const DIVERGING_HEAT_STYLES = heatStyles("--nq-pivot-heat-diverging-");
+/** One shared props object per scale and step (no allocation per cell). */
+const heatProps = (scale: "sequential" | "diverging", ramp: string): readonly PivotDesignHeatProps[] =>
+  heatStyles(ramp).map((style, step) => ({ className: pivotHeatCellClass, style, step, scale }));
+
+const SEQUENTIAL_HEAT_PROPS = heatProps("sequential", "--nq-pivot-heat-");
+const DIVERGING_HEAT_PROPS = heatProps("diverging", "--nq-pivot-heat-diverging-");
 
 /** `heat` prop cell: CSS-variable background, `data-nq-heat` step and scale. */
 function designHeatProps(design: PivotCellDesign | undefined): PivotDesignHeatProps {
   const h = design?.heat;
   if (!h) return { className: "" };
-  const styles = h.scale === "diverging" ? DIVERGING_HEAT_STYLES : SEQUENTIAL_HEAT_STYLES;
-  return { className: pivotHeatCellClass, style: styles[h.step], step: h.step, scale: h.scale };
+  return (h.scale === "diverging" ? DIVERGING_HEAT_PROPS : SEQUENTIAL_HEAT_PROPS)[h.step]!;
 }
 
 function measureLayoutStyle(layout: PivotMeasureLayout | undefined): CSSProperties | undefined {
