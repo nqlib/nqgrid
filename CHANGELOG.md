@@ -32,6 +32,18 @@ of the 0.4.0 renderer). No default changed, and no export was removed or renamed
   - **Data bars:** `bars: PivotBarSpec[]` (`measure`, `applyTo`, `domain`, `negative: "left" | "hide"`),
     colored by `--nq-pivot-bar` / `--nq-pivot-bar-negative`; the number stays selectable text.
   - **Per-measure layout:** `measureLayout` (`align`, `wrap`) by measure id.
+  - **Per-measure widths:** `measureWidths` and `onMeasureWidthChange` (one width for every column
+    of a measure; `valueWidths` entries win).
+  - **Resize look:** `data-nq-resizing` on the handle and the table while dragging, an opt-in
+    `resizeGuide` line (`--nq-pivot-resize-guide`, `--nq-pivot-resize-guide-size`) and
+    `--nq-pivot-resize-size` for the grab area.
+  - **Number formats:** `numberFormats: PivotFormatRule[]` — Excel's "Format Cells" (digits,
+    currency, percent, scale, compact, prefix / suffix, negatives) for a measure, column, row, row
+    kind or one cell, most specific first; display only. `onCellClick` reports a clicked value cell.
+- **Saved views:** `PivotTableDesign` (the whole design as JSON) and `pivotDesignProps(design,
+  onDesignChange, { widthScope })`, which returns the props and the callbacks that produce the next
+  design. `pivotCellFormats`, `pivotCellBaseFormat`; `pivotTableGeometry` takes `measureWidths` and
+  `numberFormats` (each cell's `numberFormat`: format, Excel format, text).
 - **`PivotHeatSpec.scale`** (`"sequential" | "diverging"`) and **`midpoint`**, in `spec.heat` too
   (model, `validatePivotSpec`, JSON schema). `PivotModel.heat` carries `scale` / `midpoint` for a
   diverging spec. New `pivotDivergingHeatLevel`, `pivotScaledHeatLevel` (`@nqlib/nqgrid/core`).
@@ -45,7 +57,8 @@ of the 0.4.0 renderer). No default changed, and no export was removed or renamed
   `PivotCellDesign(s)`, `PivotHeatScale` (also re-exported with `PivotHeatSpec` from `/pivot`),
   `pivotCellDesigns`, `pivotOrderMeasures`, `pivotMeasureOrder`, `pivotMoveMeasure`,
   `pivotHeaderLayout`, `pivotRowDesignKind`, `pivotHeatPaletteStep`, `pivotClampColumnWidth`,
-  `pivotClampRowHeight`, the `PIVOT_COLUMN_WIDTH_*` / `PIVOT_ROW_HEIGHT_*` limits, and
+  `pivotClampRowHeight`, `PivotFormatRule`, `PivotCellNumberFormat`, `PivotTableDesign`,
+  `PivotDesignChangeInfo`, `PivotDesignProps`, `PivotMeasureWidthChangeHandler`, the `PIVOT_COLUMN_WIDTH_*` / `PIVOT_ROW_HEIGHT_*` limits, and
   `pivotResizeHandleClass` (`@nqlib/nqgrid/styles`).
 - `PivotHeaderChartBand` props `stickyTop` / `stickyLeft` (default true).
 - `bench/pivot-render.bench.ts`: 10,000 visible cells with heat + bars + `virtualize` render in about

@@ -15,7 +15,8 @@ const VERTICAL_HANDLE_STYLE: CSSProperties = {
   top: 0,
   right: 0,
   bottom: 0,
-  width: 6,
+  // `--nq-pivot-resize-size` widens the grab area (default 6 px).
+  width: "var(--nq-pivot-resize-size, 6px)",
   cursor: "col-resize",
   touchAction: "none",
   userSelect: "none",
@@ -26,7 +27,7 @@ const HORIZONTAL_HANDLE_STYLE: CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
-  height: 6,
+  height: "var(--nq-pivot-resize-size, 6px)",
   cursor: "row-resize",
   touchAction: "none",
   userSelect: "none",
@@ -46,10 +47,12 @@ export interface PivotResizeHandleProps {
   readonly onChange: (value: number, info: PivotResizeInfo) => void;
   /** Double-click: the auto-fit size, or `null` to do nothing. */
   readonly onAutoFit?: (handle: HTMLElement) => number | null;
+  /** While dragging, draw a guide line across the visible table (`resizeGuide`). */
+  readonly guide?: boolean;
 }
 
 /** A `role="separator"` drag handle on a cell edge, reachable with Tab. */
-export function PivotResizeHandle({ orientation, label, value, min, max, step, largeStep, onChange, onAutoFit }: PivotResizeHandleProps) {
+export function PivotResizeHandle({ orientation, label, value, min, max, step, largeStep, onChange, onAutoFit, guide }: PivotResizeHandleProps) {
   const latest = useRef({ onChange, value });
   latest.current = { onChange, value };
   const vertical = orientation === "vertical";
@@ -63,6 +66,16 @@ export function PivotResizeHandle({ orientation, label, value, min, max, step, l
     const startValue = latest.current.value;
     const handle = e.currentTarget;
     capture(handle, e.pointerId);
+    // Gesture state for CSS: `data-nq-resizing` on the handle and its table; the cursor stays a
+    // resize cursor (and text stays unselected) while the pointer leaves the handle.
+    const table = handle.closest("table");
+    const root = document.documentElement;
+    const restore = { cursor: root.style.cursor, userSelect: root.style.userSelect };
+    handle.dataset.nqResizing = "";
+    if (table) table.dataset.nqResizing = vertical ? "column" : "row";
+    root.style.cursor = vertical ? "col-resize" : "row-resize";
+    root.style.userSelect = "none";
+    const line = guide ? pivotResizeGuide(handle, vertical) : null;
     let last = startValue;
     let frame = 0;
     let emitted = false;
@@ -76,6 +89,7 @@ export function PivotResizeHandle({ orientation, label, value, min, max, step, l
       const next = clamp(startValue + ((vertical ? ev.clientX : ev.clientY) - origin));
       if (next === last) return;
       last = next;
+      line?.move(next - startValue);
       if (typeof requestAnimationFrame === "undefined") flush();
       else if (frame === 0) frame = requestAnimationFrame(flush);
     };
@@ -89,6 +103,11 @@ export function PivotResizeHandle({ orientation, label, value, min, max, step, l
       handle.removeEventListener("lostpointercapture", up);
       if (frame !== 0) cancelAnimationFrame(frame);
       frame = 0;
+      delete handle.dataset.nqResizing;
+      if (table) delete table.dataset.nqResizing;
+      root.style.cursor = restore.cursor;
+      root.style.userSelect = restore.userSelect;
+      line?.remove();
       // A host that keeps a draft until `final` always gets one once anything was sent.
       if (last === startValue && !emitted) return;
       latest.current.onChange(commit ? last : startValue, { source: "pointer", final: true });
@@ -145,6 +164,50 @@ export function PivotResizeHandle({ orientation, label, value, min, max, step, l
       }}
     />
   );
+}
+
+/** Nearest ancestor that scrolls (`null`: the viewport). */
+function scrollBox(el: Element): Element | null {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (/(auto|scroll|overlay)/.test(`${s.overflowX} ${s.overflowY}`)) return p;
+  }
+  return null;
+}
+
+/**
+ * The resize guide: a `position: fixed` line (`data-nq-resize-guide`) on the edge being dragged,
+ * across the visible part of the table, appended to `document.body` so no cell clips it. Color
+ * `--nq-pivot-resize-guide` (default `currentColor`), thickness `--nq-pivot-resize-guide-size` (1 px).
+ */
+function pivotResizeGuide(handle: HTMLElement, vertical: boolean): { move: (delta: number) => void; remove: () => void } {
+  const table = handle.closest("table") ?? handle;
+  const t = table.getBoundingClientRect();
+  const box = scrollBox(table)?.getBoundingClientRect() ?? { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth };
+  const h = handle.getBoundingClientRect();
+  const line = document.createElement("div");
+  line.dataset.nqResizeGuide = vertical ? "column" : "row";
+  line.setAttribute("aria-hidden", "true");
+  const size = "var(--nq-pivot-resize-guide-size, 1px)";
+  const start = vertical ? h.right : h.bottom;
+  Object.assign(line.style, {
+    position: "fixed",
+    pointerEvents: "none",
+    zIndex: "2147483646",
+    background: "var(--nq-pivot-resize-guide, currentColor)",
+    ...(vertical
+      ? { top: `${Math.max(t.top, box.top)}px`, height: `${Math.max(0, Math.min(t.bottom, box.bottom) - Math.max(t.top, box.top))}px`, width: size }
+      : { left: `${Math.max(t.left, box.left)}px`, width: `${Math.max(0, Math.min(t.right, box.right) - Math.max(t.left, box.left))}px`, height: size }),
+  });
+  const move = (delta: number) => {
+    if (vertical) line.style.left = `${start + delta - 1}px`;
+    else line.style.top = `${start + delta - 1}px`;
+  };
+  move(0);
+  // Inherit the table's text color for `currentColor`.
+  line.style.color = getComputedStyle(table).color;
+  document.body.appendChild(line);
+  return { move, remove: () => line.remove() };
 }
 
 /** Elements that are not cell content when measuring (handles, bars). */
