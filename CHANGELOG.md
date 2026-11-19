@@ -64,6 +64,14 @@ of the 0.4.0 renderer). No default changed, and no export was removed or renamed
 - `bench/pivot-render.bench.ts`: 10,000 visible cells with heat + bars + `virtualize` render in 44 ms
   at best and 49–53 ms on average (budget 50 ms, borderline; results in `docs/pivot-performance.md`).
 
+### Playground
+
+Playground only (`apps/playground`); not in the npm package.
+
+- Pivot showcase → **Design** (`?pivot=design:<story>`): one story per design feature (column widths,
+  row height, measure order, freeze, style hooks, heat, data bars, per-measure layout, number formats,
+  saved view) plus "All together", with the page acting as the host that stores the design.
+
 ### Notes
 
 - `@nqlib/nqgrid/render-static` does not pass the design props through yet, and it (like the Python
