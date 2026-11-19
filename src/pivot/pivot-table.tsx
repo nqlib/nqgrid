@@ -10,11 +10,15 @@ import {
   PIVOT_ROW_HEIGHT_MIN,
   pivotCellDesigns,
   pivotCellFormats,
-  pivotHeatPaletteStep,
+  isPivotHeatPalette,
+  pivotHeatPaletteColor,
   pivotHeatSpecList,
+  pivotModelCellHeat,
   pivotRowDesignKind,
+  pivotToneVar,
   type PivotBarSpec,
   type PivotCellClassName,
+  type PivotCellTone,
   type PivotCellDesign,
   type PivotCellDesigns,
   type PivotDimensionWidthChangeHandler,
@@ -24,6 +28,7 @@ import {
   type PivotMeasureWidthChangeHandler,
   type PivotFormatRule,
   type PivotCellNumberFormat,
+  type PivotHeatPalette,
   type PivotRowClassName,
   type PivotRowHeightChangeHandler,
   type PivotValueWidthChangeHandler,
@@ -252,6 +257,14 @@ export interface PivotTableProps {
   readonly freezeDimensions?: boolean;
   /** Extra class for a value cell (map it to your own tokens). */
   readonly cellClassName?: PivotCellClassName;
+  /**
+   * A tone key for one value cell, e.g. the color key of a conditional-format rule (`good`, `bad`).
+   * The cell gets `data-nq-tone="<key>"` and `background-color: var(--nq-pivot-tone-<key>)`; define
+   * that variable for each key you return. A toned cell draws no heat (the rule wins, as Excel's
+   * "Stop If True"); its data bar stays. `undefined`, or a key that is not a valid tone key
+   * (`isPivotToneKey`), leaves the cell as it was.
+   */
+  readonly cellTone?: PivotCellTone;
   /** Extra class for a body row. */
   readonly rowClassName?: PivotRowClassName;
   /** Extra class for a value-column header cell. */
@@ -268,7 +281,8 @@ export interface PivotTableProps {
    * Heat colors from one or several specs (e.g. one per measure), computed from the displayed
    * values. Replaces the model's own heat (`spec.heat`); `[]` turns heat off. Cells get
    * `data-nq-heat="<step 0–8>"`, `data-nq-heat-scale` and a `var(--nq-pivot-heat-N)` background
-   * (`--nq-pivot-heat-diverging-N` for a diverging scale).
+   * (`--nq-pivot-heat-diverging-N` for a diverging scale). A spec with a `palette` (2 or 3 tone keys)
+   * draws its steps from the host's `--nq-pivot-tone-<key>` variables instead.
    */
   readonly heat?: PivotHeatSpec | readonly PivotHeatSpec[];
   /**
@@ -382,11 +396,42 @@ const heatProps = (scale: "sequential" | "diverging", ramp: string): readonly Pi
 const SEQUENTIAL_HEAT_PROPS = heatProps("sequential", "--nq-pivot-heat-");
 const DIVERGING_HEAT_PROPS = heatProps("diverging", "--nq-pivot-heat-diverging-");
 
+/** Shared props of a palette heat step, by palette, scale and step (a few palettes per page). */
+const paletteHeatProps = new Map<string, PivotDesignHeatProps>();
+const PALETTE_HEAT_PROPS_MAX = 512;
+
+function paletteProps(palette: PivotHeatPalette, scale: "sequential" | "diverging", step: number): PivotDesignHeatProps {
+  // A tone key has no "|", so the joined key is unique.
+  const key = `${palette.join("|")}|${scale}|${step}`;
+  let props = paletteHeatProps.get(key);
+  if (!props) {
+    if (paletteHeatProps.size >= PALETTE_HEAT_PROPS_MAX) paletteHeatProps.clear();
+    const color = pivotHeatPaletteColor(palette, step);
+    props = color ? { className: pivotHeatCellClass, style: { backgroundColor: color }, step, scale } : (scale === "diverging" ? DIVERGING_HEAT_PROPS : SEQUENTIAL_HEAT_PROPS)[step]!;
+    paletteHeatProps.set(key, props);
+  }
+  return props;
+}
+
 /** `heat` prop cell: CSS-variable background, `data-nq-heat` step and scale. */
 function designHeatProps(design: PivotCellDesign | undefined): PivotDesignHeatProps {
   const h = design?.heat;
   if (!h) return { className: "" };
+  if (h.palette) return paletteProps(h.palette, h.scale, h.step);
   return (h.scale === "diverging" ? DIVERGING_HEAT_PROPS : SEQUENTIAL_HEAT_PROPS)[h.step]!;
+}
+
+const NO_HEAT: PivotDesignHeatProps = { className: "" };
+
+/** Shared `cellTone` background, one object per key, so `barCellStyle` can cache the bar form too. */
+const toneFills = new Map<string, CSSProperties>();
+function toneFill(key: string, color: string): CSSProperties {
+  let fill = toneFills.get(key);
+  if (!fill) {
+    if (toneFills.size >= PALETTE_HEAT_PROPS_MAX) toneFills.clear();
+    toneFills.set(key, (fill = { backgroundColor: color }));
+  }
+  return fill;
 }
 
 function measureLayoutStyle(layout: PivotMeasureLayout | undefined): CSSProperties | undefined {
@@ -484,6 +529,7 @@ export const PivotTable = memo(function PivotTable({
   freezeHeader,
   freezeDimensions,
   cellClassName,
+  cellTone,
   rowClassName,
   headerClassName,
   bandedRows,
@@ -512,8 +558,8 @@ export const PivotTable = memo(function PivotTable({
   const formats = numberFormats?.length ? cachedCellFormats(model, numberFormats) : null;
   // Column handles: per column (`onValueWidthChange`), else per measure (`onMeasureWidthChange`).
   const columnResize = interactive && (onValueWidthChange !== undefined || onMeasureWidthChange !== undefined);
-  // `spec.heat` with a diverging scale (no `heat` prop): drawn with the diverging ramp.
-  const modelDiverging = heat === undefined && model.heat?.scale === "diverging" ? model.heat : null;
+  // `spec.heat` with a diverging scale or a palette (no `heat` prop): drawn like a `heat` prop spec.
+  const modelDesignHeat = heat === undefined && (model.heat?.scale === "diverging" || isPivotHeatPalette(model.heat?.palette)) ? model.heat : null;
   const ownHeat = heat !== undefined;
   const reorderable = interactive && onMeasureOrderChange !== undefined;
   const headerLayout = reorderable || columnResize || measureLayout !== undefined ? cachedHeaderLayout(model) : null;
@@ -733,25 +779,27 @@ export const PivotTable = memo(function PivotTable({
     return row.cells.map((cell, i) => {
       const column = model.columns[i]!;
       const design = rowDesigns?.[i];
-      const heat: PivotDesignHeatProps = ownHeat
-        ? designHeatProps(design)
-        : modelDiverging
-          ? designHeatProps(
-              cell.heat === undefined
-                ? undefined
-                : { heat: { level: cell.heat, levels: modelDiverging.levels, step: pivotHeatPaletteStep(cell.heat, modelDiverging.levels, "diverging"), scale: "diverging" } },
-            )
-          : pivotHeatCellProps(cell, heatLevels);
+      const context: PivotCellContext | null = cellTone || cellClassName ? { model, row, rowIndex, column, columnIndex: i, cell } : null;
+      const toneKey = cellTone ? cellTone(context!) : undefined;
+      const toneColor = pivotToneVar(toneKey);
+      const heat: PivotDesignHeatProps = toneColor
+        ? NO_HEAT
+        : ownHeat
+          ? designHeatProps(design)
+          : modelDesignHeat
+            ? designHeatProps(cell.heat === undefined ? undefined : { heat: pivotModelCellHeat(modelDesignHeat, cell.heat) })
+            : pivotHeatCellProps(cell, heatLevels);
+      const fill: CSSProperties | undefined = toneColor ? toneFill(toneKey!, toneColor) : heat.style;
       const bar = design?.bar;
       const layout = measureLayout?.[column.measureId];
       const rowHandle = rowIndex === 0 && i === 0 && interactive && onRowHeightChange !== undefined;
       const style =
         layout || rowHandle
-          ? { ...heat.style, ...measureLayoutStyle(layout), ...(bar ? BAR_CELL : rowHandle ? RELATIVE : undefined) }
+          ? { ...fill, ...measureLayoutStyle(layout), ...(bar ? BAR_CELL : rowHandle ? RELATIVE : undefined) }
           : bar
-            ? barCellStyle(heat.style)
-            : heat.style;
-      const extraClass = cellClassName?.({ model, row, rowIndex, column, columnIndex: i, cell });
+            ? barCellStyle(fill)
+            : fill;
+      const extraClass = cellClassName?.(context!);
       const text = rowFormats?.[i]?.text ?? cell.text;
       return (
         <td
@@ -768,6 +816,7 @@ export const PivotTable = memo(function PivotTable({
           data-nq-negative={dataAttributes && cell.value !== null && cell.value < 0 ? "" : undefined}
           data-nq-heat={heat.step}
           data-nq-heat-scale={heat.scale}
+          data-nq-tone={toneColor ? toneKey : undefined}
           data-nq-col={valueColAttr(i)}
         >
           {bar || rowHandle ? (

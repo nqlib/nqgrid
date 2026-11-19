@@ -2,6 +2,44 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
+## [0.6.0] - Unreleased
+
+A **minor** release: it only adds API. Every new prop and field is optional. With none set, the markup is the same as 0.5.0
+(`src/pivot/pivot-table-baseline.test.ts`, `src/pivot/pivot-table-style-slots.test.ts`). No export was
+removed or renamed. `PivotSpec` stays `version: 1`.
+
+### Added
+
+- **`PivotTable` `cellTone`** (`@nqlib/nqgrid/pivot`): a tone key for one value cell, for example the
+  color key of a conditional rule. The cell gets `data-nq-tone="<key>"` and
+  `background-color: var(--nq-pivot-tone-<key>)`. A toned cell draws no heat; its data bar stays.
+- **`PivotHeatSpec.palette`**: 2 or 3 tone keys (`[low, high]` or `[low, middle, high]`), in the `heat`
+  prop and in `spec.heat` (model, `validatePivotSpec`, JSON schema). The steps come from
+  `var(--nq-pivot-tone-<key>)` and an oklab `color-mix` between two stops. With 3 stops, the middle key
+  is the `midpoint` of a diverging spec. `PivotModel.heat.palette` and
+  `PivotCellHeat.palette` (`pivotTableGeometry` cells) carry it.
+- **`pivotTableGeometry` `cellTone`** (and `pivotCellDesigns`): a toned cell reports
+  `cells[r][c].tone` and no `heat`, as `PivotTable` draws it, so an exporter writes the same rule colors.
+- New exports: `PivotCellTone`, `PivotHeatPalette`, `pivotModelCellHeat` (`/pivot`);
+  `pivotToneVar`, `pivotHeatPaletteColor`, `isPivotToneKey`, `isPivotHeatPalette` (`/core`, also
+  re-exported from `/pivot`).
+
+### Changed
+
+- `pivotHeatPaletteStep` is now defined in `@nqlib/nqgrid/core`, so a Node bridge that imports only
+  `/core` can map heat levels to palette steps. `/pivot` still exports it; no import changes.
+
+### Playground
+
+- Pivot showcase → **Design**: the stories "Cell tone" and "Heat palette".
+
+### Notes
+
+- `@nqlib/nqgrid/render-static` draws a `spec.heat` palette with `var(--nq-pivot-tone-<key>)`, but its
+  theme CSS defines no tone variable: a static host adds them. The XLSX writer
+  (`packages/nqgrid-export`) still fills a palette spec with the grid's own heat ramp. Neither knows
+  `cellTone`.
+
 ## [0.5.0] - 2026-11-18
 
 A **minor** release: a host app can let a person customize the design of a `PivotTable`. Every new
