@@ -61,10 +61,15 @@ export function PivotResizeHandle({ orientation, label, value, min, max, step, l
     e.stopPropagation();
     const origin = vertical ? e.clientX : e.clientY;
     const startValue = latest.current.value;
+    const handle = e.currentTarget;
+    capture(handle, e.pointerId);
     let last = startValue;
     let frame = 0;
+    let emitted = false;
+    let done = false;
     const flush = () => {
       frame = 0;
+      emitted = true;
       latest.current.onChange(last, { source: "pointer", final: false });
     };
     const move = (ev: PointerEvent | MouseEvent) => {
@@ -75,13 +80,17 @@ export function PivotResizeHandle({ orientation, label, value, min, max, step, l
       else if (frame === 0) frame = requestAnimationFrame(flush);
     };
     const finish = (commit: boolean) => {
+      if (done) return;
+      done = true;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", cancel);
       window.removeEventListener("keydown", key, true);
+      handle.removeEventListener("lostpointercapture", up);
       if (frame !== 0) cancelAnimationFrame(frame);
       frame = 0;
-      if (last === startValue) return;
+      // A host that keeps a draft until `final` always gets one once anything was sent.
+      if (last === startValue && !emitted) return;
       latest.current.onChange(commit ? last : startValue, { source: "pointer", final: true });
     };
     const up = () => finish(true);
@@ -96,6 +105,7 @@ export function PivotResizeHandle({ orientation, label, value, min, max, step, l
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", cancel);
     window.addEventListener("keydown", key, true);
+    handle.addEventListener("lostpointercapture", up);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -195,6 +205,8 @@ export function pivotStartMeasureDrag(
   if (!runId || from < 0) return;
   const originX = e.clientX;
   const originY = e.clientY;
+  capture(source, e.pointerId);
+  let done = false;
   let active = false;
   let insert = -1;
   let marked: HTMLElement | null = null;
@@ -236,10 +248,13 @@ export function pivotStartMeasureDrag(
     marked.style.boxShadow = `inset ${after ? -2 : 2}px 0 0 0 ${INDICATOR}`;
   };
   const finish = (commit: boolean) => {
+    if (done) return;
+    done = true;
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", cancel);
     window.removeEventListener("keydown", key, true);
+    source.removeEventListener("lostpointercapture", up);
     clearMark();
     delete source.dataset.nqDragging;
     if (active) root.style.userSelect = userSelect;
@@ -261,6 +276,20 @@ export function pivotStartMeasureDrag(
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", cancel);
   window.addEventListener("keydown", key, true);
+  source.addEventListener("lostpointercapture", up);
+}
+
+/**
+ * Keep pointer events coming while the pointer is outside the window, so a release there still ends
+ * the gesture (and its listeners). No-op where pointer capture is unavailable.
+ */
+function capture(el: Element, pointerId: number | undefined): void {
+  if (pointerId === undefined || typeof el.setPointerCapture !== "function") return;
+  try {
+    el.setPointerCapture(pointerId);
+  } catch {
+    // Not an active pointer (e.g. a synthetic event): window listeners still end the gesture.
+  }
 }
 
 /**

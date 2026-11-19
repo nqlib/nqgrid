@@ -1194,6 +1194,8 @@ own geometry objects keeps compiling; `pivotTableGeometry` always sets them.
 
 - `@nqlib/nqgrid/render-static` (HTML / PDF) does not pass the design props through yet; it splits wide
   pivots into column chunks, so heat and bar domains would be per chunk.
+- A diverging `spec.heat` (no `heat` prop) is drawn with the diverging ramp by `PivotTable`; the static
+  HTML renderer and the Python XLSX writer still color its levels with the sequential ramp.
 - Auto-fit measures the rendered cells only (virtualized rows outside the window are not measured).
 - The row handle lives in the first body row; when that row is scrolled out of a virtualized window,
   use the keyboard on it after scrolling back, or set `rowHeight` from your own control.

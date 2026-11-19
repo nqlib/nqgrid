@@ -9,6 +9,8 @@ import {
   PIVOT_ROW_HEIGHT_MAX,
   PIVOT_ROW_HEIGHT_MIN,
   pivotCellDesigns,
+  pivotHeatPaletteStep,
+  pivotHeatSpecList,
   pivotRowDesignKind,
   type PivotBarSpec,
   type PivotCellClassName,
@@ -465,7 +467,13 @@ export const PivotTable = memo(function PivotTable({
   // Design work that depends on the model only is cached per model object (no hooks, so the table
   // still renders as a plain function): a resize, which only changes widths, never redoes it.
   const model = cachedMeasureOrder(sourceModel, measureOrder);
-  const designs = heat === undefined && !bars?.length ? null : cachedCellDesigns(model, heat ?? [], bars);
+  // A heat spec without `measure` means the first value measure of the model as built (core's
+  // default), not whichever measure a reorder put first.
+  const firstMeasure = sourceModel.columns[0]?.measureId;
+  const heatSpecs = heat === undefined ? [] : pivotHeatSpecList(heat)!.map((h) => (h.measure === undefined && firstMeasure !== undefined ? { ...h, measure: firstMeasure } : h));
+  const designs = heat === undefined && !bars?.length ? null : cachedCellDesigns(model, heatSpecs, bars);
+  // `spec.heat` with a diverging scale (no `heat` prop): drawn with the diverging ramp.
+  const modelDiverging = heat === undefined && model.heat?.scale === "diverging" ? model.heat : null;
   const ownHeat = heat !== undefined;
   const reorderable = interactive && onMeasureOrderChange !== undefined;
   const headerLayout = reorderable || (interactive && onValueWidthChange !== undefined) || measureLayout !== undefined ? cachedHeaderLayout(model) : null;
@@ -612,6 +620,7 @@ export const PivotTable = memo(function PivotTable({
         style={p.style}
         data-nqg-span={ownerSpan}
         data-nq-row-kind={rowKindAttr(row)}
+        data-nq-dim-col={dimColAttr(level)}
       >
         <div style={inner}>{spanContent(row, level, ownerSpan, continued)}</div>
       </th>
@@ -682,7 +691,15 @@ export const PivotTable = memo(function PivotTable({
     return row.cells.map((cell, i) => {
       const column = model.columns[i]!;
       const design = rowDesigns?.[i];
-      const heat: PivotDesignHeatProps = ownHeat ? designHeatProps(design) : pivotHeatCellProps(cell, heatLevels);
+      const heat: PivotDesignHeatProps = ownHeat
+        ? designHeatProps(design)
+        : modelDiverging
+          ? designHeatProps(
+              cell.heat === undefined
+                ? undefined
+                : { heat: { level: cell.heat, levels: modelDiverging.levels, step: pivotHeatPaletteStep(cell.heat, modelDiverging.levels, "diverging"), scale: "diverging" } },
+            )
+          : pivotHeatCellProps(cell, heatLevels);
       const bar = design?.bar;
       const layout = measureLayout?.[column.measureId];
       const rowHandle = rowIndex === 0 && i === 0 && interactive && onRowHeightChange !== undefined;

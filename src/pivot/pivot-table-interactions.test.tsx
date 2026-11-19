@@ -117,6 +117,18 @@ describe("PivotTable resize handles", () => {
     expect(calls.filter((c) => c[3] && (c[3] as PivotResizeInfo).final)).toHaveLength(1);
   });
 
+  it("a drag that returns to its start still ends with a final call", async () => {
+    await pointer($('[aria-label="Resize column Nov Plan"]'), "pointerdown", 100);
+    await pointer(window, "pointermove", 140);
+    await nextFrame();
+    await pointer(window, "pointermove", 100);
+    await pointer(window, "pointerup", 100);
+    expect(calls.map((c) => [c[2], (c[3] as PivotResizeInfo).final])).toEqual([
+      [124, false],
+      [84, true],
+    ]);
+  });
+
   it("keyboard resize: ArrowLeft / ArrowRight 8 px, Shift 32 px, Home / End to the limits", async () => {
     const handle = $('[aria-label="Resize column Nov Growth on FY25"]');
     handle.focus();

@@ -87,7 +87,9 @@ export function pivotTableGeometry(model: PivotModel, options: PivotTableGeometr
   const valueWidth = options.valueWidth ?? PIVOT_DEFAULT_VALUE_WIDTH;
   const byKey = options.valueWidths;
   const valueWidths = model.columns.map((c) => byKey?.[c.id] ?? valueWidth);
-  const width = dimensionWidths.reduce((a, b) => a + b, 0) + valueWidths.reduce((a, b) => a + b, 0);
+  // Uniform widths: a product, exactly as 0.4.0 computed it (a float sum can differ in the last digit).
+  const uniform = valueWidths.every((w) => w === valueWidth);
+  const width = dimensionWidths.reduce((a, b) => a + b, 0) + (uniform ? valueWidth * model.columns.length : valueWidths.reduce((a, b) => a + b, 0));
   return {
     dimensionColumns,
     dimensionWidths,

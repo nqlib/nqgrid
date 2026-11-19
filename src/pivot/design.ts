@@ -125,10 +125,20 @@ export interface PivotCellDesignOptions {
   readonly bars?: readonly PivotBarSpec[];
 }
 
-/** Palette step of a heat level (keeps a diverging ramp's middle level on the middle step). */
-export function pivotHeatPaletteStep(level: number, levels: number): number {
+/**
+ * Palette step (`0 … 8`) of a heat level. Sequential: a linear map. Diverging: the middle level
+ * (`floor(levels / 2)`) is always step 4, lower levels spread over steps 0–3 and higher ones over 5–8,
+ * whatever `levels` is.
+ */
+export function pivotHeatPaletteStep(level: number, levels: number, scale: PivotHeatScale = "sequential"): number {
   if (levels <= 1) return 0;
-  return Math.round((Math.min(levels - 1, Math.max(0, level)) * (HEAT_STEPS - 1)) / (levels - 1));
+  const l = Math.min(levels - 1, Math.max(0, Math.round(level)));
+  if (scale !== "diverging") return Math.round((l * (HEAT_STEPS - 1)) / (levels - 1));
+  const middle = Math.floor(levels / 2);
+  if (l === middle) return 4;
+  if (l < middle) return middle <= 1 ? 0 : Math.round((l * 3) / (middle - 1));
+  const above = levels - 1 - middle;
+  return 5 + (above <= 1 ? 3 : Math.round(((l - middle - 1) * 3) / (above - 1)));
 }
 
 /** `heat` prop → a list (`undefined` stays `undefined`: the model's heat). */
@@ -169,7 +179,7 @@ export function pivotCellDesigns(model: PivotModel, options: PivotCellDesignOpti
       const scale: PivotHeatScale = info.scale ?? "sequential";
       model.rows.forEach((row, r) =>
         row.cells.forEach((cell, c) => {
-          if (cell.heat !== undefined) set(r, c, { heat: { level: cell.heat, levels: info.levels, step: pivotHeatPaletteStep(cell.heat, info.levels), scale } });
+          if (cell.heat !== undefined) set(r, c, { heat: { level: cell.heat, levels: info.levels, step: pivotHeatPaletteStep(cell.heat, info.levels, scale), scale } });
         }),
       );
     }
@@ -212,7 +222,7 @@ export function pivotCellDesigns(model: PivotModel, options: PivotCellDesignOpti
           const domain = fixed ?? domains.get(keyOf(rowKey, c));
           if (!domain) continue;
           const level = pivotScaledHeatLevel(row.cells[c]?.value ?? null, domain, levels, scale, midpoint, !fixed);
-          if (level !== undefined) set(r, c, { heat: { level, levels, step: pivotHeatPaletteStep(level, levels), scale } });
+          if (level !== undefined) set(r, c, { heat: { level, levels, step: pivotHeatPaletteStep(level, levels, scale), scale } });
         }
       });
     }

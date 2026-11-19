@@ -156,6 +156,7 @@ export function PivotHeaderChartBand({
       runs.push({ columnKey: c.columnKey, colSpan: 1, width: w, hasMeasure: c.measureId === series.measureId, subtotal: c.subtotal === true && !c.collapsed });
     }
   });
+  const uniform = !geometry.valueWidths?.some((w) => w !== geometry.valueWidth);
   return (
     <tr className={className} style={rowStyle} data-nqg-band="">
       <th
@@ -168,7 +169,8 @@ export function PivotHeaderChartBand({
       </th>
       {runs.map((run, i) => {
         const point = run.columnKey === null || run.subtotal || !run.hasMeasure ? undefined : pointByKey.get(run.columnKey);
-        const width = run.width;
+        // Uniform widths: the 0.4.0 product (a float sum can differ in the last digit).
+        const width = uniform ? geometry.valueWidth * run.colSpan : run.width;
         return (
           <th
             key={`${run.columnKey ?? "total"}:${i}`}

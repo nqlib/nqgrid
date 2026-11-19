@@ -53,7 +53,8 @@ of the 0.4.0 renderer). No default changed, and no export was removed or renamed
 
 ### Notes
 
-- `@nqlib/nqgrid/render-static` does not pass the design props through yet.
+- `@nqlib/nqgrid/render-static` does not pass the design props through yet, and it (like the Python
+  XLSX writer) colors a diverging `spec.heat` with the sequential ramp.
 
 ## [0.4.0] - 2026-11-14
 

@@ -134,4 +134,21 @@ describe("PivotTable design props (markup)", () => {
     expect(levels(second)).toEqual(levels(first));
     expect(second).toContain('<col style="width:140px"/>');
   });
+
+  it("review fixes: diverging spec.heat uses the diverging ramp; default heat measure ignores reorders; span cells are auto-fit targets", () => {
+    const div = buildPivotModel({ ...spec, heat: { measure: "growth", scale: "diverging" } }, rows);
+    const out = renderToStaticMarkup(createElement(PivotTable, { model: div, mode: "static" }));
+    expect(out).toContain('data-nq-heat-scale="diverging"');
+    expect(out).not.toMatch(/nqg-heat-\d/);
+    const reordered = html({ mode: "static", heat: { scope: "column" }, measureOrder: ["plan"], dataAttributes: true });
+    expect(reordered).toMatch(/data-nq-measure="actual" data-nq-row-kind="leaf" data-nq-heat=/);
+    expect(reordered).not.toMatch(/data-nq-measure="plan" data-nq-row-kind="leaf" data-nq-heat=/);
+    expect(html({ onDimensionWidthChange: () => {} })).toMatch(/data-nqg-span="\d+" data-nq-dim-col="0"/);
+  });
+
+  it("fractional valueWidth keeps the 0.4.0 band and table widths", () => {
+    const out = renderToStaticMarkup(createElement(PivotTable, { model: planning, mode: "static", valueWidth: 84.1 }));
+    expect(out).toContain(`width:${208 + 172 + 84.1 * planning.columns.length}px`);
+  });
 });
+

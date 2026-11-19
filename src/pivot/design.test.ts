@@ -93,7 +93,7 @@ describe("pivotCellDesigns", () => {
     expect(leafRows(inner).every((r) => (fixed[r]?.[col]?.heat?.level ?? 0) === 0)).toBe(true);
     const div = pivotCellDesigns(inner, { heat: { measure: "growth", scale: "diverging", levels: 5 } });
     const steps = new Set(div.flat().map((x) => x?.heat?.step).filter((s) => s !== undefined));
-    expect([...steps].every((s) => [0, 2, 4, 6, 8].includes(s!))).toBe(true);
+    expect([...steps].every((s) => [0, 3, 4, 5, 8].includes(s!))).toBe(true);
     expect(div.flat().find((x) => x?.heat)?.heat?.scale).toBe("diverging");
     expect(pivotHeatPaletteStep(2, 5)).toBe(4);
   });
@@ -194,3 +194,22 @@ describe("limits and kinds", () => {
     expect(["leaf", "calculated", "group", "subtotal", "grandTotal"].map((kind) => pivotRowDesignKind({ kind } as never))).toEqual(["leaf", "leaf", "subtotal", "subtotal", "total"]);
   });
 });
+
+describe("review fixes", () => {
+  it("diverging palette steps keep the middle level on step 4 for any levels", () => {
+    for (const levels of [2, 3, 4, 5, 8, 9, 10]) {
+      const middle = Math.floor(levels / 2);
+      expect(pivotHeatPaletteStep(middle, levels, "diverging")).toBe(4);
+      for (let l = 0; l < middle; l++) expect(pivotHeatPaletteStep(l, levels, "diverging")).toBeLessThan(4);
+      for (let l = middle + 1; l < levels; l++) expect(pivotHeatPaletteStep(l, levels, "diverging")).toBeGreaterThan(4);
+      expect(pivotHeatPaletteStep(0, levels, "diverging")).toBe(0);
+      if (levels - 1 > middle) expect(pivotHeatPaletteStep(levels - 1, levels, "diverging")).toBe(8);
+    }
+  });
+
+  it("fractional uniform widths are a product, as in 0.4.0", () => {
+    const g = pivotTableGeometry(inner, { valueWidth: 84.1 });
+    expect(g.width).toBe(208 + 172 + 84.1 * inner.columns.length);
+  });
+});
+
