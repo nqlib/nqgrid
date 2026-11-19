@@ -198,6 +198,9 @@ export function pivotStartMeasureDrag(
   let active = false;
   let insert = -1;
   let marked: HTMLElement | null = null;
+  // No text selection while a header is dragged (restored at the end).
+  const root = document.documentElement;
+  const userSelect = root.style.userSelect;
   const siblings = () => Array.from(table.querySelectorAll<HTMLElement>(`th[data-nq-run="${runId}"]`));
   const clearMark = () => {
     if (!marked) return;
@@ -210,6 +213,8 @@ export function pivotStartMeasureDrag(
       if (Math.abs(ev.clientX - originX) < DRAG_THRESHOLD && Math.abs(ev.clientY - originY) < DRAG_THRESHOLD) return;
       active = true;
       source.dataset.nqDragging = "";
+      root.style.userSelect = "none";
+      window.getSelection()?.removeAllRanges();
     }
     ev.preventDefault();
     const cells = siblings();
@@ -237,6 +242,7 @@ export function pivotStartMeasureDrag(
     window.removeEventListener("keydown", key, true);
     clearMark();
     delete source.dataset.nqDragging;
+    if (active) root.style.userSelect = userSelect;
     if (!commit || !active || insert < 0 || insert === from || insert === from + 1) return;
     const ids = run.map((c) => c.cell.measureId!);
     const [moved] = ids.splice(from, 1);
