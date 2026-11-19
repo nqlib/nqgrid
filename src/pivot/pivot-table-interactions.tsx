@@ -265,12 +265,16 @@ export function pivotRefocusMeasure(from: HTMLElement, run: string, measureId: s
   const table = from.closest("table");
   if (!table) return;
   const focus = () => {
+    // Leave focus alone once the person has moved it elsewhere.
+    const active = document.activeElement;
+    if (active !== from && active !== document.body && active !== null) return;
     const heads = Array.from(table.querySelectorAll<HTMLElement>(`th[data-nq-run="${run}"]`));
     heads.find((th) => th.dataset.nqMeasure === measureId)?.focus();
   };
-  // A host that re-renders in the same task has committed by the next frame.
-  if (typeof requestAnimationFrame === "undefined") queueMicrotask(focus);
-  else requestAnimationFrame(focus);
+  // React commits a state update made in a key handler before this microtask runs, so a second
+  // key press lands on the moved header; the frame callback covers hosts that update later.
+  queueMicrotask(focus);
+  if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(focus);
 }
 
 /** The full measure order after a run was rearranged (measures outside the run keep their order, after it). */

@@ -321,6 +321,16 @@ function cachedHeaderLayout(model: PivotModel): PivotHeaderLayout {
 }
 
 const RELATIVE: CSSProperties = { position: "relative" };
+/** A cell with a data bar: its own stacking context, so the bar (z-index -1) stays above its background. */
+const BAR_CELL: CSSProperties = { position: "relative", zIndex: 0 };
+const barCellStyles = new WeakMap<CSSProperties, CSSProperties>();
+/** `BAR_CELL` over a (shared) heat style, one object per heat step. */
+function barCellStyle(heatStyle: CSSProperties | undefined): CSSProperties {
+  if (!heatStyle) return BAR_CELL;
+  let style = barCellStyles.get(heatStyle);
+  if (!style) barCellStyles.set(heatStyle, (style = { ...heatStyle, ...BAR_CELL }));
+  return style;
+}
 const GRAB: CSSProperties = { cursor: "grab" };
 /** Static mode, `freezeHeader: false`: the header is printed once, not on every page. */
 const STATIC_UNFROZEN_HEAD: CSSProperties = { display: "table-row-group" };
@@ -333,12 +343,16 @@ interface PivotDesignHeatProps {
   readonly scale?: string;
 }
 
+const heatStyles = (ramp: string): readonly CSSProperties[] => Array.from({ length: 9 }, (_, i) => ({ backgroundColor: `var(${ramp}${i})` }));
+const SEQUENTIAL_HEAT_STYLES = heatStyles("--nq-pivot-heat-");
+const DIVERGING_HEAT_STYLES = heatStyles("--nq-pivot-heat-diverging-");
+
 /** `heat` prop cell: CSS-variable background, `data-nq-heat` step and scale. */
 function designHeatProps(design: PivotCellDesign | undefined): PivotDesignHeatProps {
   const h = design?.heat;
   if (!h) return { className: "" };
-  const ramp = h.scale === "diverging" ? "--nq-pivot-heat-diverging-" : "--nq-pivot-heat-";
-  return { className: pivotHeatCellClass, style: { backgroundColor: `var(${ramp}${h.step})` }, step: h.step, scale: h.scale };
+  const styles = h.scale === "diverging" ? DIVERGING_HEAT_STYLES : SEQUENTIAL_HEAT_STYLES;
+  return { className: pivotHeatCellClass, style: styles[h.step], step: h.step, scale: h.scale };
 }
 
 function measureLayoutStyle(layout: PivotMeasureLayout | undefined): CSSProperties | undefined {
@@ -351,8 +365,12 @@ function measureLayoutStyle(layout: PivotMeasureLayout | undefined): CSSProperti
 
 const pct = (fraction: number): string => `${Math.round(fraction * 100_000) / 1000}%`;
 
-/** A data bar behind a value cell's number (`aria-hidden`; the number stays the cell's text). */
-function PivotDataBar({ bar }: { readonly bar: NonNullable<PivotCellDesign["bar"]> }) {
+/**
+ * A data bar behind a value cell's number: an empty `aria-hidden` span at `z-index: -1` inside the
+ * cell's own stacking context (`BAR_CELL`), so it paints over the cell background (heat) and under
+ * the text, which stays the cell's plain, selectable text.
+ */
+function dataBar(bar: NonNullable<PivotCellDesign["bar"]>): ReactNode {
   return (
     <span
       aria-hidden
@@ -360,13 +378,10 @@ function PivotDataBar({ bar }: { readonly bar: NonNullable<PivotCellDesign["bar"
       data-nq-bar-negative={bar.negative ? "" : undefined}
       style={{
         position: "absolute",
-        top: "20%",
-        bottom: "20%",
-        left: pct(bar.start),
+        inset: `20% auto 20% ${pct(bar.start)}`,
         width: pct(bar.width),
         backgroundColor: bar.negative ? "var(--nq-pivot-bar-negative, var(--nq-pivot-bar))" : "var(--nq-pivot-bar)",
-        pointerEvents: "none",
-        userSelect: "none",
+        zIndex: -1,
       }}
     />
   );
@@ -661,15 +676,22 @@ export const PivotTable = memo(function PivotTable({
   };
 
   const drill = interactive ? onDrillThrough : undefined;
-  const valueCells = (row: PivotBodyRow, rowIndex: number): ReactNode[] =>
-    row.cells.map((cell, i) => {
+  const valueCells = (row: PivotBodyRow, rowIndex: number): ReactNode[] => {
+    const rowKind = rowKindAttr(row);
+    const rowDesigns = designs?.[rowIndex];
+    return row.cells.map((cell, i) => {
       const column = model.columns[i]!;
-      const design = designs?.[rowIndex]?.[i];
+      const design = rowDesigns?.[i];
       const heat: PivotDesignHeatProps = ownHeat ? designHeatProps(design) : pivotHeatCellProps(cell, heatLevels);
       const bar = design?.bar;
       const layout = measureLayout?.[column.measureId];
       const rowHandle = rowIndex === 0 && i === 0 && interactive && onRowHeightChange !== undefined;
-      const style = layout || bar || rowHandle ? { ...heat.style, ...measureLayoutStyle(layout), ...(bar || rowHandle ? RELATIVE : undefined) } : heat.style;
+      const style =
+        layout || rowHandle
+          ? { ...heat.style, ...measureLayoutStyle(layout), ...(bar ? BAR_CELL : rowHandle ? RELATIVE : undefined) }
+          : bar
+            ? barCellStyle(heat.style)
+            : heat.style;
       const extraClass = cellClassName?.({ model, row, rowIndex, column, columnIndex: i, cell });
       return (
         <td
@@ -681,7 +703,7 @@ export const PivotTable = memo(function PivotTable({
           // Keep a double-click from selecting the cell text.
           onMouseDown={drill ? (e) => e.detail > 1 && e.preventDefault() : undefined}
           data-nq-measure={dataAttributes ? column.measureId : undefined}
-          data-nq-row-kind={rowKindAttr(row)}
+          data-nq-row-kind={rowKind}
           data-nq-negative={dataAttributes && cell.value !== null && cell.value < 0 ? "" : undefined}
           data-nq-heat={heat.step}
           data-nq-heat-scale={heat.scale}
@@ -689,8 +711,8 @@ export const PivotTable = memo(function PivotTable({
         >
           {bar || rowHandle ? (
             <>
-              {bar ? <PivotDataBar bar={bar} /> : null}
-              {bar ? <span style={RELATIVE}>{cell.text}</span> : cell.text}
+              {bar ? dataBar(bar) : null}
+              {cell.text}
               {rowHandle ? (
                 <PivotResizeHandle
                   orientation="horizontal"
@@ -710,6 +732,7 @@ export const PivotTable = memo(function PivotTable({
         </td>
       );
     });
+  };
 
   const headCellPos = (r: number, pinnedCol?: number): { className?: string; style?: CSSProperties } => {
     const height = headRowHeight;
