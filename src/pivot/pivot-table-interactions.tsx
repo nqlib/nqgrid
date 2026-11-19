@@ -178,7 +178,8 @@ function scrollBox(el: Element): Element | null {
 /**
  * The resize guide: a `position: fixed` line (`data-nq-resize-guide`) on the edge being dragged,
  * across the visible part of the table, appended to `document.body` so no cell clips it. Color
- * `--nq-pivot-resize-guide` (default `currentColor`), thickness `--nq-pivot-resize-guide-size` (1 px).
+ * `--nq-pivot-resize-guide` (default: the table's text color) and thickness
+ * `--nq-pivot-resize-guide-size` (default 1 px), read from the table when the drag starts.
  */
 function pivotResizeGuide(handle: HTMLElement, vertical: boolean): { move: (delta: number) => void; remove: () => void } {
   const table = handle.closest("table") ?? handle;
@@ -188,13 +189,16 @@ function pivotResizeGuide(handle: HTMLElement, vertical: boolean): { move: (delt
   const line = document.createElement("div");
   line.dataset.nqResizeGuide = vertical ? "column" : "row";
   line.setAttribute("aria-hidden", "true");
-  const size = "var(--nq-pivot-resize-guide-size, 1px)";
+  // The line lives in <body>, outside the host's wrapper: read the table's variables now.
+  const styles = getComputedStyle(table);
+  const size = styles.getPropertyValue("--nq-pivot-resize-guide-size").trim() || "1px";
+  const color = styles.getPropertyValue("--nq-pivot-resize-guide").trim() || styles.color;
   const start = vertical ? h.right : h.bottom;
   Object.assign(line.style, {
     position: "fixed",
     pointerEvents: "none",
     zIndex: "2147483646",
-    background: "var(--nq-pivot-resize-guide, currentColor)",
+    background: color,
     ...(vertical
       ? { top: `${Math.max(t.top, box.top)}px`, height: `${Math.max(0, Math.min(t.bottom, box.bottom) - Math.max(t.top, box.top))}px`, width: size }
       : { left: `${Math.max(t.left, box.left)}px`, width: `${Math.max(0, Math.min(t.right, box.right) - Math.max(t.left, box.left))}px`, height: size }),
@@ -204,8 +208,6 @@ function pivotResizeGuide(handle: HTMLElement, vertical: boolean): { move: (delt
     else line.style.top = `${start + delta - 1}px`;
   };
   move(0);
-  // Inherit the table's text color for `currentColor`.
-  line.style.color = getComputedStyle(table).color;
   document.body.appendChild(line);
   return { move, remove: () => line.remove() };
 }
