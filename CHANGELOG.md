@@ -2,6 +2,81 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
+## [0.5.0] - 2026-11-18
+
+A **minor** release: a host app can let a person customize the design of a `PivotTable`. Every new
+prop is optional, and with none set the markup is byte-identical to 0.4.0 (checked against snapshots
+of the 0.4.0 renderer). No default changed, and no export was removed or renamed. `PivotSpec` stays
+`version: 1`.
+
+### Added
+
+- **`PivotTable` design props** (`@nqlib/nqgrid/pivot`). The grid keeps no design state: each change
+  comes out through a callback and the host passes it back as a prop. See
+  [Customize the design](docs/pivot-headless.md#customize-the-design-050) and the README section.
+  - **Column widths:** `valueWidths` (by `PivotValueColumn.id`), `onValueWidthChange(key, width, info)`,
+    `onDimensionWidthChange(index, width, info)`. A `role="separator"` handle on the right edge of each
+    header: drag (48–800 px), double-click to fit the widest rendered cell, ArrowLeft / ArrowRight
+    (8 px, Shift 32 px). `info` says the source and whether the gesture ended (`final`).
+  - **Row height:** `onRowHeightChange(height, info)`, a handle on the first body row (20–96 px).
+  - **Measure order:** `measureOrder`, `onMeasureOrderChange(order)`. Drag a measure header (drop
+    indicator, Escape cancels) or press Alt+ArrowLeft / Alt+ArrowRight on it. Column-dimension members
+    keep the model's sort.
+  - **Freeze:** `freezeHeader`, `freezeDimensions` (on by default in interactive mode, as before; work
+    with `virtualize` and `pagination`).
+  - **Style hooks:** `cellClassName`, `rowClassName`, `headerClassName`, `bandedRows`
+    (`data-nq-band`), `dataAttributes` (`data-nq-measure`, `data-nq-row-kind`, `data-nq-negative`).
+  - **Heat on several measures:** `heat` takes one `PivotHeatSpec` or a list. Cells get
+    `data-nq-heat`, `data-nq-heat-scale` and a `var(--nq-pivot-heat-N)` /
+    `var(--nq-pivot-heat-diverging-N)` background.
+  - **Data bars:** `bars: PivotBarSpec[]` (`measure`, `applyTo`, `domain`, `negative: "left" | "hide"`),
+    colored by `--nq-pivot-bar` / `--nq-pivot-bar-negative`; the number stays selectable text.
+  - **Per-measure layout:** `measureLayout` (`align`, `wrap`) by measure id.
+  - **Per-measure widths:** `measureWidths` and `onMeasureWidthChange` (one width for every column
+    of a measure; `valueWidths` entries win).
+  - **Resize look:** `data-nq-resizing` on the handle and the table while dragging, an opt-in
+    `resizeGuide` line (`--nq-pivot-resize-guide`, `--nq-pivot-resize-guide-size`) and
+    `--nq-pivot-resize-size` for the grab area.
+  - **Number formats:** `numberFormats: PivotFormatRule[]` — Excel's "Format Cells" (digits,
+    currency, percent, scale, compact, prefix / suffix, negatives) for a measure, column, row, row
+    kind or one cell, most specific first; display only. `onCellClick` reports a clicked value cell.
+- **Saved views:** `PivotTableDesign` (the whole design as JSON) and `pivotDesignProps(design,
+  onDesignChange, { widthScope })`, which returns the props and the callbacks that produce the next
+  design. `pivotCellFormats`, `pivotCellBaseFormat`; `pivotTableGeometry` takes `measureWidths` and
+  `numberFormats` (each cell's `numberFormat`: format, Excel format, text).
+- **`PivotHeatSpec.scale`** (`"sequential" | "diverging"`) and **`midpoint`**, in `spec.heat` too
+  (model, `validatePivotSpec`, JSON schema). `PivotModel.heat` carries `scale` / `midpoint` for a
+  diverging spec. New `pivotDivergingHeatLevel`, `pivotScaledHeatLevel` (`@nqlib/nqgrid/core`).
+- **`pivotTableGeometry` for export:** new options `valueWidths`, `freezeHeader`, `freezeDimensions`,
+  `heat`, `bars`; new result fields `valueWidths`, `columnWidths`, `frozenRows`, `frozenColumns` and
+  `cells` (heat / bar level of each cell), so a host can write the same design to XLSX. The new
+  fields are optional on the `PivotTableGeometry` type.
+- New exports: `PivotBarSpec`, `PivotMeasureLayout`, `PivotResizeInfo`, `PivotValueWidthChangeHandler`,
+  `PivotDimensionWidthChangeHandler`, `PivotRowHeightChangeHandler`, `PivotMeasureOrderChangeHandler`,
+  `PivotCellClassName`, `PivotRowClassName`, `PivotHeaderClassName`, `PivotRowClassContext`,
+  `PivotCellDesign(s)`, `PivotHeatScale` (also re-exported with `PivotHeatSpec` from `/pivot`),
+  `pivotCellDesigns`, `pivotOrderMeasures`, `pivotMeasureOrder`, `pivotMoveMeasure`,
+  `pivotHeaderLayout`, `pivotRowDesignKind`, `pivotHeatPaletteStep`, `pivotClampColumnWidth`,
+  `pivotClampRowHeight`, `PivotFormatRule`, `PivotCellNumberFormat`, `PivotTableDesign`,
+  `PivotDesignChangeInfo`, `PivotDesignProps`, `PivotMeasureWidthChangeHandler`, the `PIVOT_COLUMN_WIDTH_*` / `PIVOT_ROW_HEIGHT_*` limits, and
+  `pivotResizeHandleClass` (`@nqlib/nqgrid/styles`).
+- `PivotHeaderChartBand` props `stickyTop` / `stickyLeft` (default true).
+- `bench/pivot-render.bench.ts`: 10,000 visible cells with heat + bars + `virtualize` render in 44 ms
+  at best and 49–53 ms on average (budget 50 ms, borderline; results in `docs/pivot-performance.md`).
+
+### Playground
+
+Playground only (`apps/playground`); not in the npm package.
+
+- Pivot showcase → **Design** (`?pivot=design:<story>`): one story per design feature (column widths,
+  row height, measure order, freeze, style hooks, heat, data bars, per-measure layout, number formats,
+  saved view) plus "All together", with the page acting as the host that stores the design.
+
+### Notes
+
+- `@nqlib/nqgrid/render-static` does not pass the design props through yet, and it (like the Python
+  XLSX writer) colors a diverging `spec.heat` with the sequential ramp.
+
 ## [0.4.0] - 2026-11-14
 
 A **minor** release: calculated items, measure filters, semi-additive aggregates, analyst
@@ -27,6 +102,26 @@ Check these before you upgrade from 0.3. Details are under each "Changed (behavi
   `unparsedNumbers`.
 
 No public export was removed or renamed.
+
+### Playground: pivot showcase
+
+Playground only (`apps/playground`); no engine or public API change.
+
+- The "Planning pivot" tab is now **Pivot showcase**: three examples that together exercise every pivot feature, each
+  feature linked to its section in `docs/pivot-headless.md` / `docs/pivot-recipes.md` (the docs explain them one by
+  one). **Sales workbench**: one spec with slicers, filter menus, sort, Top N, the field list, column groups, fiscal date
+  grouping, calculated measures, show values as, distinct count, KPI panel, heat and drill-through. **Finance
+  reports**: one long-format ledger read as budget vs actual (measure filters, scale and units), an income statement
+  (calculated items, % of revenue, sign field, subtotal labels) and a balance sheet with headcount (closing / opening
+  balance, average over time). **Scale**: 100k–500k generated rows with row virtualization and live build times.
+- Shared panels under every example: **Spec** (the live spec, with the keys changed since load), **Validate**
+  (editable JSON through `validatePivotSpec`, "Try a bad spec"), **Diagnostics** (`model.diagnostics`, with a switch
+  that injects unparsable values) and **Export** (request JSON, `renderPivotHtml` preview with the report / statement
+  profile, PDF / XLSX through `VITE_NQGRID_EXPORT_URL`).
+- `?pivot=<id>` deep links keep working (`planning`, `dates`, `calc`, `statement`, `income`, `fpa`, `balance`) and open
+  the pivot tab, on the example that now covers them.
+- The playground resolves `@nqlib/nqgrid/core`, `/pivot`, `/render-static` and `/styles` to the library sources, like
+  the other entry points, so it no longer needs a fresh `dist/` build.
 
 ### Analyst review, batch C: calculated items, cascading totals, per-group subtotal labels
 

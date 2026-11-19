@@ -97,3 +97,31 @@ tbody tr[data-stripe="even"][data-state="selected"] > [data-pinned]:not([data-ro
 body[data-nqgrid-column-dragging] :is(button, [role="button"], [role="menuitem"]) {
   pointer-events: none;
 }
+
+/* Pivot design stories (?pivot=design): host styling of the PivotTable data attributes. */
+.nqgrid-design-demo [data-nq-band="even"] > td:not([data-nq-heat]) {
+  background-color: color-mix(in oklab, var(--muted) 55%, var(--card));
+}
+.nqgrid-design-demo [data-nq-negative] {
+  color: var(--destructive);
+}
+/* Resize handle thumb + guide line (host styling of data-nq-resize / data-nq-resizing). */
+.nqgrid-design-demo {
+  --nq-pivot-resize-guide: var(--chart-1);
+}
+.nqgrid-design-demo [data-nq-resize="column"]::before {
+  content: "";
+  position: absolute;
+  top: 28%;
+  bottom: 28%;
+  left: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--border);
+  transition: background-color 120ms;
+}
+.nqgrid-design-demo [data-nq-resize]:hover::before,
+.nqgrid-design-demo [data-nq-resizing]::before {
+  background: var(--chart-1);
+}
+

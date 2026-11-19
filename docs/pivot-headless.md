@@ -1050,7 +1050,7 @@ renderToStaticMarkup(<PivotTable model={model} mode="static" />);   // same layo
 | Export | Purpose |
 |--------|---------|
 | `usePivotGrid(spec, rows, options)` | Spec state (controlled via `onSpecChange`, otherwise uncontrolled) + memoized model (`createPivotModelBuilder`: view-only changes reuse the aggregation); actions `toggleGroup`, `expandAll`, `collapseAll`, `setHeatScope`, filter / sort / Top N actions, `setSpec`, `dispatch`. The pure transition is `reducePivotGridSpec(spec, model, action)`. |
-| `PivotTable` | Semantic `<table>` (memoized): header chart band, row-dimension columns, outer-dimension span cell with `PivotKpiPanel`, heat cells, sort / filter indicators, multi-row column headers. Props: `mode`, widths, `headerChart`, `headerSummary`, `kpiHeadlineId`, `kpiCaptionAttribute`, `renderSpanCell` (KPI side-panel slot), `renderDimensionHeader` (filter-menu slot), `onToggleColumnGroup`, `renderColumnHeader`. |
+| `PivotTable` | Semantic `<table>` (memoized): header chart band, row-dimension columns, outer-dimension span cell with `PivotKpiPanel`, heat cells, sort / filter indicators, multi-row column headers. Props: `mode`, widths, `headerChart`, `headerSummary`, `kpiHeadlineId`, `kpiCaptionAttribute`, `renderSpanCell` (KPI side-panel slot), `renderDimensionHeader` (filter-menu slot), `onToggleColumnGroup`, `renderColumnHeader`, and the design props ([Customize the design](#customize-the-design-050)). |
 | `PivotHeaderChartBand`, `PivotHeaderBar`, `PivotHeaderSummary` | Inline-SVG header bars (stacked by top-level group when `headerCharts.breakdown`), as a `<thead>` row so bars align with their columns. |
 | `PivotKpiPanel`, `PivotKpiDelta` | Group KPIs: signed headline, label/value rows, "vs Plan" deltas (`PivotKpiValue.compareLabel`), owner caption. |
 | `pivotHeatCellProps(cell, levels)` | `nqg-heat-N` class, `data-heat` and `var(--nqg-heat-N, …)` background for your own cells. |
@@ -1067,13 +1067,218 @@ renderToStaticMarkup(<PivotTable model={model} mode="static" />);   // same layo
   so the PDF path needs no overlay layer.
 - **No effects, no measurement.** Components are plain functions of the model: fixed column widths
   (`table-layout: fixed`) give the sticky offsets and header-bar geometry, so there is no
-  `useLayoutEffect` / `ResizeObserver`. `mode="static"` additionally drops buttons and sticky classes.
+  `useLayoutEffect` / `ResizeObserver`. (The design handles measure only on a double-click auto-fit,
+  and design work is cached per model in `WeakMap`s, not hooks.) `mode="static"` additionally drops buttons and sticky classes.
 - **Inline geometry, tokenized chrome.** Widths, offsets, bar paths and data colors are inline styles;
   surfaces and typography are class tokens in `@nqlib/nqgrid/styles` (`pivot*Class`). Each token starts with a
   stable semantic class (`nqg-pivot`, `nqg-pivot-cell`, `nqg-pivot-kpi`, …) that the static stylesheet targets. Colors resolve via
   `--nqg-heat-0 … --nqg-heat-8` (default: `--nqg-heat-color` mixed over the surface, so one ramp works in
   light and dark) and `--nqg-series-0 … --nqg-series-7` (`pivotThemeVars("dark")` for dark steps).
-- No `@nqlib/nqui` dependency — the playground's "Planning pivot" demo adds nqui controls (Select, Button, ScrollArea) around it.
+- No `@nqlib/nqui` dependency — the playground's "Pivot showcase" adds nqui controls (Select, Button, ScrollArea, Popover) around it.
+
+## Customize the design (0.5.0)
+
+`PivotTable` takes design props so a host can let a person change the look of a pivot. The grid stays a
+**controlled component**: it keeps no design state. Each change comes out through a callback, and the
+host stores it (secolab keeps it in the chart params) and renders again with the new props. Every prop
+is optional; with none set the markup is byte-identical to 0.4.0 (`src/pivot/pivot-table-baseline.test.ts`
+checks this against snapshots written by the 0.4.0 renderer).
+
+```tsx
+import { PivotTable, type PivotBarSpec, type PivotHeatSpec } from "@nqlib/nqgrid/pivot";
+
+function DesignedPivot({ model, design, onDesignChange }: Props) {
+  const patch = (p: Partial<Design>) => onDesignChange({ ...design, ...p });
+  return (
+    <PivotTable
+      model={model}
+      valueWidths={design.valueWidths}
+      dimensionWidths={design.dimensionWidths}
+      rowHeight={design.rowHeight}
+      measureOrder={design.measureOrder}
+      // Called every animation frame while dragging (info.final === false) and once at the end.
+      onValueWidthChange={(key, width, info) => patch({ valueWidths: { ...design.valueWidths, [key]: width } })}
+      onDimensionWidthChange={(index, width) => patch({ dimensionWidths: withIndex(design.dimensionWidths, index, width) })}
+      onRowHeightChange={(rowHeight) => patch({ rowHeight })}
+      onMeasureOrderChange={(measureOrder) => patch({ measureOrder })}
+      freezeHeader={design.freezeHeader}
+      freezeDimensions={design.freezeDimensions}
+      heat={design.heat}
+      bars={design.bars}
+      measureLayout={design.measureLayout}
+      bandedRows={design.bandedRows}
+      dataAttributes
+      cellClassName={(ctx) => (ctx.column.measureId === "variance" ? "font-medium" : undefined)}
+    />
+  );
+}
+```
+
+Persist on `info.final` if saving is expensive; the `final: false` calls exist so the column follows the
+pointer. A resize only changes widths: the measure order, heat levels and bar lengths are cached per
+model object (a `WeakMap`), so a drag never recomputes them, and the model itself is never rebuilt.
+
+### Props
+
+| Prop | Type | What it does |
+|---|---|---|
+| `valueWidths` | `Readonly<Record<string, number>>` | Width per value column, keyed by `PivotValueColumn.id` (measure id + column path, e.g. `c:Nov:actual`). Falls back to `valueWidth`. |
+| `onValueWidthChange` | `(key, width, info) => void` | Interactive mode: a `role="separator"` handle on the right edge of each column's bottom header cell (`aria-label="Resize column Nov Actual"`, `aria-valuenow`). Drag (48–800 px), double-click to fit the widest **rendered** cell (header included), or focus it: ArrowLeft / ArrowRight 8 px, Shift 32 px, Home / End to the limits. Escape during a drag restores the start width (sent with `final: true`). |
+| `onDimensionWidthChange` | `(index, width, info) => void` | The same for the row-label columns (`index` into `dimensionWidths`; one column in compact layout). |
+| `onRowHeightChange` | `(height, info) => void` | A handle on the bottom edge of the first body row (in its first value cell): 20–96 px, ArrowUp / ArrowDown 4 px, Shift 16 px. `rowHeight` / `headRowHeight` stay the props they were. |
+| `measureOrder` | `readonly string[]` | Order of the value measures. Within each run of sibling measure headers (all measures of one column group, or the outer Σ Values row) the measures and everything under them trade places. Ids not listed keep their place after the listed ones; unknown ids are ignored. Column-dimension members never move: their order comes from the model sort. Same as rendering `pivotOrderMeasures(model, order)`. |
+| `onMeasureOrderChange` | `(order) => void` | Interactive mode: measure headers become draggable (`cursor: grab`; a 4 px threshold, then an inset line and `data-nq-drop="before\|after"` on the target; Escape cancels) and focusable (`tabindex="0"`, `aria-keyshortcuts`): Alt+ArrowLeft / Alt+ArrowRight move the focused measure, and focus follows it. Called with the full new order. Clicks on buttons, handles and field-list drag handles inside a header keep their own gesture. |
+| `freezeHeader` | `boolean` | Interactive (default on): sticky header rows and header chart band. Off: they scroll away. Static: `false` prints the header once instead of on every page (`<thead style="display:table-row-group">`). |
+| `freezeDimensions` | `boolean` | Interactive (default on): sticky row-label columns. Both work with `virtualize` and `pagination`. |
+| `cellClassName` | `(ctx: PivotCellContext) => string \| undefined` | Extra class on a value cell. |
+| `rowClassName` | `(row, { kind, index }) => string \| undefined` | Extra class on a body row; `kind` is `leaf` (leaf and calculated rows), `subtotal` (group and subtotal rows) or `total`. |
+| `headerClassName` | `(ctx: PivotColumnHeaderContext) => string \| undefined` | Extra class on a value header cell. |
+| `bandedRows` | `boolean` | `data-nq-band="odd\|even"` on body rows (first row `odd`, by index in `model.rows`, so bands stay put when virtualized). |
+| `dataAttributes` | `boolean` | `data-nq-row-kind` on every body cell, `data-nq-measure` and `data-nq-negative` (displayed value below 0) on every value cell. Off by default so 0.4.0 markup stays byte-identical. |
+| `heat` | `PivotHeatSpec \| readonly PivotHeatSpec[]` | Heat from one spec or several (e.g. one per measure; a later spec on the same cells wins), computed from the displayed values (`cell.value`) of the rendered model. Replaces the model's own heat (`spec.heat`); `[]` removes it. Cells get `data-nq-heat="<step 0–8>"`, `data-nq-heat-scale="sequential\|diverging"` and `background-color: var(--nq-pivot-heat-N)` (diverging: `var(--nq-pivot-heat-diverging-N)`). |
+| `bars` | `readonly PivotBarSpec[]` | Data bars: `{ measure, applyTo?: "leaf" \| "group" \| "all", domain?: [min, max], negative?: "left" \| "hide" }`. One domain per spec over the measure's leaf columns (not subtotal or row-total columns), always including 0. An empty `aria-hidden` span (`data-nq-bar`, `data-nq-bar-negative`) is placed absolutely behind the number at `z-index: -1` inside the cell's own stacking context, so it paints above the heat background and below the text. Width and offset are percentages; the color is `var(--nq-pivot-bar)` / `var(--nq-pivot-bar-negative)`. |
+| `measureLayout` | `Readonly<Record<string, { align?, wrap? }>>` | Per measure: `align` (`start` / `end` / `center`) for its value cells and bottom header cells, `wrap` (`wrap` lets text wrap; `clip` keeps one line and cuts it). |
+
+| `measureWidths` | `Readonly<Record<string, number>>` | One width for every column of a measure, by measure id. A `valueWidths` entry for a column wins. |
+| `onMeasureWidthChange` | `(measureId, width, info) => void` | When `onValueWidthChange` is not set, the column handles resize every column of their measure at once (double-click fits the widest cell over all of them). |
+| `resizeGuide` | `boolean` | While an edge is dragged, a `position: fixed` line (`data-nq-resize-guide`) runs across the visible table at the new edge. Every drag also sets `data-nq-resizing` on the handle and `data-nq-resizing="column\|row"` on the table. |
+| `numberFormats` | `readonly PivotFormatRule[]` | Excel's "Format Cells" for a measure, a column, a row, a row kind or one cell (below). |
+| `onCellClick` | `(ctx: PivotCellContext) => void` | Interactive mode: a click on a value cell, e.g. to select the target of a format menu. |
+
+To **rename a header**, use the existing `renderColumnHeader`: return your own label for the cell
+(`ctx.kind === "measure" && ctx.cell.measureId === "plan" ? "Budget" : ctx.label`). Keep the callback
+stable (`useCallback`), since `PivotTable` is memoized.
+
+`PivotHeatSpec` (also in `spec.heat`) gains `scale?: "sequential" | "diverging"` and `midpoint?: number`
+(default 0). A diverging ramp puts the midpoint on the middle level (`floor(levels / 2)`, step 4 of 9),
+values below it on lower levels and values above on higher ones; any value off the midpoint is at least
+one level away from the middle. Without `domain` both sides share the larger distance from the
+midpoint, so equal distances get equal colors. Use an odd `levels` for a symmetric ramp. The JSON
+schema and `validatePivotSpec` accept both keys.
+
+### Number formats (Excel's "Format Cells")
+
+A person can pick digits, currency, percent, thousands / millions, compact units, a prefix or suffix
+and parentheses for negatives, for one measure, one column, one row, a row kind or one cell. Each
+choice is a `PivotFormatRule`; the host stores the list and passes it back as `numberFormats`:
+
+```ts
+const numberFormats: PivotFormatRule[] = [
+  { measure: "actual", format: { compact: false, decimals: 0 } },                    // a measure, everywhere
+  { column: "c:Nov:plan", format: { style: "currency", currency: "EUR" } },          // one column
+  { row: "r:Camp", format: { scale: 1000, suffix: "k", decimals: 1 } },              // one row
+  { rowKind: "total", format: { negative: "parentheses" } },                         // the grand total
+  { row: "r:Camp/Tents", column: "c:Nov:growth", format: { decimals: 2 } },          // one cell
+];
+```
+
+- **Targets:** `measure` (measure id), `column` (`PivotValueColumn.id`), `row` (`PivotBodyRow.id`),
+  `rowKind` (`leaf` / `subtotal` / `total`). The set conditions must all match.
+- **Precedence:** the most specific rule wins — cell, then row, then column, then row kind, then
+  measure, then a rule with no target. Equally specific rules apply in array order.
+- **Merging:** a rule's `format` is merged over the cell's current format (the column's, the row's
+  `itemFormats`, or the measure's percent format for shown-as cells), so `{ decimals: 2 }` keeps the
+  currency. `replace: true` uses the rule's format alone.
+- **Display only:** the cell's value, totals, heat, bars, sorting and the model are unchanged. Use
+  `onCellClick` to know which cell a person selected, then offer "this cell / this row / this
+  column / this measure" in your menu.
+- **Export:** `pivotTableGeometry(model, { numberFormats })` gives each changed cell its `format`,
+  `excelNumFmt` and printed `text` (`cells[r][c].numberFormat`).
+
+### Save a view (`PivotTableDesign`, `pivotDesignProps`)
+
+`PivotTableDesign` is the whole design as one JSON-safe object (widths, measure widths, row height,
+measure order, freeze, bands, heat, bars, layout, number formats, `version: 1`). `pivotDesignProps`
+turns it into props and callbacks that return the next design, so a host saves a view in a few lines:
+
+```tsx
+const [design, setDesign] = useState<PivotTableDesign>(view.design);   // from your database
+
+<PivotTable
+  model={model}
+  resizeGuide
+  {...pivotDesignProps(design, (next, info) => {
+    setDesign(next);
+    if (info.final) saveView({ ...view, design: next });               // one write per gesture
+  }, { widthScope: "column" })}                                         // or "measure"
+/>
+```
+
+Width keys include the column key (`c:Nov:actual`). When the data later has new columns, they use
+`measureWidths` or `valueWidth`; keys that no longer exist are ignored. Use `widthScope: "measure"`
+when a view should survive new periods with the same look.
+
+### Handle look
+
+The handles are plain elements for your CSS: `[data-nq-resize="column|row"]` (class
+`nqg-pivot-resize`), `[data-nq-resizing]` while dragged, `[data-nq-resize-guide]` for the guide line.
+Size and colors are CSS variables:
+
+| Variable | Default | Used by |
+|---|---|---|
+| `--nq-pivot-resize-size` | `6px` | grab area of every handle |
+| `--nq-pivot-resize-guide` | `currentColor` | guide line color |
+| `--nq-pivot-resize-guide-size` | `1px` | guide line thickness |
+
+```css
+.my-pivot [data-nq-resize="column"]::before {          /* a thumb */
+  content: ""; position: absolute; top: 25%; bottom: 25%; left: 2px;
+  width: 2px; border-radius: 1px; background: var(--border);
+}
+.my-pivot [data-nq-resize]:hover::before,
+.my-pivot [data-nq-resizing]::before { background: var(--primary); }
+.my-pivot { --nq-pivot-resize-guide: var(--primary); }
+```
+
+### Colors
+
+The grid writes no color values, only references to CSS variables. Define them on any ancestor and
+map them to your tokens:
+
+| Variable | Used by |
+|---|---|
+| `--nq-pivot-heat-0` … `--nq-pivot-heat-8` | sequential `heat` (low → high) |
+| `--nq-pivot-heat-diverging-0` … `--nq-pivot-heat-diverging-8` | diverging `heat` (4 is the midpoint) |
+| `--nq-pivot-bar`, `--nq-pivot-bar-negative` | `bars` (negative falls back to `--nq-pivot-bar`) |
+| `--nq-pivot-drop-indicator` | measure drag indicator (default `currentColor`) |
+
+The model's own heat (`spec.heat`, without the `heat` prop) still uses `--nqg-heat-N` as in 0.4.0. The
+resize handles carry `pivotResizeHandleClass` (`nqg-pivot-resize`, visible on hover and focus).
+
+### Export the same design (XLSX)
+
+`pivotTableGeometry(model, options)` takes the design options and returns what an exporter needs:
+
+```ts
+const ordered = pivotOrderMeasures(model, design.measureOrder);   // the model PivotTable renders
+const g = pivotTableGeometry(ordered, {
+  dimensionWidths: design.dimensionWidths,
+  valueWidth: design.valueWidth,
+  valueWidths: design.valueWidths,
+  freezeHeader: design.freezeHeader,
+  freezeDimensions: design.freezeDimensions,
+  heat: design.heat,
+  bars: design.bars,
+});
+g.columnWidths;   // px, dimension columns then value columns
+g.frozenRows;     // header rows (ySplit under your title rows); 0 with freezeHeader: false
+g.frozenColumns;  // row-label columns (xSplit); 0 with freezeDimensions: false
+g.cells?.[r]?.[c]; // { heat?: { level, levels, step, scale }, bar?: { start, width, negative } }
+```
+
+`cells` is present when `heat` or `bars` is passed (`heat: undefined` with `bars` reports the model's
+own heat levels). The new fields are optional on the `PivotTableGeometry` type, so code that builds its
+own geometry objects keeps compiling; `pivotTableGeometry` always sets them.
+
+### Limits
+
+- `@nqlib/nqgrid/render-static` (HTML / PDF) does not pass the design props through yet; it splits wide
+  pivots into column chunks, so heat and bar domains would be per chunk.
+- A diverging `spec.heat` (no `heat` prop) is drawn with the diverging ramp by `PivotTable`; the static
+  HTML renderer and the Python XLSX writer still color its levels with the sequential ramp.
+- Auto-fit measures the rendered cells only (virtualized rows outside the window are not measured).
+- The row handle lives in the first body row; when that row is scrolled out of a virtualized window,
+  use the keyboard on it after scrolling back, or set `rowHeight` from your own control.
 
 ## Static HTML (`@nqlib/nqgrid/render-static`)
 
@@ -1168,7 +1373,7 @@ Tests: `pnpm test` (library, incl. the HTML golden), `pnpm -r test` (packages: X
 2. **Phase 1 — done.** Pivot core, JSON Schema, golden contract fixtures, sheet export shape.
 3. **Phase 2 — done.** `@nqlib/nqgrid/pivot`: `usePivotGrid(spec, rows)` + TanStack adapter; CSS-sticky
    pinned dimension columns with real `rowSpan` span cells; heat CSS variables; header chart band;
-   KPI side-panel slot; static render mode; playground "Planning pivot" demo.
+   KPI side-panel slot; static render mode; playground "Pivot showcase".
 4. **Phase 3 — done.** `@nqlib/nqgrid/render-static` (`renderPivotHtml(model, { theme, page, … })`: self-contained
    HTML + CSS, inline SVG header bars, landscape pages, repeated headers, `break-inside: avoid` per group, balanced
    column chunks, tall-KPI filler rows) and `packages/nqgrid-export` (CLI, Node API and HTTP serve mode; Playwright

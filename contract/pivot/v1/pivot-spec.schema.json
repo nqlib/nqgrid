@@ -176,6 +176,15 @@
               ],
               "minItems": 2,
               "maxItems": 2
+            },
+            "scale": {
+              "enum": [
+                "sequential",
+                "diverging"
+              ]
+            },
+            "midpoint": {
+              "type": "number"
             }
           }
         }

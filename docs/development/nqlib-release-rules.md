@@ -85,6 +85,7 @@ Do not decide alone. The developer, or the designer who owns the library, must a
 
 | # | Question | What to show |
 |---|---|---|
+| 0 | At a release only: for each branch, worktree or stash with work that is not on `dev`, does it go in this release, wait, or get dropped? | The list from § 7 step 1: each item's last commit, its date, its diff size against `dev`, and whether a PR is open. Put "goes in" first when the work is finished. |
 | 1 | Is the bump a patch, a minor or a major? | The changes since the last tag, sorted as breaking, additive and fix. Read them from the changelog and from `git diff vX.Y.Z..dev` on the library source. Put the recommended option first. |
 | 2 | Is this the right version number (for example `0.4.0`)? | The current npm version (§ 1). |
 | 3 | Is the changelog section complete? | Its headings and its Breaking entries. |
@@ -107,13 +108,19 @@ in this session. A yes from an earlier session does not carry over.
 
 Do the steps in this order:
 
-1. Run the questionnaire (§ 5).
-2. Run the checks of the repo, with every check on.
-3. Set the date on the changelog heading.
-4. Merge `dev` into `main` with a merge commit. Never squash into `main`.
-5. Tag the merge commit `vX.Y.Z`, then push the tag.
-6. The owner publishes. An agent runs `npm publish` only after the developer says so in this
+1. Find the work that is not on `dev`. List every local and remote branch, every worktree
+   (`git worktree list`) and every stash. A squash-merged branch still shows commits that `dev`
+   lacks, so compare content: `git merge-tree --write-tree origin/dev <branch>` prints the tree
+   of `origin/dev` when the branch adds nothing. Check each stash the same way. Every item that
+   adds something goes into question 0. Never leave one out because another session made it or
+   because it sits in another worktree. Ask; do not decide.
+2. Run the questionnaire (§ 5). Start with question 0 for each item from step 1.
+3. Run the checks of the repo, with every check on.
+4. Set the date on the changelog heading.
+5. Merge `dev` into `main` with a merge commit. Never squash into `main`.
+6. Tag the merge commit `vX.Y.Z`, then push the tag.
+7. The owner publishes. An agent runs `npm publish` only after the developer says so in this
    session.
-7. Run `npm view <package> version` to confirm the publish.
-8. In nqui-showcase, bump the dependency (`pnpm update <package>`, then
+8. Run `npm view <package> version` to confirm the publish.
+9. In nqui-showcase, bump the dependency (`pnpm update <package>`, then
    `pnpm lockfile:check`) and update the changelog mirror.

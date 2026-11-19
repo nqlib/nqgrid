@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nqlib/nqui";
+import { ScrollArea, Tabs, TabsContent, TabsList, TabsTrigger } from "@nqlib/nqui";
 import { DesignTokensPage } from "./design-tokens/design-tokens-page";
 import { ExamplesPage } from "./examples/examples-page";
 import { SpreadsheetPage } from "./demos/spreadsheet/spreadsheet-page";
 import { ProjectsPage } from "./demos/projects/projects-page";
-import { PlanningPivotDemo } from "./demos/planning-pivot-demo";
+import { PivotShowcasePage } from "./demos/pivot-showcase/pivot-showcase-page";
 import { PlaygroundTableSettingsMenu } from "./playground-table-settings";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -14,6 +14,8 @@ const playgroundTabTriggerClass = "flex-none shrink-0 px-3";
 /** Persist the active tab so a full reload (incl. Vite HMR full-reloads) restores it. */
 const TAB_STORAGE_KEY = "nqgrid-playground-tab";
 function readStoredTab(): string {
+  // A pivot deep link (`?pivot=<scenario>`) opens the pivot showcase.
+  if (new URLSearchParams(window.location.search).has("pivot")) return "pivot";
   try {
     return localStorage.getItem(TAB_STORAGE_KEY) ?? "examples";
   } catch {
@@ -44,23 +46,26 @@ export function App() {
       </header>
 
       <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col gap-3">
-        <TabsList className="w-fit shrink-0 self-start">
-          <TabsTrigger className={playgroundTabTriggerClass} value="examples">
-            <span className="whitespace-nowrap">Examples</span>
-          </TabsTrigger>
-          <TabsTrigger className={playgroundTabTriggerClass} value="spreadsheet">
-            <span className="whitespace-nowrap">Spreadsheet</span>
-          </TabsTrigger>
-          <TabsTrigger className={playgroundTabTriggerClass} value="projects">
-            <span className="whitespace-nowrap">Projects</span>
-          </TabsTrigger>
-          <TabsTrigger className={playgroundTabTriggerClass} value="pivot">
-            <span className="whitespace-nowrap">Planning pivot</span>
-          </TabsTrigger>
-          <TabsTrigger className={playgroundTabTriggerClass} value="design-tokens">
-            <span className="whitespace-nowrap">Design tokens</span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Scrolls sideways on phones instead of widening the page. */}
+        <ScrollArea orientation="horizontal" fadeMask={false} className="w-full max-w-full shrink-0">
+          <TabsList className="w-fit shrink-0 self-start">
+            <TabsTrigger className={playgroundTabTriggerClass} value="examples">
+              <span className="whitespace-nowrap">Examples</span>
+            </TabsTrigger>
+            <TabsTrigger className={playgroundTabTriggerClass} value="spreadsheet">
+              <span className="whitespace-nowrap">Spreadsheet</span>
+            </TabsTrigger>
+            <TabsTrigger className={playgroundTabTriggerClass} value="projects">
+              <span className="whitespace-nowrap">Projects</span>
+            </TabsTrigger>
+            <TabsTrigger className={playgroundTabTriggerClass} value="pivot">
+              <span className="whitespace-nowrap">Pivot showcase</span>
+            </TabsTrigger>
+            <TabsTrigger className={playgroundTabTriggerClass} value="design-tokens">
+              <span className="whitespace-nowrap">Design tokens</span>
+            </TabsTrigger>
+          </TabsList>
+        </ScrollArea>
         <TabsContent value="examples" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
           <ExamplesPage />
         </TabsContent>
@@ -77,7 +82,7 @@ export function App() {
           <ProjectsPage />
         </TabsContent>
         <TabsContent value="pivot" className="min-h-0 flex-1 outline-none data-[state=inactive]:hidden">
-          <PlanningPivotDemo />
+          <PivotShowcasePage />
         </TabsContent>
         <TabsContent
           value="design-tokens"

@@ -2,7 +2,34 @@ import { cloneElement, memo, useEffect, useLayoutEffect, useRef, useState, type 
 
 import { pivotCellDrillTarget } from "../core/pivot/build-model";
 import type { PivotDrillThroughTarget } from "../core/pivot/cube";
-import type { PivotBodyRow, PivotCell, PivotHeaderCell, PivotModel, PivotModelDimension, PivotValueColumn } from "../core/pivot/types";
+import type { PivotBodyRow, PivotCell, PivotHeaderCell, PivotHeatSpec, PivotModel, PivotModelDimension, PivotValueColumn } from "../core/pivot/types";
+import {
+  PIVOT_COLUMN_WIDTH_MAX,
+  PIVOT_COLUMN_WIDTH_MIN,
+  PIVOT_ROW_HEIGHT_MAX,
+  PIVOT_ROW_HEIGHT_MIN,
+  pivotCellDesigns,
+  pivotCellFormats,
+  pivotHeatPaletteStep,
+  pivotHeatSpecList,
+  pivotRowDesignKind,
+  type PivotBarSpec,
+  type PivotCellClassName,
+  type PivotCellDesign,
+  type PivotCellDesigns,
+  type PivotDimensionWidthChangeHandler,
+  type PivotHeaderClassName,
+  type PivotMeasureLayout,
+  type PivotMeasureOrderChangeHandler,
+  type PivotMeasureWidthChangeHandler,
+  type PivotFormatRule,
+  type PivotCellNumberFormat,
+  type PivotRowClassName,
+  type PivotRowHeightChangeHandler,
+  type PivotValueWidthChangeHandler,
+} from "./design";
+import { pivotHeaderLayout, pivotMeasureOrder, pivotMoveMeasure, pivotOrderMeasures, type PivotHeaderLayout } from "./header-layout";
+import { PivotResizeHandle, pivotAutoFitWidth, pivotMergeRunOrder, pivotRefocusMeasure, pivotStartMeasureDrag } from "./pivot-table-interactions";
 import {
   pivotCountClass,
   pivotGrandTotalCellClass,
@@ -11,6 +38,7 @@ import {
   pivotGroupLabelClass,
   pivotGroupValueClass,
   pivotHeadCellClass,
+  pivotHeatCellClass,
   pivotHeadLabelClass,
   pivotHeadValueCellClass,
   pivotLabelTextClass,
@@ -181,6 +209,96 @@ export interface PivotTableProps {
   readonly pagination?: { readonly pageHeight: number; readonly firstPageOffset?: number };
   /** Appended to a group label repeated on a continuation page (default `(cont.)`). */
   readonly continuedLabel?: string;
+
+  // ---- Design (0.5.0). Every prop is optional; with none set the output is the same as 0.4.0. ----
+  // The grid keeps no design state: each change comes out through a callback, and the host passes
+  // the new value back as a prop (a controlled component).
+
+  /** Width in px per value column, by `PivotValueColumn.id` (measure id + column path). Falls back to `valueWidth`. */
+  readonly valueWidths?: Readonly<Record<string, number>>;
+  /**
+   * Interactive mode: a resize handle on the right edge of each value column's bottom header cell.
+   * Drag (48–800 px), double-click to fit the widest rendered cell, or focus it and use ArrowLeft /
+   * ArrowRight (8 px; Shift: 32 px), Home / End. Called once per animation frame while dragging
+   * (`info.final === false`) and once at the end (`final: true`).
+   */
+  readonly onValueWidthChange?: PivotValueWidthChangeHandler;
+  /** As `onValueWidthChange`, for the row-label columns (`index` into `dimensionWidths`). */
+  readonly onDimensionWidthChange?: PivotDimensionWidthChangeHandler;
+  /**
+   * Interactive mode: a handle on the bottom edge of the first body row's first value cell sets
+   * `rowHeight` (20–96 px; ArrowUp / ArrowDown 4 px, Shift 16 px).
+   */
+  readonly onRowHeightChange?: PivotRowHeightChangeHandler;
+  /**
+   * Order of the value measures (ids). Within each group of measure columns the measures follow this
+   * order; ids not listed keep their place after the listed ones. Column-dimension members keep the
+   * model's sort. See `pivotOrderMeasures`.
+   */
+  readonly measureOrder?: readonly string[];
+  /**
+   * Interactive mode: measure headers become draggable (a drop indicator shows the new place; Escape
+   * cancels) and focusable (Alt+ArrowLeft / Alt+ArrowRight moves the focused measure). Called with
+   * the new full order.
+   */
+  readonly onMeasureOrderChange?: PivotMeasureOrderChangeHandler;
+  /**
+   * Keep the header rows (and header chart band) at the top while the body scrolls. Default: on in
+   * interactive mode. In static mode `false` stops the browser from repeating the header on every
+   * printed page.
+   */
+  readonly freezeHeader?: boolean;
+  /** Keep the row-label columns at the left while the value columns scroll (interactive mode; default on). */
+  readonly freezeDimensions?: boolean;
+  /** Extra class for a value cell (map it to your own tokens). */
+  readonly cellClassName?: PivotCellClassName;
+  /** Extra class for a body row. */
+  readonly rowClassName?: PivotRowClassName;
+  /** Extra class for a value-column header cell. */
+  readonly headerClassName?: PivotHeaderClassName;
+  /** `data-nq-band="odd|even"` on body rows (first row: `odd`); style it in CSS. */
+  readonly bandedRows?: boolean;
+  /**
+   * Data attributes for CSS: `data-nq-row-kind` (`leaf` / `subtotal` / `total`) on every body cell,
+   * plus `data-nq-measure` (measure id) and `data-nq-negative` (value below 0) on every value cell.
+   * Default off.
+   */
+  readonly dataAttributes?: boolean;
+  /**
+   * Heat colors from one or several specs (e.g. one per measure), computed from the displayed
+   * values. Replaces the model's own heat (`spec.heat`); `[]` turns heat off. Cells get
+   * `data-nq-heat="<step 0–8>"`, `data-nq-heat-scale` and a `var(--nq-pivot-heat-N)` background
+   * (`--nq-pivot-heat-diverging-N` for a diverging scale).
+   */
+  readonly heat?: PivotHeatSpec | readonly PivotHeatSpec[];
+  /**
+   * Data bars behind the numbers (`var(--nq-pivot-bar)`, negatives `var(--nq-pivot-bar-negative)`);
+   * the number stays on top, readable and selectable.
+   */
+  readonly bars?: readonly PivotBarSpec[];
+  /** Alignment and wrapping of a measure's value cells (and its bottom header cells' alignment), by measure id. */
+  readonly measureLayout?: Readonly<Record<string, PivotMeasureLayout>>;
+  /** Width for every column of a measure, by measure id; `valueWidths` entries win (see `pivotTableGeometry`). */
+  readonly measureWidths?: Readonly<Record<string, number>>;
+  /**
+   * Interactive mode, when `onValueWidthChange` is not set: the column handles resize every column of
+   * their measure at once and report it here (store it in `measureWidths`).
+   */
+  readonly onMeasureWidthChange?: PivotMeasureWidthChangeHandler;
+  /**
+   * While a column or row edge is dragged, draw a guide line across the visible table
+   * (`data-nq-resize-guide`; color `--nq-pivot-resize-guide`, thickness `--nq-pivot-resize-guide-size`).
+   * Default off. Every drag also sets `data-nq-resizing` on the handle and the table.
+   */
+  readonly resizeGuide?: boolean;
+  /**
+   * Number formats a person picked (Excel's "Format Cells"), for a measure, a column, a row, a row
+   * kind or one cell; see `PivotFormatRule`. Only the printed text changes.
+   */
+  readonly numberFormats?: readonly PivotFormatRule[];
+  /** Interactive mode: a click on a value cell (e.g. to select it for a format menu). */
+  readonly onCellClick?: (context: PivotCellContext) => void;
+
   readonly className?: string;
   readonly style?: CSSProperties;
   readonly "aria-label"?: string;
@@ -194,6 +312,114 @@ export interface PivotTableProps {
 export const PIVOT_VIRTUALIZE_AUTO_CELLS = 10_000;
 /** `virtualize: "auto"` never virtualizes bodies of at most this many rows. */
 const PIVOT_VIRTUALIZE_MIN_ROWS = 200;
+
+// ---- Per-model caches of the design work (WeakMap: dropped with the model). ----
+const orderedModels = new WeakMap<PivotModel, Map<string, PivotModel>>();
+const cellDesigns = new WeakMap<PivotModel, Map<string, PivotCellDesigns>>();
+const headerLayouts = new WeakMap<PivotModel, PivotHeaderLayout>();
+/** Entries kept per model (a few orders / designs in flight while a person edits). */
+const CACHE_PER_MODEL = 8;
+
+function cacheIn<V>(store: WeakMap<PivotModel, Map<string, V>>, model: PivotModel, key: string, make: () => V): V {
+  let byKey = store.get(model);
+  if (!byKey) store.set(model, (byKey = new Map()));
+  let value = byKey.get(key);
+  if (value === undefined) {
+    if (byKey.size >= CACHE_PER_MODEL) byKey.clear();
+    byKey.set(key, (value = make()));
+  }
+  return value;
+}
+
+function cachedMeasureOrder(model: PivotModel, order: readonly string[] | undefined): PivotModel {
+  if (!order?.length) return model;
+  return cacheIn(orderedModels, model, order.join("\u0001"), () => pivotOrderMeasures(model, order));
+}
+
+function cachedCellDesigns(model: PivotModel, heat: PivotHeatSpec | readonly PivotHeatSpec[], bars: readonly PivotBarSpec[] | undefined): PivotCellDesigns {
+  return cacheIn(cellDesigns, model, JSON.stringify([heat, bars ?? null]), () => pivotCellDesigns(model, { heat, bars }));
+}
+
+const cellFormats = new WeakMap<PivotModel, Map<string, readonly (readonly (PivotCellNumberFormat | undefined)[] | undefined)[]>>();
+function cachedCellFormats(model: PivotModel, rules: readonly PivotFormatRule[]) {
+  return cacheIn(cellFormats, model, JSON.stringify(rules), () => pivotCellFormats(model, rules));
+}
+
+function cachedHeaderLayout(model: PivotModel): PivotHeaderLayout {
+  let layout = headerLayouts.get(model);
+  if (!layout) headerLayouts.set(model, (layout = pivotHeaderLayout(model)));
+  return layout;
+}
+
+const RELATIVE: CSSProperties = { position: "relative" };
+/** A cell with a data bar: its own stacking context, so the bar (z-index -1) stays above its background. */
+const BAR_CELL: CSSProperties = { position: "relative", zIndex: 0 };
+const barCellStyles = new WeakMap<CSSProperties, CSSProperties>();
+/** `BAR_CELL` over a (shared) heat style, one object per heat step. */
+function barCellStyle(heatStyle: CSSProperties | undefined): CSSProperties {
+  if (!heatStyle) return BAR_CELL;
+  let style = barCellStyles.get(heatStyle);
+  if (!style) barCellStyles.set(heatStyle, (style = { ...heatStyle, ...BAR_CELL }));
+  return style;
+}
+const GRAB: CSSProperties = { cursor: "grab" };
+/** Static mode, `freezeHeader: false`: the header is printed once, not on every page. */
+const STATIC_UNFROZEN_HEAD: CSSProperties = { display: "table-row-group" };
+
+interface PivotDesignHeatProps {
+  readonly className: string;
+  readonly style?: CSSProperties;
+  readonly "data-heat"?: number;
+  readonly step?: number;
+  readonly scale?: string;
+}
+
+const heatStyles = (ramp: string): readonly CSSProperties[] => Array.from({ length: 9 }, (_, i) => ({ backgroundColor: `var(${ramp}${i})` }));
+/** One shared props object per scale and step (no allocation per cell). */
+const heatProps = (scale: "sequential" | "diverging", ramp: string): readonly PivotDesignHeatProps[] =>
+  heatStyles(ramp).map((style, step) => ({ className: pivotHeatCellClass, style, step, scale }));
+
+const SEQUENTIAL_HEAT_PROPS = heatProps("sequential", "--nq-pivot-heat-");
+const DIVERGING_HEAT_PROPS = heatProps("diverging", "--nq-pivot-heat-diverging-");
+
+/** `heat` prop cell: CSS-variable background, `data-nq-heat` step and scale. */
+function designHeatProps(design: PivotCellDesign | undefined): PivotDesignHeatProps {
+  const h = design?.heat;
+  if (!h) return { className: "" };
+  return (h.scale === "diverging" ? DIVERGING_HEAT_PROPS : SEQUENTIAL_HEAT_PROPS)[h.step]!;
+}
+
+function measureLayoutStyle(layout: PivotMeasureLayout | undefined): CSSProperties | undefined {
+  if (!layout) return undefined;
+  return {
+    ...(layout.align ? { textAlign: layout.align } : {}),
+    ...(layout.wrap === "wrap" ? { whiteSpace: "normal", overflowWrap: "anywhere" } : layout.wrap === "clip" ? { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } : {}),
+  };
+}
+
+const pct = (fraction: number): string => `${Math.round(fraction * 100_000) / 1000}%`;
+
+/**
+ * A data bar behind a value cell's number: an empty `aria-hidden` span at `z-index: -1` inside the
+ * cell's own stacking context (`BAR_CELL`), so it paints over the cell background (heat) and under
+ * the text, which stays the cell's plain, selectable text.
+ */
+function dataBar(bar: NonNullable<PivotCellDesign["bar"]>): ReactNode {
+  return (
+    <span
+      aria-hidden
+      data-nq-bar=""
+      data-nq-bar-negative={bar.negative ? "" : undefined}
+      style={{
+        position: "absolute",
+        inset: `20% auto 20% ${pct(bar.start)}`,
+        width: pct(bar.width),
+        backgroundColor: bar.negative ? "var(--nq-pivot-bar-negative, var(--nq-pivot-bar))" : "var(--nq-pivot-bar)",
+        zIndex: -1,
+      }}
+    />
+  );
+}
 
 /** Inline so static HTML (no Tailwind) keeps label and indicator on one line. */
 const HEAD_LABEL_STYLE: CSSProperties = { display: "flex", alignItems: "center", gap: 4, minWidth: 0 };
@@ -224,7 +450,7 @@ function Chevron({ expanded }: { expanded: boolean }) {
  * a prop changes, e.g. a new model — keep callbacks such as `renderDimensionHeader` stable.
  */
 export const PivotTable = memo(function PivotTable({
-  model,
+  model: sourceModel,
   mode = "interactive",
   onToggleGroup,
   onToggleColumnGroup,
@@ -249,20 +475,60 @@ export const PivotTable = memo(function PivotTable({
   headerIndicators,
   pagination,
   continuedLabel = "(cont.)",
+  valueWidths,
+  onValueWidthChange,
+  onDimensionWidthChange,
+  onRowHeightChange,
+  measureOrder,
+  onMeasureOrderChange,
+  freezeHeader,
+  freezeDimensions,
+  cellClassName,
+  rowClassName,
+  headerClassName,
+  bandedRows,
+  dataAttributes,
+  heat,
+  bars,
+  measureLayout,
+  measureWidths,
+  onMeasureWidthChange,
+  resizeGuide,
+  numberFormats,
+  onCellClick,
   className,
   style,
   "aria-label": ariaLabel,
 }: PivotTableProps) {
   const interactive = mode === "interactive";
+  // Design work that depends on the model only is cached per model object (no hooks, so the table
+  // still renders as a plain function): a resize, which only changes widths, never redoes it.
+  const model = cachedMeasureOrder(sourceModel, measureOrder);
+  // A heat spec without `measure` means the first value measure of the model as built (core's
+  // default), not whichever measure a reorder put first.
+  const firstMeasure = sourceModel.columns[0]?.measureId;
+  const heatSpecs = heat === undefined ? [] : pivotHeatSpecList(heat)!.map((h) => (h.measure === undefined && firstMeasure !== undefined ? { ...h, measure: firstMeasure } : h));
+  const designs = heat === undefined && !bars?.length ? null : cachedCellDesigns(model, heatSpecs, bars);
+  const formats = numberFormats?.length ? cachedCellFormats(model, numberFormats) : null;
+  // Column handles: per column (`onValueWidthChange`), else per measure (`onMeasureWidthChange`).
+  const columnResize = interactive && (onValueWidthChange !== undefined || onMeasureWidthChange !== undefined);
+  // `spec.heat` with a diverging scale (no `heat` prop): drawn with the diverging ramp.
+  const modelDiverging = heat === undefined && model.heat?.scale === "diverging" ? model.heat : null;
+  const ownHeat = heat !== undefined;
+  const reorderable = interactive && onMeasureOrderChange !== undefined;
+  const headerLayout = reorderable || columnResize || measureLayout !== undefined ? cachedHeaderLayout(model) : null;
+
   const showCounts = countBadges ?? interactive;
   const showIndicators = headerIndicators ?? interactive;
+  const stickyTop = interactive && (freezeHeader ?? true);
+  const stickyLeft = interactive && (freezeDimensions ?? true);
   const virtual =
     interactive &&
     (virtualize === true ||
       (virtualize === "auto" &&
         model.rows.length > PIVOT_VIRTUALIZE_MIN_ROWS &&
         model.rows.length * model.columns.length > PIVOT_VIRTUALIZE_AUTO_CELLS));
-  const geometry = pivotTableGeometry(model, { dimensionWidths, valueWidth });
+  const geometry = pivotTableGeometry(model, { dimensionWidths, valueWidth, valueWidths, measureWidths });
   const showBand = (headerChart ?? true) && model.headerSeries !== null;
   const bandHeight = chartHeight + 32;
   const headTop = showBand ? bandHeight : 0;
@@ -294,7 +560,14 @@ export const PivotTable = memo(function PivotTable({
   }
 
   const pinned = (col: number, extra?: CSSProperties): { className?: string; style?: CSSProperties } =>
-    interactive ? { className: pivotPinnedClass, style: { left: geometry.dimensionOffsets[col], ...extra } } : { style: extra };
+    stickyLeft ? { className: pivotPinnedClass, style: { left: geometry.dimensionOffsets[col], ...extra } } : { style: extra };
+
+  /** `data-nq-row-kind` (with `dataAttributes`). */
+  const rowKindAttr = (row: PivotBodyRow): string | undefined => (dataAttributes ? pivotRowDesignKind(row) : undefined);
+  /** Auto-fit targets: `data-nq-dim-col` / `data-nq-col` only while the matching resize callback is set. */
+  const tableOf = (el: Element): HTMLElement | null => el.closest("table");
+  const dimColAttr = (level: number): number | undefined => (interactive && onDimensionWidthChange ? level : undefined);
+  const valueColAttr = (index: number): number | undefined => (columnResize ? index : undefined);
 
   const toggleFor = (row: PivotBodyRow): ReactNode =>
     interactive && onToggleGroup && row.expandable ? (
@@ -377,7 +650,7 @@ export const PivotTable = memo(function PivotTable({
     const row = model.rows[owner]!;
     const p = pinned(level);
     // Interactive: the panel sticks under the header while its rows scroll past.
-    const inner: CSSProperties | undefined = interactive && ownerSpan > 1 ? { position: "sticky", top: headerHeight + 8 } : undefined;
+    const inner: CSSProperties | undefined = interactive && ownerSpan > 1 ? { position: "sticky", top: (stickyTop ? headerHeight : 0) + 8 } : undefined;
     return (
       <th
         key={`d${level}`}
@@ -386,6 +659,8 @@ export const PivotTable = memo(function PivotTable({
         className={cx(pivotSpanCellClass, pivotRowHeaderClass, level === lastDim ? pivotPinnedEdgeClass : undefined, p.className)}
         style={p.style}
         data-nqg-span={ownerSpan}
+        data-nq-row-kind={rowKindAttr(row)}
+        data-nq-dim-col={dimColAttr(level)}
       >
         <div style={inner}>{spanContent(row, level, ownerSpan, continued)}</div>
       </th>
@@ -398,7 +673,7 @@ export const PivotTable = memo(function PivotTable({
     if (row.kind === "grandTotal") {
       const p = pinned(0);
       return [
-        <th key="gt" scope="row" colSpan={geometry.dimensionColumns} className={cx(base, pivotGrandTotalLabelClass, pivotPinnedEdgeClass, p.className)} style={p.style}>
+        <th key="gt" scope="row" colSpan={geometry.dimensionColumns} className={cx(base, pivotGrandTotalLabelClass, pivotPinnedEdgeClass, p.className)} style={p.style} data-nq-row-kind={rowKindAttr(row)}>
           {row.label}
         </th>,
       ];
@@ -406,7 +681,7 @@ export const PivotTable = memo(function PivotTable({
     if (compact) {
       const p = pinned(0);
       return [
-        <th key="c" scope="row" className={cx(base, pivotRowHeaderClass, edge(0), p.className)} style={p.style}>
+        <th key="c" scope="row" className={cx(base, pivotRowHeaderClass, edge(0), p.className)} style={p.style} data-nq-row-kind={rowKindAttr(row)} data-nq-dim-col={dimColAttr(0)}>
           {row.kind === "group" ? (
             groupLabel(row, row.depth * 16)
           ) : (
@@ -442,7 +717,7 @@ export const PivotTable = memo(function PivotTable({
           </span>
         ) : null;
       return [
-        <td key={`d${slot.level}`} className={cx(base, edge(slot.level), p.className)} style={p.style}>
+        <td key={`d${slot.level}`} className={cx(base, edge(slot.level), p.className)} style={p.style} data-nq-row-kind={rowKindAttr(row)} data-nq-dim-col={dimColAttr(slot.level)}>
           {content}
         </td>,
       ];
@@ -450,32 +725,86 @@ export const PivotTable = memo(function PivotTable({
   };
 
   const drill = interactive ? onDrillThrough : undefined;
-  const valueCells = (row: PivotBodyRow, rowIndex: number): ReactNode[] =>
-    row.cells.map((cell, i) => {
-      const heat = pivotHeatCellProps(cell, heatLevels);
+  const click = interactive ? onCellClick : undefined;
+  const valueCells = (row: PivotBodyRow, rowIndex: number): ReactNode[] => {
+    const rowKind = rowKindAttr(row);
+    const rowDesigns = designs?.[rowIndex];
+    const rowFormats = formats?.[rowIndex];
+    return row.cells.map((cell, i) => {
       const column = model.columns[i]!;
+      const design = rowDesigns?.[i];
+      const heat: PivotDesignHeatProps = ownHeat
+        ? designHeatProps(design)
+        : modelDiverging
+          ? designHeatProps(
+              cell.heat === undefined
+                ? undefined
+                : { heat: { level: cell.heat, levels: modelDiverging.levels, step: pivotHeatPaletteStep(cell.heat, modelDiverging.levels, "diverging"), scale: "diverging" } },
+            )
+          : pivotHeatCellProps(cell, heatLevels);
+      const bar = design?.bar;
+      const layout = measureLayout?.[column.measureId];
+      const rowHandle = rowIndex === 0 && i === 0 && interactive && onRowHeightChange !== undefined;
+      const style =
+        layout || rowHandle
+          ? { ...heat.style, ...measureLayoutStyle(layout), ...(bar ? BAR_CELL : rowHandle ? RELATIVE : undefined) }
+          : bar
+            ? barCellStyle(heat.style)
+            : heat.style;
+      const extraClass = cellClassName?.({ model, row, rowIndex, column, columnIndex: i, cell });
+      const text = rowFormats?.[i]?.text ?? cell.text;
       return (
         <td
           key={column.id}
-          className={cx(rowCellClass(row), pivotValueClass, (row.kind === "group" || row.kind === "subtotal" || row.kind === "calculated") && pivotGroupValueClass, heat.className)}
-          style={heat.style}
+          className={cx(rowCellClass(row), pivotValueClass, (row.kind === "group" || row.kind === "subtotal" || row.kind === "calculated") && pivotGroupValueClass, heat.className, extraClass)}
+          style={style}
           data-heat={heat["data-heat"]}
           onDoubleClick={drill ? () => drill(pivotCellDrillTarget(model, row, i), { model, row, rowIndex, column, columnIndex: i, cell }) : undefined}
           // Keep a double-click from selecting the cell text.
           onMouseDown={drill ? (e) => e.detail > 1 && e.preventDefault() : undefined}
+          onClick={click ? () => click({ model, row, rowIndex, column, columnIndex: i, cell }) : undefined}
+          data-nq-measure={dataAttributes ? column.measureId : undefined}
+          data-nq-row-kind={rowKind}
+          data-nq-negative={dataAttributes && cell.value !== null && cell.value < 0 ? "" : undefined}
+          data-nq-heat={heat.step}
+          data-nq-heat-scale={heat.scale}
+          data-nq-col={valueColAttr(i)}
         >
-          {cell.text}
+          {bar || rowHandle ? (
+            <>
+              {bar ? dataBar(bar) : null}
+              {text}
+              {rowHandle ? (
+                <PivotResizeHandle
+                  orientation="horizontal"
+                  label="Resize rows"
+                  value={rowHeight}
+                  min={PIVOT_ROW_HEIGHT_MIN}
+                  max={PIVOT_ROW_HEIGHT_MAX}
+                  step={4}
+                  largeStep={16}
+                  onChange={onRowHeightChange!}
+                  guide={resizeGuide}
+                />
+              ) : null}
+            </>
+          ) : (
+            text
+          )}
         </td>
       );
     });
+  };
 
   const headCellPos = (r: number, pinnedCol?: number): { className?: string; style?: CSSProperties } => {
     const height = headRowHeight;
     if (!interactive) return { style: { height } };
     const top = headTop + r * headRowHeight;
-    return pinnedCol === undefined
-      ? { className: pivotStickyHeadClass, style: { top, height } }
-      : { className: pivotPinnedHeadClass, style: { top, left: geometry.dimensionOffsets[pinnedCol], height } };
+    if (pinnedCol === undefined) return stickyTop ? { className: pivotStickyHeadClass, style: { top, height } } : { style: { height } };
+    if (stickyTop && stickyLeft) return { className: pivotPinnedHeadClass, style: { top, left: geometry.dimensionOffsets[pinnedCol], height } };
+    if (stickyLeft) return { className: pivotPinnedHeadClass, style: { left: geometry.dimensionOffsets[pinnedCol], height } };
+    if (stickyTop) return { className: pivotPinnedHeadClass, style: { top, height } };
+    return { style: { height } };
   };
 
   const bodyRows = (row: PivotBodyRow, rowIndex: number, windowStart = 0, windowEnd = model.rows.length): ReactNode => {
@@ -487,6 +816,8 @@ export const PivotTable = memo(function PivotTable({
         data-depth={row.depth}
         style={{ height: rowHeight }}
         aria-rowindex={virtual ? model.headerRows.length + rowIndex + 1 : undefined}
+        className={rowClassName?.(row, { kind: pivotRowDesignKind(row), index: rowIndex })}
+        data-nq-band={bandedRows ? (rowIndex % 2 === 0 ? "odd" : "even") : undefined}
       >
         {dimensionCells(row, rowIndex, windowStart, windowEnd)}
         {valueCells(row, rowIndex)}
@@ -553,7 +884,7 @@ export const PivotTable = memo(function PivotTable({
 
   const columnFields = pivotModelColumnDimensions(model);
   const filteredFields = new Set(model.filters?.map((f) => f.field) ?? []);
-  const columnHeader = (h: PivotHeaderCell, r: number): ReactNode => {
+  const columnHeader = (h: PivotHeaderCell, r: number): { readonly content: ReactNode; readonly extraClass?: string } => {
     const path = h.columnPath;
     const toggle =
       interactive && onToggleColumnGroup && h.expanded !== undefined && path ? (
@@ -568,10 +899,11 @@ export const PivotTable = memo(function PivotTable({
           <Chevron expanded={h.expanded} />
         </button>
       ) : null;
-    if (renderColumnHeader) {
+    let context: PivotColumnHeaderContext | undefined;
+    if (renderColumnHeader || headerClassName) {
       const role = pivotColumnHeaderRole(model, r, h);
       const dimension = role.level === null ? null : (columnFields[role.level] ?? null);
-      return renderColumnHeader({
+      context = {
         ...role,
         model,
         mode,
@@ -581,15 +913,20 @@ export const PivotTable = memo(function PivotTable({
         filtered: dimension !== null && filteredFields.has(dimension.field),
         label: h.label,
         toggle,
-      });
+      };
     }
-    if (!toggle) return h.label;
-    return (
-      <span className={pivotHeadLabelClass} style={HEAD_LABEL_STYLE}>
-        {toggle}
-        <span className={pivotLabelTextClass}>{h.label}</span>
-      </span>
-    );
+    const extraClass = context && headerClassName ? headerClassName(context) : undefined;
+    if (renderColumnHeader) return { content: renderColumnHeader(context!), extraClass };
+    if (!toggle) return { content: h.label, extraClass };
+    return {
+      content: (
+        <span className={pivotHeadLabelClass} style={HEAD_LABEL_STYLE}>
+          {toggle}
+          <span className={pivotLabelTextClass}>{h.label}</span>
+        </span>
+      ),
+      extraClass,
+    };
   };
 
   const dimensionHeaders = compact ? [model.rowDimensions.map((d) => d.label).join(" / ")] : model.rowDimensions.map((d) => d.label);
@@ -677,7 +1014,7 @@ export const PivotTable = memo(function PivotTable({
       data-nqg-mode={mode}
     >
       <PivotColGroup geometry={geometry} columns={model.columns.length} />
-      <thead>
+      <thead style={!interactive && freezeHeader === false ? STATIC_UNFROZEN_HEAD : undefined}>
         {showBand ? (
           <PivotHeaderChartBand
             model={model}
@@ -686,6 +1023,8 @@ export const PivotTable = memo(function PivotTable({
             chartHeight={chartHeight}
             height={bandHeight}
             summary={headerSummary}
+            stickyTop={freezeHeader ?? true}
+            stickyLeft={freezeDimensions ?? true}
           />
         ) : null}
         {model.headerRows.map((cells, r) => (
@@ -694,16 +1033,36 @@ export const PivotTable = memo(function PivotTable({
               ? dimensionHeaders.map((label, col) => {
                   const pos = headCellPos(0, col);
                   const head = dimensionHeader(label, col);
+                  const resizable = interactive && onDimensionWidthChange !== undefined;
                   return (
                     <th
                       key={`dh${col}`}
                       scope="col"
                       rowSpan={model.headerRows.length}
                       className={cx(pivotHeadCellClass, col === lastDim && pivotPinnedEdgeClass, pos.className)}
-                      style={pos.style}
+                      style={resizable && !pos.className ? { ...pos.style, ...RELATIVE } : pos.style}
                       aria-sort={head.ariaSort}
+                      data-nq-dim-col={dimColAttr(col)}
                     >
-                      {head.content}
+                      {resizable ? (
+                        <>
+                          {head.content}
+                          <PivotResizeHandle
+                            orientation="vertical"
+                            label={`Resize column ${label}`}
+                            value={geometry.dimensionWidths[col]!}
+                            min={PIVOT_COLUMN_WIDTH_MIN}
+                            max={PIVOT_COLUMN_WIDTH_MAX}
+                            step={8}
+                            largeStep={32}
+                            onChange={(width, info) => onDimensionWidthChange(col, width, info)}
+                            onAutoFit={(handle) => pivotAutoFitWidth(tableOf(handle), "data-nq-dim-col", col)}
+                            guide={resizeGuide}
+                          />
+                        </>
+                      ) : (
+                        head.content
+                      )}
                     </th>
                   );
                 })
@@ -714,19 +1073,81 @@ export const PivotTable = memo(function PivotTable({
               // label stays in view.
               const left = h.colSpan > 1 && (h.measureId !== undefined || h.columnPath !== undefined);
               // Subtotal labels ("FY26 Total") span several header rows: let them wrap there.
-              const style = left || h.rowSpan ? { ...pos.style, ...(left ? { textAlign: "left" as const } : {}), ...(h.rowSpan ? { whiteSpace: "normal" as const } : {}) } : pos.style;
+              const base = left || h.rowSpan ? { ...pos.style, ...(left ? { textAlign: "left" as const } : {}), ...(h.rowSpan ? { whiteSpace: "normal" as const } : {}) } : pos.style;
+              const head = columnHeader(h, r);
+              const placed = headerLayout?.rows[r]?.[i];
+              const leaf = placed?.leafColumn ?? null;
+              const leafColumn = leaf === null ? undefined : model.columns[leaf];
+              const align = leafColumn ? measureLayout?.[leafColumn.measureId]?.align : undefined;
+              const resizable = columnResize && leafColumn !== undefined;
+              const run = reorderable && placed?.run ? placed.run : undefined;
+              const runCells = run ? headerLayout!.runs.get(run)! : undefined;
+              const measureId = run ? h.measureId! : undefined;
+              const style =
+                align || (resizable && !pos.className) || run
+                  ? { ...base, ...(align ? { textAlign: align } : {}), ...(resizable && !pos.className ? RELATIVE : {}), ...(run ? GRAB : {}) }
+                  : base;
               return (
                 <th
                   key={`v${r}:${i}`}
                   scope="col"
                   colSpan={h.colSpan}
                   rowSpan={h.rowSpan}
-                  className={cx(pivotHeadValueCellClass, pos.className)}
+                  className={cx(pivotHeadValueCellClass, pos.className, head.extraClass)}
                   style={style}
                   data-nqg-subtotal={h.subtotal ? "" : undefined}
                   data-nqg-column-level={h.columnLevel}
+                  data-nq-col={resizable ? leaf! : undefined}
+                  data-nq-run={run}
+                  data-nq-measure={measureId}
+                  tabIndex={run ? 0 : undefined}
+                  aria-keyshortcuts={run ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}
+                  onPointerDown={
+                    runCells
+                      ? (e) => pivotStartMeasureDrag(e, runCells, (runOrder) => onMeasureOrderChange!(pivotMergeRunOrder(pivotMeasureOrder(model), runOrder)))
+                      : undefined
+                  }
+                  onKeyDown={
+                    run
+                      ? (e) => {
+                          if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight") || e.target !== e.currentTarget) return;
+                          e.preventDefault();
+                          const current = pivotMeasureOrder(model);
+                          const next = pivotMoveMeasure(current, measureId!, e.key === "ArrowLeft" ? -1 : 1);
+                          if (next === current) return;
+                          onMeasureOrderChange!(next);
+                          pivotRefocusMeasure(e.currentTarget, run, measureId!);
+                        }
+                      : undefined
+                  }
                 >
-                  {columnHeader(h, r)}
+                  {resizable ? (
+                    <>
+                      {head.content}
+                      <PivotResizeHandle
+                        orientation="vertical"
+                        label={`Resize column ${leafColumn.headerPath.join(" ")}`}
+                        value={geometry.valueWidths![leaf!]!}
+                        min={PIVOT_COLUMN_WIDTH_MIN}
+                        max={PIVOT_COLUMN_WIDTH_MAX}
+                        step={8}
+                        largeStep={32}
+                        onChange={(width, info) =>
+                          onValueWidthChange ? onValueWidthChange(leafColumn.id, width, info) : onMeasureWidthChange!(leafColumn.measureId, width, info)
+                        }
+                        onAutoFit={(handle) => {
+                          // Measure scope: fit the widest cell over every column of the measure.
+                          const columns = onValueWidthChange ? [leaf!] : model.columns.flatMap((c, ci) => (c.measureId === leafColumn.measureId ? [ci] : []));
+                          const widths = columns.map((ci) => pivotAutoFitWidth(tableOf(handle), "data-nq-col", ci) ?? 0);
+                          const widest = Math.max(0, ...widths);
+                          return widest > 0 ? widest : null;
+                        }}
+                        guide={resizeGuide}
+                      />
+                    </>
+                  ) : (
+                    head.content
+                  )}
                 </th>
               );
             })}
@@ -774,7 +1195,7 @@ function PivotColGroup({ geometry, columns }: { geometry: PivotTableGeometry; co
         <col key={`d${i}`} style={{ width: w }} />
       ))}
       {Array.from({ length: columns }, (_, i) => (
-        <col key={`v${i}`} style={{ width: geometry.valueWidth }} />
+        <col key={`v${i}`} style={{ width: geometry.valueWidths?.[i] ?? geometry.valueWidth }} />
       ))}
     </colgroup>
   );
