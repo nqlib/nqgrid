@@ -11,6 +11,7 @@ export * from "./export-request";
 export * from "./tanstack";
 export * from "./layout";
 export * from "./design";
+export * from "./design-props";
 export * from "./header-layout";
 export * from "./heat";
 export * from "./pivot-kpi-panel";

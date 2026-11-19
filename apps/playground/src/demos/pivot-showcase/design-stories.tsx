@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Badge, Button, ScrollArea, Switch, ToggleGroup, ToggleGroupItem } from "@nqlib/nqui";
 import { buildPivotModel, type PivotHeatSpec, type PivotModel, type PivotSpec } from "@nqlib/nqgrid/core";
 import { generatePlanningPivotRows, planningPivotSpec } from "@nqlib/nqgrid/fixtures";
@@ -10,7 +10,11 @@ import {
   type PivotColumnHeaderContext,
   type PivotMeasureLayout,
   type PivotTableProps,
+  pivotDesignProps,
+  type PivotFormatRule,
+  type PivotTableDesign,
 } from "@nqlib/nqgrid/pivot";
+import { FormatToolbar, selectionOf, type FormatSelection, type FormatTarget } from "./format-toolbar";
 import { tableScrollAreaRootClass, tableScrollViewportStyle } from "@nqlib/nqgrid/styles";
 
 /**
@@ -66,6 +70,8 @@ interface Story {
   readonly props: (design: Design, host: HostCallbacks) => Partial<PivotTableProps>;
   /** Extra controls shown above the table. */
   readonly controls?: (design: Design, set: (patch: Partial<Design>) => void) => ReactNode;
+  /** Stories with their own host state, rendered by `DesignStories`. */
+  readonly kind?: "formats" | "saved";
 }
 
 interface HostCallbacks {
@@ -93,7 +99,13 @@ const STORIES: readonly Story[] = [
         ArrowLeft / ArrowRight (Shift: 32 px). Row-label columns work the same.
       </>
     ),
-    props: (d, h) => ({ valueWidths: d.valueWidths, dimensionWidths: d.dimensionWidths, onValueWidthChange: h.onValueWidthChange, onDimensionWidthChange: h.onDimensionWidthChange }),
+    props: (d, h) => ({
+      valueWidths: d.valueWidths,
+      dimensionWidths: d.dimensionWidths,
+      onValueWidthChange: h.onValueWidthChange,
+      onDimensionWidthChange: h.onDimensionWidthChange,
+      resizeGuide: true,
+    }),
   },
   {
     id: "row-height",
@@ -184,10 +196,49 @@ const STORIES: readonly Story[] = [
       bandedRows: true,
       dataAttributes: true,
       virtualize: true,
+      resizeGuide: true,
     }),
     controls: (d, set) => STORIES[3]!.controls!(d, set),
   },
+  {
+    id: "number-formats",
+    title: "Number formats",
+    kind: "formats",
+    what: (
+      <>
+        Excel's “Format Cells”: click a value cell, choose whether the format applies to that cell, its row, its column or the whole
+        measure, then pick digits, currency, percent or units. The most specific rule wins. The host keeps the rules
+        (<code>numberFormats</code>); only the printed text changes.
+      </>
+    ),
+    props: () => ({}),
+  },
+  {
+    id: "saved-view",
+    title: "Saved view",
+    kind: "saved",
+    what: (
+      <>
+        The whole design as one <code>PivotTableDesign</code> object through <code>pivotDesignProps</code>, saved to this browser's
+        storage (standing in for your database) at the end of each gesture. Resize a column (all months of a measure move together:
+        <code> widthScope: "measure"</code>), reorder measures, change the row height, then reload the page.
+      </>
+    ),
+    props: () => ({}),
+  },
 ];
+
+const VIEW_KEY = "nqgrid-playground:pivot-view";
+const SAVED_START: PivotTableDesign = { version: 1, heat: HEAT, bars: BARS, bandedRows: true };
+
+function readSavedView(): PivotTableDesign {
+  try {
+    const raw = localStorage.getItem(VIEW_KEY);
+    return raw ? (JSON.parse(raw) as PivotTableDesign) : SAVED_START;
+  } catch {
+    return SAVED_START;
+  }
+}
 
 export const DESIGN_STORY_IDS = STORIES.map((s) => s.id);
 
@@ -219,7 +270,68 @@ export function DesignStories({ story, onStoryChange }: { readonly story: string
     }),
     [],
   );
-  const props = current.props(design, host);
+  // "Number formats": the selected cell, the target and the rules are host state.
+  const [selection, setSelection] = useState<FormatSelection | null>(null);
+  const [target, setTarget] = useState<FormatTarget>("cell");
+  const [rules, setRules] = useState<PivotFormatRule[]>([]);
+  // "Saved view": the stored design, written at the end of every gesture.
+  const [view, setView] = useState<PivotTableDesign>(readSavedView);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (current.kind === "saved") setView(readSavedView());
+  }, [current.kind]);
+
+  const props: Partial<PivotTableProps> =
+    current.kind === "formats"
+      ? {
+          numberFormats: rules,
+          onCellClick: (ctx) => setSelection(selectionOf(ctx)),
+          cellClassName: (ctx) =>
+            selection && ctx.row.id === selection.rowId && ctx.column.id === selection.columnId ? "outline outline-2 -outline-offset-2 outline-primary" : undefined,
+        }
+      : current.kind === "saved"
+        ? {
+            resizeGuide: true,
+            ...pivotDesignProps(
+              view,
+              (next, info) => {
+                setView(next);
+                if (!info.final) return;
+                try {
+                  localStorage.setItem(VIEW_KEY, JSON.stringify(next));
+                } catch {
+                  /* storage unavailable: the view still works for this session */
+                }
+                setSavedAt(new Date().toLocaleTimeString());
+                setLastChange(`saved after ${info.change}`);
+              },
+              { widthScope: "measure" },
+            ),
+          }
+        : current.props(design, host);
+  const kindControls =
+    current.kind === "formats" ? (
+      <FormatToolbar selection={selection} target={target} onTargetChange={setTarget} rules={rules} onRulesChange={setRules} />
+    ) : current.kind === "saved" ? (
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Badge variant="secondary">{savedAt ? `Saved ${savedAt}` : "Loaded from storage"}</Badge>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            try {
+              localStorage.removeItem(VIEW_KEY);
+            } catch {
+              /* ignore */
+            }
+            setView(SAVED_START);
+            setSavedAt(null);
+          }}
+        >
+          Forget saved view
+        </Button>
+      </div>
+    ) : null;
 
   // Export story: the same design as an exporter sees it.
   const geometry = useMemo(() => {
@@ -257,6 +369,7 @@ export function DesignStories({ story, onStoryChange }: { readonly story: string
         </Button>
       </div>
       {current.controls?.(design, set)}
+      {kindControls}
       <div className="nqgrid-design-demo flex h-[520px] min-h-0 flex-col" style={DESIGN_VARS}>
         <ScrollArea orientation="both" fadeMask={false} className={tableScrollAreaRootClass} viewportStyle={tableScrollViewportStyle}>
           <PivotTable model={model} onToggleGroup={() => {}} {...props} aria-label={`${current.title} story`} />
@@ -268,7 +381,9 @@ export function DesignStories({ story, onStoryChange }: { readonly story: string
       </div>
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">Stored design and export geometry</summary>
-        <pre className="mt-2 overflow-auto rounded-md bg-muted p-3">{JSON.stringify({ design, geometry }, null, 2)}</pre>
+        <pre className="mt-2 overflow-auto rounded-md bg-muted p-3">
+          {JSON.stringify(current.kind === "formats" ? { numberFormats: rules } : current.kind === "saved" ? { savedView: view } : { design, geometry }, null, 2)}
+        </pre>
       </details>
     </div>
   );

@@ -60,6 +60,9 @@ const [design, setDesign] = useState(savedDesign)
 | Heat | `heat`: one `PivotHeatSpec` or a list (one per measure), each `sequential` or `diverging` around a `midpoint`. Cells get `data-nq-heat="0…8"` and `data-nq-heat-scale`. |
 | Data bars | `bars`: `PivotBarSpec[]` with `measure`, `applyTo`, `domain`, `negative: "left" \| "hide"`. The number stays the cell's selectable text. |
 | Per-measure layout | `measureLayout`: `align` and `wrap` per measure id. Rename a header with `renderColumnHeader` (return your own label). |
+| Number formats | `numberFormats`: Excel-style "Format Cells" rules (digits, currency, percent, thousands, compact) for a measure, column, row, row kind or one cell; `onCellClick` to pick the target. |
+| Save a view | `PivotTableDesign` + `pivotDesignProps(design, onDesignChange)`: one JSON object to store, props and callbacks back. `measureWidths` keeps widths when new periods appear. |
+| Handle look | `resizeGuide` line, `data-nq-resizing` while dragging, `--nq-pivot-resize-size`, `--nq-pivot-resize-guide`. |
 | Export the same design | `pivotTableGeometry(model, { valueWidths, freezeHeader, heat, bars, … })` returns `columnWidths`, `frozenRows`, `frozenColumns` and the heat / bar level of each cell for XLSX. |
 
 Colors come from CSS variables that you define (no colors in JavaScript):

@@ -176,6 +176,44 @@ describe("PivotTable resize handles", () => {
   });
 });
 
+describe("PivotTable resize gesture styling", () => {
+  it("data-nq-resizing during a drag; resizeGuide draws a line that follows and goes away", async () => {
+    await act(() => root.render(<Host calls={calls} extra={{ resizeGuide: true }} />));
+    const handle = $('[aria-label="Resize column Nov Actual"]');
+    await pointer(handle, "pointerdown", 100);
+    expect(handle.dataset.nqResizing).toBe("");
+    expect($("table").dataset.nqResizing).toBe("column");
+    const guide = document.querySelector<HTMLElement>("[data-nq-resize-guide]")!;
+    expect(guide).not.toBeNull();
+    const left0 = parseFloat(guide.style.left);
+    await pointer(window, "pointermove", 130);
+    expect(parseFloat(guide.style.left) - left0).toBe(30);
+    await pointer(window, "pointerup", 130);
+    expect(handle.dataset.nqResizing).toBeUndefined();
+    expect($("table").dataset.nqResizing).toBeUndefined();
+    expect(document.querySelector("[data-nq-resize-guide]")).toBeNull();
+  });
+
+  it("measure-wide resize and cell clicks", async () => {
+    const clicks: string[] = [];
+    await act(() =>
+      root.render(
+        <Host
+          calls={calls}
+          extra={{ onValueWidthChange: undefined, onMeasureWidthChange: (m, w, info) => calls.push(["measure", m, w, info]), onCellClick: (ctx) => clicks.push(`${ctx.row.id}|${ctx.column.id}`) }}
+        />,
+      ),
+    );
+    await key($('[aria-label="Resize column Dec Plan"]'), "ArrowRight");
+    expect(calls.at(-1)).toEqual(["measure", "plan", 92, { source: "keyboard", final: true }]);
+    const cell = container.querySelector<HTMLElement>("tbody tr[data-kind=leaf] td.nqg-pivot-value")!;
+    await act(() => {
+      cell.click();
+    });
+    expect(clicks[0]).toMatch(/^r:.+\|c:Nov:actual$/);
+  });
+});
+
 describe("PivotTable measure reorder", () => {
   /** Lay the run's headers out 100 px apart (jsdom has no layout). */
   const layoutHeads = () =>

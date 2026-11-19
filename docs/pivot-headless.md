@@ -1139,6 +1139,12 @@ model object (a `WeakMap`), so a drag never recomputes them, and the model itsel
 | `bars` | `readonly PivotBarSpec[]` | Data bars: `{ measure, applyTo?: "leaf" \| "group" \| "all", domain?: [min, max], negative?: "left" \| "hide" }`. One domain per spec over the measure's leaf columns (not subtotal or row-total columns), always including 0. An empty `aria-hidden` span (`data-nq-bar`, `data-nq-bar-negative`) is placed absolutely behind the number at `z-index: -1` inside the cell's own stacking context, so it paints above the heat background and below the text. Width and offset are percentages; the color is `var(--nq-pivot-bar)` / `var(--nq-pivot-bar-negative)`. |
 | `measureLayout` | `Readonly<Record<string, { align?, wrap? }>>` | Per measure: `align` (`start` / `end` / `center`) for its value cells and bottom header cells, `wrap` (`wrap` lets text wrap; `clip` keeps one line and cuts it). |
 
+| `measureWidths` | `Readonly<Record<string, number>>` | One width for every column of a measure, by measure id. A `valueWidths` entry for a column wins. |
+| `onMeasureWidthChange` | `(measureId, width, info) => void` | When `onValueWidthChange` is not set, the column handles resize every column of their measure at once (double-click fits the widest cell over all of them). |
+| `resizeGuide` | `boolean` | While an edge is dragged, a `position: fixed` line (`data-nq-resize-guide`) runs across the visible table at the new edge. Every drag also sets `data-nq-resizing` on the handle and `data-nq-resizing="column\|row"` on the table. |
+| `numberFormats` | `readonly PivotFormatRule[]` | Excel's "Format Cells" for a measure, a column, a row, a row kind or one cell (below). |
+| `onCellClick` | `(ctx: PivotCellContext) => void` | Interactive mode: a click on a value cell, e.g. to select the target of a format menu. |
+
 To **rename a header**, use the existing `renderColumnHeader`: return your own label for the cell
 (`ctx.kind === "measure" && ctx.cell.measureId === "plan" ? "Budget" : ctx.label`). Keep the callback
 stable (`useCallback`), since `PivotTable` is memoized.
@@ -1149,6 +1155,80 @@ values below it on lower levels and values above on higher ones; any value off t
 one level away from the middle. Without `domain` both sides share the larger distance from the
 midpoint, so equal distances get equal colors. Use an odd `levels` for a symmetric ramp. The JSON
 schema and `validatePivotSpec` accept both keys.
+
+### Number formats (Excel's "Format Cells")
+
+A person can pick digits, currency, percent, thousands / millions, compact units, a prefix or suffix
+and parentheses for negatives, for one measure, one column, one row, a row kind or one cell. Each
+choice is a `PivotFormatRule`; the host stores the list and passes it back as `numberFormats`:
+
+```ts
+const numberFormats: PivotFormatRule[] = [
+  { measure: "actual", format: { compact: false, decimals: 0 } },                    // a measure, everywhere
+  { column: "c:Nov:plan", format: { style: "currency", currency: "EUR" } },          // one column
+  { row: "r:Camp", format: { scale: 1000, suffix: "k", decimals: 1 } },              // one row
+  { rowKind: "total", format: { negative: "parentheses" } },                         // the grand total
+  { row: "r:Camp/Tents", column: "c:Nov:growth", format: { decimals: 2 } },          // one cell
+];
+```
+
+- **Targets:** `measure` (measure id), `column` (`PivotValueColumn.id`), `row` (`PivotBodyRow.id`),
+  `rowKind` (`leaf` / `subtotal` / `total`). The set conditions must all match.
+- **Precedence:** the most specific rule wins — cell, then row, then column, then row kind, then
+  measure, then a rule with no target. Equally specific rules apply in array order.
+- **Merging:** a rule's `format` is merged over the cell's current format (the column's, the row's
+  `itemFormats`, or the measure's percent format for shown-as cells), so `{ decimals: 2 }` keeps the
+  currency. `replace: true` uses the rule's format alone.
+- **Display only:** the cell's value, totals, heat, bars, sorting and the model are unchanged. Use
+  `onCellClick` to know which cell a person selected, then offer "this cell / this row / this
+  column / this measure" in your menu.
+- **Export:** `pivotTableGeometry(model, { numberFormats })` gives each changed cell its `format`,
+  `excelNumFmt` and printed `text` (`cells[r][c].numberFormat`).
+
+### Save a view (`PivotTableDesign`, `pivotDesignProps`)
+
+`PivotTableDesign` is the whole design as one JSON-safe object (widths, measure widths, row height,
+measure order, freeze, bands, heat, bars, layout, number formats, `version: 1`). `pivotDesignProps`
+turns it into props and callbacks that return the next design, so a host saves a view in a few lines:
+
+```tsx
+const [design, setDesign] = useState<PivotTableDesign>(view.design);   // from your database
+
+<PivotTable
+  model={model}
+  resizeGuide
+  {...pivotDesignProps(design, (next, info) => {
+    setDesign(next);
+    if (info.final) saveView({ ...view, design: next });               // one write per gesture
+  }, { widthScope: "column" })}                                         // or "measure"
+/>
+```
+
+Width keys include the column key (`c:Nov:actual`). When the data later has new columns, they use
+`measureWidths` or `valueWidth`; keys that no longer exist are ignored. Use `widthScope: "measure"`
+when a view should survive new periods with the same look.
+
+### Handle look
+
+The handles are plain elements for your CSS: `[data-nq-resize="column|row"]` (class
+`nqg-pivot-resize`), `[data-nq-resizing]` while dragged, `[data-nq-resize-guide]` for the guide line.
+Size and colors are CSS variables:
+
+| Variable | Default | Used by |
+|---|---|---|
+| `--nq-pivot-resize-size` | `6px` | grab area of every handle |
+| `--nq-pivot-resize-guide` | `currentColor` | guide line color |
+| `--nq-pivot-resize-guide-size` | `1px` | guide line thickness |
+
+```css
+.my-pivot [data-nq-resize="column"]::before {          /* a thumb */
+  content: ""; position: absolute; top: 25%; bottom: 25%; left: 2px;
+  width: 2px; border-radius: 1px; background: var(--border);
+}
+.my-pivot [data-nq-resize]:hover::before,
+.my-pivot [data-nq-resizing]::before { background: var(--primary); }
+.my-pivot { --nq-pivot-resize-guide: var(--primary); }
+```
 
 ### Colors
 

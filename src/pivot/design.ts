@@ -1,5 +1,6 @@
+import { DEFAULT_PIVOT_PERCENT_FORMAT, formatPivotNumber, PIVOT_RANK_FORMAT, pivotShowAsFormatKind, toExcelNumFmt } from "../core/pivot/format";
 import { pivotScaledHeatLevel, type PivotHeatDomain } from "../core/pivot/heat";
-import type { PivotBodyRow, PivotHeatScale, PivotHeatSpec, PivotModel } from "../core/pivot/types";
+import type { PivotBodyRow, PivotCell, PivotHeatScale, PivotHeatSpec, PivotModel, PivotNumberFormat, PivotValueColumn } from "../core/pivot/types";
 import type { PivotCellContext, PivotColumnHeaderContext } from "./pivot-table";
 
 /**
@@ -61,6 +62,8 @@ export interface PivotResizeInfo {
 export type PivotValueWidthChangeHandler = (key: string, width: number, info: PivotResizeInfo) => void;
 /** `onDimensionWidthChange(index, width, info)`: `index` into `dimensionWidths`. */
 export type PivotDimensionWidthChangeHandler = (index: number, width: number, info: PivotResizeInfo) => void;
+/** `onMeasureWidthChange(measureId, width, info)`: one width for every column of a measure (`measureWidths`). */
+export type PivotMeasureWidthChangeHandler = (measureId: string, width: number, info: PivotResizeInfo) => void;
 /** `onRowHeightChange(height, info)`: the new `rowHeight`. */
 export type PivotRowHeightChangeHandler = (height: number, info: PivotResizeInfo) => void;
 /** `onMeasureOrderChange(order)`: every value measure id, in the new order (the next `measureOrder`). */
@@ -108,9 +111,19 @@ export interface PivotCellBar {
   readonly negative: boolean;
 }
 
+/** A cell's number format after `numberFormats` (for export: write `excelNumFmt` on the cell). */
+export interface PivotCellNumberFormat {
+  readonly format: PivotNumberFormat;
+  readonly excelNumFmt: string;
+  /** The text `PivotTable` prints. */
+  readonly text: string;
+}
+
 export interface PivotCellDesign {
   readonly heat?: PivotCellHeat;
   readonly bar?: PivotCellBar;
+  /** Present on cells a `numberFormats` rule changed. */
+  readonly numberFormat?: PivotCellNumberFormat;
 }
 
 /** Heat / bar of every body cell: `[rowIndex][columnIndex]` over `model.rows` / `model.columns`. */
@@ -123,6 +136,8 @@ export interface PivotCellDesignOptions {
    */
   readonly heat?: PivotHeatSpec | readonly PivotHeatSpec[];
   readonly bars?: readonly PivotBarSpec[];
+  /** Number format rules (`PivotTable` `numberFormats`): fills `numberFormat` on the cells they change. */
+  readonly numberFormats?: readonly PivotFormatRule[];
 }
 
 /**
@@ -262,7 +277,117 @@ export function pivotCellDesigns(model: PivotModel, options: PivotCellDesignOpti
       }
     });
   }
+  if (options.numberFormats?.length) {
+    pivotCellFormats(model, options.numberFormats).forEach((row, r) =>
+      row?.forEach((numberFormat, c) => {
+        if (numberFormat) set(r, c, { numberFormat });
+      }),
+    );
+  }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Number formats (Excel's "Format Cells" for a measure, column, row or cell)
+// ---------------------------------------------------------------------------
+
+/**
+ * One number-format rule (`PivotTable` `numberFormats`). The conditions that are set must all match:
+ * `measure` alone formats a measure everywhere, `column` one value column, `row` one body row,
+ * `row` + `column` one cell. Rules apply from the least to the most specific (everything, measure,
+ * row kind, column, row, cell), so the most specific wins; equally specific rules apply in array order.
+ */
+export interface PivotFormatRule {
+  /** Measure id. */
+  readonly measure?: string;
+  /** Value column, `PivotValueColumn.id` (e.g. `c:Nov:actual`). */
+  readonly column?: string;
+  /** Body row, `PivotBodyRow.id` (e.g. `r:Camp/Tents`). */
+  readonly row?: string;
+  /** `leaf`, `subtotal` (group and subtotal rows) or `total` (grand total). */
+  readonly rowKind?: "leaf" | "subtotal" | "total";
+  /**
+   * Merged over the cell's current format, so `{ decimals: 2 }` keeps the currency and
+   * `{ style: "currency", currency: "EUR" }` keeps the decimals. With `replace: true`, used alone.
+   */
+  readonly format: PivotNumberFormat;
+  readonly replace?: boolean;
+}
+
+const specificity = (r: PivotFormatRule): number =>
+  (r.row !== undefined ? 8 : 0) + (r.column !== undefined ? 4 : 0) + (r.rowKind !== undefined ? 2 : 0) + (r.measure !== undefined ? 1 : 0);
+
+/** The format a cell prints with before any rule: the measure's percent / rank format, the row's, or the column's. */
+export function pivotCellBaseFormat(row: PivotBodyRow, column: PivotValueColumn, cell: PivotCell): PivotNumberFormat {
+  const kind = pivotShowAsFormatKind(cell.showAs);
+  if (kind === "percent") return column.percentFormat ?? DEFAULT_PIVOT_PERCENT_FORMAT;
+  if (kind === "rank") return PIVOT_RANK_FORMAT;
+  return row.format ?? column.format;
+}
+
+/**
+ * Text and format of every cell a rule changes (`[rowIndex][columnIndex]`, other cells empty). It
+ * formats the cell's displayed value (`cell.value`); totals, heat, bars and sorting never change.
+ */
+export function pivotCellFormats(model: PivotModel, rules: readonly PivotFormatRule[]): readonly (readonly (PivotCellNumberFormat | undefined)[] | undefined)[] {
+  const out: (PivotCellNumberFormat | undefined)[][] = [];
+  if (!rules.length) return out;
+  const ordered = rules.map((r, i) => ({ r, i })).sort((a, b) => specificity(a.r) - specificity(b.r) || a.i - b.i).map((x) => x.r);
+  const excel = new Map<string, string>();
+  model.rows.forEach((row, ri) => {
+    const kind = pivotRowDesignKind(row);
+    const forRow = ordered.filter((r) => (r.row === undefined || r.row === row.id) && (r.rowKind === undefined || r.rowKind === kind));
+    if (!forRow.length) return;
+    row.cells.forEach((cell, ci) => {
+      const column = model.columns[ci]!;
+      let format: PivotNumberFormat | null = null;
+      for (const r of forRow) {
+        if ((r.column !== undefined && r.column !== column.id) || (r.measure !== undefined && r.measure !== column.measureId)) continue;
+        format = r.replace ? r.format : { ...(format ?? pivotCellBaseFormat(row, column, cell)), ...r.format };
+      }
+      if (!format) return;
+      const key = JSON.stringify(format);
+      let excelNumFmt = excel.get(key);
+      if (excelNumFmt === undefined) excel.set(key, (excelNumFmt = toExcelNumFmt(format)));
+      (out[ri] ??= [])[ci] = { format, excelNumFmt, text: formatPivotNumber(cell.value, format) };
+    });
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// The stored design
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything a person can change about a `PivotTable`'s look, as one JSON-safe object for the host
+ * to store (e.g. in chart params or a `views` table). Turn it into props with `pivotDesignProps`.
+ */
+export interface PivotTableDesign {
+  /** Format version of the stored object (nqgrid writes 1), for the host's own migrations. */
+  readonly version?: 1;
+  readonly valueWidth?: number;
+  readonly valueWidths?: Readonly<Record<string, number>>;
+  readonly measureWidths?: Readonly<Record<string, number>>;
+  readonly dimensionWidths?: readonly number[];
+  readonly rowHeight?: number;
+  readonly headRowHeight?: number;
+  readonly measureOrder?: readonly string[];
+  readonly freezeHeader?: boolean;
+  readonly freezeDimensions?: boolean;
+  readonly bandedRows?: boolean;
+  readonly heat?: PivotHeatSpec | readonly PivotHeatSpec[];
+  readonly bars?: readonly PivotBarSpec[];
+  readonly measureLayout?: Readonly<Record<string, PivotMeasureLayout>>;
+  readonly numberFormats?: readonly PivotFormatRule[];
+}
+
+/** Second argument of the `pivotDesignProps` change callback. */
+export interface PivotDesignChangeInfo {
+  /** Which gesture changed the design. */
+  readonly change: "valueWidth" | "measureWidth" | "dimensionWidth" | "rowHeight" | "measureOrder";
+  /** `false` while a drag is in progress; save the design on `true`. */
+  readonly final: boolean;
 }
 
 /** Clamp a column width to `[PIVOT_COLUMN_WIDTH_MIN, PIVOT_COLUMN_WIDTH_MAX]` (whole px). */
