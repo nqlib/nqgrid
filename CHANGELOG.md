@@ -2,7 +2,7 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
-## [0.5.0] - Unreleased
+## [0.5.0] - 2026-11-18
 
 A **minor** release: a host app can let a person customize the design of a `PivotTable`. Every new
 prop is optional, and with none set the markup is byte-identical to 0.4.0 (checked against snapshots
