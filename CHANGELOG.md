@@ -41,6 +41,13 @@ removed or renamed. `PivotSpec` stays `version: 1`.
 
 - Pivot showcase → **Design**: the stories "Cell tone" and "Heat palette".
 
+### Notes
+
+- The host owns light / dark colour tokens (`--chart-*`, `--destructive`, and any product keys).
+  nqgrid stores tone **keys** and paints `var(--nq-pivot-tone-<key>)` or the values in `toneColors`.
+  Point those at the same tokens as nqchart so one theme drives chart, grid and UI. Excel still needs
+  concrete `#rgb` / `#rrggbb` at export time.
+
 ## [0.5.0] - 2026-11-18
 
 A **minor** release: a host app can let a person customize the design of a `PivotTable`. Every new
