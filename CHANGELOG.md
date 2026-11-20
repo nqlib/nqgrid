@@ -2,7 +2,7 @@
 
 All notable changes to `@nqlib/nqgrid` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from **1.0.0** onward. Prior to 1.0, minor releases may include API adjustments.
 
-## [0.6.0] - Unreleased
+## [0.6.0] - 2026-11-19
 
 A **minor** release: it only adds API. Every new prop and field is optional. With none set, the markup is the same as 0.5.0
 (`src/pivot/pivot-table-baseline.test.ts`, `src/pivot/pivot-table-style-slots.test.ts`). No export was
