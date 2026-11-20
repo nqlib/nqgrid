@@ -1,7 +1,17 @@
+import { isPivotHeatPalette, isPivotToneKey } from "../core/pivot/heat";
+import type { PivotHeatPalette } from "../core/pivot/types";
 import { pivotHeatStep } from "../pivot/layout";
 import { PIVOT_HEAT_BASE_COLOR, PIVOT_HEAT_MIX_PERCENT, PIVOT_SERIES_COLORS } from "../styles";
 
 export type PivotStaticTheme = "light" | "dark";
+
+/** `#rgb` or `#rrggbb` (case-insensitive). Excel and solid static fills need a concrete hex. */
+const HEX_COLOR = /^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+/** True for a `#rgb` / `#rrggbb` string usable as an Excel or solid HTML fill. */
+export function isPivotToneHex(value: unknown): value is string {
+  return typeof value === "string" && HEX_COLOR.test(value.trim());
+}
 
 /**
  * Solid colors of the static (HTML/PDF) stylesheet. Light prints on white paper; both themes use
@@ -65,6 +75,36 @@ export function pivotHeatFillHex(step: number, theme: PivotStaticTheme = "light"
 /** Solid fill for a model heat level (`cell.heat`, `0 … levels-1`), e.g. for XLSX cell fills. */
 export function pivotHeatLevelFillHex(level: number, levels: number, theme: PivotStaticTheme = "light"): string {
   return pivotHeatFillHex(pivotHeatStep(level, levels), theme);
+}
+
+/**
+ * Solid fill for heat palette step `step` (`0 … 8`) from host hex colours keyed by tone key.
+ * Uses the same stop placement as `pivotHeatPaletteColor` (2 stops on 0 and 8, 3 on 0 / 4 / 8) and
+ * blends the two nearest stops in sRGB. `undefined` when the palette is invalid or a stop has no
+ * usable `#rgb` / `#rrggbb` in `hexByKey` — never falls back to the built-in heat ramp.
+ */
+export function pivotPaletteFillHex(
+  palette: PivotHeatPalette,
+  step: number,
+  hexByKey: Readonly<Record<string, string>>,
+): string | undefined {
+  if (!isPivotHeatPalette(palette)) return undefined;
+  const hexOf = (key: string): string | undefined => {
+    if (!isPivotToneKey(key)) return undefined;
+    const raw = hexByKey[key];
+    return isPivotToneHex(raw) ? raw.trim() : undefined;
+  };
+  const heatSteps = 9;
+  const s = Math.min(heatSteps - 1, Math.max(0, Math.round(step)));
+  const span = (heatSteps - 1) / (palette.length - 1);
+  const at = Math.min(palette.length - 2, Math.floor(s / span));
+  const t = (s - at * span) / span;
+  const from = hexOf(palette[at]!);
+  const to = hexOf(palette[at + 1]!);
+  if (from === undefined || to === undefined) return undefined;
+  if (t === 0) return from.length === 4 ? `#${from[1]}${from[1]}${from[2]}${from[2]}${from[3]}${from[3]}` : from;
+  if (t === 1) return to.length === 4 ? `#${to[1]}${to[1]}${to[2]}${to[2]}${to[3]}${to[3]}` : to;
+  return mixHexColors(to, from, t);
 }
 
 /** Header-chart series color for slot `index` in a theme (same order as `pivotThemeVars`). */

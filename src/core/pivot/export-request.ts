@@ -46,6 +46,11 @@ export interface PivotExportTableOptions {
   readonly chartHeight?: number;
   readonly kpiHeadlineId?: string;
   readonly kpiCaptionAttribute?: string;
+  /**
+   * Colours for tone keys (`PivotTable` `toneColors`): written as `--nq-pivot-tone-<key>` on the
+   * static table. Hex, `transparent`, `color-mix(...)`, or `var(--token)`. Not part of `PivotSpec`.
+   */
+  readonly toneColors?: Readonly<Record<string, string>>;
 }
 
 /** XLSX-only options (`format=sheet` takes them too, for writers that paint the sheet, e.g. openpyxl). */
@@ -54,6 +59,11 @@ export interface PivotExportXlsxOptions {
   readonly rowLabels?: "repeat" | "first" | "merge";
   /** `SUBTOTAL(9, …)` formulas (cached values kept) on totals of plain `sum` / `count` measures. Default false. */
   readonly subtotalFormulas?: boolean;
+  /**
+   * Hex fills for `spec.heat.palette` tone keys (`#rgb` / `#rrggbb` only). A palette stop with no
+   * usable hex paints no fill. Not part of `PivotSpec`.
+   */
+  readonly toneColors?: Readonly<Record<string, string>>;
 }
 
 /** JSON-safe render options (`renderPivotHtml` options minus `css`, plus the PDF-only `headerFooter`). */
@@ -124,8 +134,18 @@ const NESTED_OPTION_KEYS: Record<string, readonly string[]> = {
   page: ["size", "orientation", "margins"],
   margins: ["top", "right", "bottom", "left"],
   locale: ["lang", "generated", "continued", "columns", "of", "page"],
-  xlsx: ["rowLabels", "subtotalFormulas"],
-  table: ["dimensionWidths", "valueWidth", "rowHeight", "headRowHeight", "headerChart", "chartHeight", "kpiHeadlineId", "kpiCaptionAttribute"],
+  xlsx: ["rowLabels", "subtotalFormulas", "toneColors"],
+  table: [
+    "dimensionWidths",
+    "valueWidth",
+    "rowHeight",
+    "headRowHeight",
+    "headerChart",
+    "chartHeight",
+    "kpiHeadlineId",
+    "kpiCaptionAttribute",
+    "toneColors",
+  ],
 };
 
 /**

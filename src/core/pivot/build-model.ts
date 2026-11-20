@@ -27,7 +27,7 @@ import {
   pivotShowAsFormatKind,
   toExcelNumFmt,
 } from "./format";
-import { pivotScaledHeatLevel, type PivotHeatDomain } from "./heat";
+import { isPivotHeatPalette, pivotScaledHeatLevel, type PivotHeatDomain } from "./heat";
 import { computePivotRowSpans } from "./row-spans";
 import {
   PIVOT_SPEC_VERSION,
@@ -878,6 +878,7 @@ export function pivotModelFromCube(cube: PivotCube, spec: PivotSpec): PivotModel
     const diverging = spec.heat.scale === "diverging";
     const midpoint = spec.heat.midpoint ?? 0;
     heatInfo = diverging ? { measureId, scope, levels: levelCount, applyTo, scale: "diverging", midpoint } : { measureId, scope, levels: levelCount, applyTo };
+    if (isPivotHeatPalette(spec.heat.palette)) heatInfo = { ...heatInfo, palette: spec.heat.palette };
 
     const eligible = (n: PivotCubeNode) => applyTo === "all" || (applyTo === "leaf") === isLeaf(n);
     // Leaf columns; group totals only with `column` scope (their own domain); never the grand total.

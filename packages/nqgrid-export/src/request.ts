@@ -99,16 +99,26 @@ function validateOptions(input: unknown, errors: string[]): PivotExportOptions |
       for (const k of ["valueWidth", "rowHeight", "headRowHeight", "chartHeight"] as const) check(positive(t[k]), `options.table.${k} must be a positive number`);
       check(t.headerChart === undefined || typeof t.headerChart === "boolean", "options.table.headerChart must be a boolean");
       for (const k of ["kpiHeadlineId", "kpiCaptionAttribute"] as const) check(t[k] === undefined || typeof t[k] === "string", `options.table.${k} must be a string`);
+      check(
+        t.toneColors === undefined ||
+          (isObject(t.toneColors) && Object.values(t.toneColors).every((v) => typeof v === "string")),
+        "options.table.toneColors must be an object of strings",
+      );
     }
   }
   if (o.xlsx !== undefined) {
     if (!isObject(o.xlsx)) errors.push("options.xlsx must be an object");
     else {
       const x = o.xlsx;
-      const extraX = Object.keys(x).filter((k) => k !== "rowLabels" && k !== "subtotalFormulas");
+      const extraX = Object.keys(x).filter((k) => k !== "rowLabels" && k !== "subtotalFormulas" && k !== "toneColors");
       if (extraX.length) errors.push(pivotUnknownKeysMessage("options.xlsx", extraX));
       check(x.rowLabels === undefined || x.rowLabels === "repeat" || x.rowLabels === "first" || x.rowLabels === "merge", 'options.xlsx.rowLabels must be "repeat" | "first" | "merge"');
       check(x.subtotalFormulas === undefined || typeof x.subtotalFormulas === "boolean", "options.xlsx.subtotalFormulas must be a boolean");
+      check(
+        x.toneColors === undefined ||
+          (isObject(x.toneColors) && Object.values(x.toneColors).every((v) => typeof v === "string")),
+        "options.xlsx.toneColors must be an object of strings (hex fills for palette keys)",
+      );
     }
   }
   if ("css" in o) errors.push("options.css is not accepted by nqgrid-export (the stylesheet is built in)");

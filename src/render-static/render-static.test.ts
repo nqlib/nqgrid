@@ -23,6 +23,7 @@ import {
   pivotColumnChunks,
   pivotColumnsPerPage,
   pivotHeatFillHex,
+  pivotPaletteFillHex,
   pivotStaticLayout,
   renderPivotHtml,
   renderPivotHtmlFromSpec,
@@ -338,5 +339,29 @@ describe("static paging helpers", () => {
     expect(mixHexColors("#000000", "#ffffff", 0.5)).toBe("#808080");
     expect(pivotHeatFillHex(8)).toBe(mixHexColors("#ef6a24", "#ffffff", 0.82));
     expect(pivotHeatFillHex(0, "dark")).toBe(mixHexColors("#ef6a24", "#171717", 0.07));
+  });
+
+  it("cellTone and toneColors forward onto the static table (data-nq-tone and --nq-pivot-tone-*)", () => {
+    const out = renderPivotHtml(model, {
+      generatedAt,
+      table: {
+        cellTone: (ctx) => (ctx.row.kind === "leaf" ? "bad" : undefined),
+        toneColors: { bad: "color-mix(in oklab, var(--destructive) 32%, transparent)" },
+      },
+    });
+    expect(out).toContain('data-nq-tone="bad"');
+    expect(out).toContain("--nq-pivot-tone-bad:color-mix(in oklab, var(--destructive) 32%, transparent)");
+  });
+});
+
+describe("pivotPaletteFillHex", () => {
+  it("blends stop hexes with the same step placement as pivotHeatPaletteColor", () => {
+    const hex = { bad: "#dc2626", plain: "#ffffff", good: "#059669" };
+    expect(pivotPaletteFillHex(["bad", "plain", "good"], 0, hex)).toBe("#dc2626");
+    expect(pivotPaletteFillHex(["bad", "plain", "good"], 4, hex)).toBe("#ffffff");
+    expect(pivotPaletteFillHex(["bad", "plain", "good"], 8, hex)).toBe("#059669");
+    expect(pivotPaletteFillHex(["bad", "plain", "good"], 2, hex)).toBe(mixHexColors("#ffffff", "#dc2626", 0.5));
+    expect(pivotPaletteFillHex(["bad", "plain", "good"], 0, { bad: "var(--x)" })).toBeUndefined();
+    expect(pivotPaletteFillHex(["bad", "plain", "good"], 0, {})).toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 import { formatPivotNumber } from "../core/pivot/format";
-import { pivotCellDesigns, type PivotBarSpec, type PivotCellDesigns, type PivotFormatRule } from "./design";
+import { pivotCellDesigns, type PivotBarSpec, type PivotCellDesigns, type PivotCellTone, type PivotFormatRule } from "./design";
 import type {
   PivotBodyRow,
   PivotHeaderCell,
@@ -45,8 +45,8 @@ export interface PivotTableGeometry {
   /** Row-label columns to freeze (XLSX `xSplit`): `dimensionColumns`, or 0 with `freezeDimensions: false`. Always set by `pivotTableGeometry`. */
   readonly frozenColumns?: number;
   /**
-   * Heat level, bar and number format of every body cell (`[rowIndex][columnIndex]`, see
-   * `pivotCellDesigns`); present when `heat`, `bars` or `numberFormats` is passed.
+   * Heat level, bar, number format and tone of every body cell (`[rowIndex][columnIndex]`, see
+   * `pivotCellDesigns`); present when `heat`, `bars`, `numberFormats` or `cellTone` is passed.
    */
   readonly cells?: PivotCellDesigns;
 }
@@ -68,6 +68,11 @@ export interface PivotTableGeometryOptions {
   readonly bars?: readonly PivotBarSpec[];
   /** As `PivotTable` `numberFormats`: fills `cells[r][c].numberFormat` (format, Excel format, text). */
   readonly numberFormats?: readonly PivotFormatRule[];
+  /**
+   * As `PivotTable` `cellTone`: a toned cell reports `tone` and no `heat` (`cells[r][c]`). Without
+   * `heat`, the other cells report the model's own heat, as `PivotTable` draws them.
+   */
+  readonly cellTone?: PivotCellTone;
 }
 
 export const PIVOT_DEFAULT_DIMENSION_WIDTHS = [208, 172] as const;
@@ -105,8 +110,8 @@ export function pivotTableGeometry(model: PivotModel, options: PivotTableGeometr
     columnWidths: [...dimensionWidths, ...valueWidths],
     frozenRows: options.freezeHeader === false ? 0 : model.headerRows.length,
     frozenColumns: options.freezeDimensions === false ? 0 : dimensionColumns,
-    ...(options.heat !== undefined || options.bars !== undefined || options.numberFormats !== undefined
-      ? { cells: pivotCellDesigns(model, { heat: options.heat, bars: options.bars, numberFormats: options.numberFormats }) }
+    ...(options.heat !== undefined || options.bars !== undefined || options.numberFormats !== undefined || options.cellTone !== undefined
+      ? { cells: pivotCellDesigns(model, { heat: options.heat, bars: options.bars, numberFormats: options.numberFormats, cellTone: options.cellTone }) }
       : {}),
   };
 }

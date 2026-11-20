@@ -1,3 +1,5 @@
+import type { PivotHeatPalette, PivotHeatScale } from "./types";
+
 /**
  * Discrete heat level for `value` within `[min, max]`: `0 … levels-1`.
  * Returns `undefined` for null values. A flat domain (`min === max`) maps to `0`.
@@ -77,4 +79,80 @@ export function pivotScaledHeatLevel(
   if (!symmetric) return pivotDivergingHeatLevel(value, domain.min, domain.max, midpoint, levels);
   const reach = Math.max(midpoint - domain.min, domain.max - midpoint, 0);
   return pivotDivergingHeatLevel(value, midpoint - reach, midpoint + reach, midpoint, levels);
+}
+
+/** A tone key: letters, digits, `-` and `_`, starting with a letter (a CSS custom-property suffix). */
+const TONE_KEY = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+
+/**
+ * True for a valid tone key (`PivotHeatSpec.palette`, `PivotTable` `cellTone`). Renderers draw key `k`
+ * as `var(--nq-pivot-tone-k)`, so a key can never carry free CSS.
+ */
+export function isPivotToneKey(key: unknown): key is string {
+  return typeof key === "string" && TONE_KEY.test(key);
+}
+
+/** True for a valid `PivotHeatSpec.palette`: two or three tone keys. */
+export function isPivotHeatPalette(palette: unknown): palette is PivotHeatPalette {
+  return Array.isArray(palette) && (palette.length === 2 || palette.length === 3) && palette.every(isPivotToneKey);
+}
+
+/** CSS palette steps of a heat ramp (`--nq-pivot-heat-0 … -8`). */
+const HEAT_STEPS = 9;
+
+/**
+ * Palette step (`0 … 8`) of a heat level. Sequential: a linear map. Diverging: the middle level
+ * (`floor(levels / 2)`) is always step 4, lower levels spread over steps 0–3 and higher ones over 5–8,
+ * whatever `levels` is.
+ */
+export function pivotHeatPaletteStep(level: number, levels: number, scale: PivotHeatScale = "sequential"): number {
+  if (levels <= 1) return 0;
+  const l = Math.min(levels - 1, Math.max(0, Math.round(level)));
+  if (scale !== "diverging") return Math.round((l * (HEAT_STEPS - 1)) / (levels - 1));
+  const middle = Math.floor(levels / 2);
+  if (l === middle) return 4;
+  if (l < middle) return middle <= 1 ? 0 : Math.round((l * 3) / (middle - 1));
+  const above = levels - 1 - middle;
+  return 5 + (above <= 1 ? 3 : Math.round(((l - middle - 1) * 3) / (above - 1)));
+}
+
+/**
+ * A CSS colour value safe to put in a custom property (hex, named colour, `transparent`,
+ * `color-mix(...)`, `var(--token)`). Rejects `;`, `{`, `}`, quotes, backslashes and `url(` — the same
+ * character check nqchart's `safeCssColor` uses — so a host map cannot close a declaration.
+ */
+export function isPivotToneColor(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const v = value.trim();
+  if (!v || v.length > 200) return false;
+  if (!/^[A-Za-z0-9#%.,()\s+\-/*]+$/.test(v)) return false;
+  if (/url\s*\(/i.test(v)) return false;
+  return true;
+}
+
+/**
+ * `var(--nq-pivot-tone-<key>)` for a valid tone key (`isPivotToneKey`), else `undefined`. The host
+ * defines one `--nq-pivot-tone-<key>` variable per key (stylesheet or `PivotTable` `toneColors`); the
+ * grid never writes a free colour into a cell style.
+ */
+export function pivotToneVar(key: string | undefined): string | undefined {
+  return isPivotToneKey(key) ? `var(--nq-pivot-tone-${key})` : undefined;
+}
+
+/**
+ * Background of heat palette step `step` (`0 … 8`) for a `PivotHeatSpec.palette`: the stop's own
+ * `var(--nq-pivot-tone-<key>)` on a stop, an oklab `color-mix` of the two nearest stops between them.
+ * Two stops sit on steps 0 and 8; three stops on steps 0, 4 and 8. `undefined` for an invalid palette.
+ */
+export function pivotHeatPaletteColor(palette: PivotHeatPalette, step: number): string | undefined {
+  if (!isPivotHeatPalette(palette)) return undefined;
+  const s = Math.min(HEAT_STEPS - 1, Math.max(0, Math.round(step)));
+  const span = (HEAT_STEPS - 1) / (palette.length - 1);
+  const at = Math.min(palette.length - 2, Math.floor(s / span));
+  const t = (s - at * span) / span;
+  const from = `var(--nq-pivot-tone-${palette[at]})`;
+  const to = `var(--nq-pivot-tone-${palette[at + 1]})`;
+  if (t === 0) return from;
+  if (t === 1) return to;
+  return `color-mix(in oklab, ${from} ${Math.round((1 - t) * 1000) / 10}%, ${to})`;
 }
