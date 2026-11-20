@@ -1,4 +1,5 @@
 import { findPivotCalcCycles, parsePivotCalc } from "./calc";
+import { isPivotHeatPalette } from "./heat";
 import { PIVOT_SPEC_VERSION, type PivotSpec } from "./types";
 
 const isPathList = (v: unknown): boolean =>
@@ -66,7 +67,7 @@ const FORMAT_KEYS = keySet(
   "style currency currencySymbol decimals compact significantDigits compactUnits signDisplay negative prefix suffix groupSeparator decimalSeparator empty scale",
 );
 const TOTALS_KEYS = keySet("grandTotal grandTotalPosition grandTotalLabel rowTotal rowTotalLabel subtotalLabel");
-const HEAT_KEYS = keySet("measure scope levels applyTo domain scale midpoint");
+const HEAT_KEYS = keySet("measure scope levels applyTo domain scale midpoint palette");
 const HEADER_CHART_KEYS = keySet("measure type breakdown");
 const KPI_KEYS = keySet("id label measure compareTo format deltaFormat");
 const FILTER_KEYS = keySet("field include exclude match label");
@@ -517,6 +518,9 @@ export function validatePivotSpec(input: unknown): PivotSpecValidation {
     const levels = input.heat.levels;
     if (levels !== undefined && !(Number.isInteger(levels) && (levels as number) >= 2 && (levels as number) <= 32)) {
       errors.push("heat.levels must be an integer between 2 and 32");
+    }
+    if (input.heat.palette !== undefined && !isPivotHeatPalette(input.heat.palette)) {
+      errors.push("heat.palette must be 2 or 3 tone keys (letters, digits, - and _, starting with a letter)");
     }
   }
   if (input.headerCharts !== undefined && input.headerCharts !== null && !isObject(input.headerCharts)) errors.push("headerCharts must be an object or null");

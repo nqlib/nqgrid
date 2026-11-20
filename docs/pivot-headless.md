@@ -1144,6 +1144,7 @@ model object (a `WeakMap`), so a drag never recomputes them, and the model itsel
 | `resizeGuide` | `boolean` | While an edge is dragged, a `position: fixed` line (`data-nq-resize-guide`) runs across the visible table at the new edge. Every drag also sets `data-nq-resizing` on the handle and `data-nq-resizing="column\|row"` on the table. |
 | `numberFormats` | `readonly PivotFormatRule[]` | Excel's "Format Cells" for a measure, a column, a row, a row kind or one cell (below). |
 | `onCellClick` | `(ctx: PivotCellContext) => void` | Interactive mode: a click on a value cell, e.g. to select the target of a format menu. |
+| `cellTone` | `(ctx: PivotCellContext) => string \| undefined` | A tone key for one value cell, e.g. the color key of a conditional rule (`good`, `bad`). The cell gets `data-nq-tone="<key>"` and `background-color: var(--nq-pivot-tone-<key>)`. A toned cell draws no heat (the rule wins, as Excel's "Stop If True"); its data bar stays, and `cellClassName` still applies. `undefined` or an invalid key (`isPivotToneKey`) leaves the cell as it was. |
 
 To **rename a header**, use the existing `renderColumnHeader`: return your own label for the cell
 (`ctx.kind === "measure" && ctx.cell.measureId === "plan" ? "Budget" : ctx.label`). Keep the callback
@@ -1155,6 +1156,79 @@ values below it on lower levels and values above on higher ones; any value off t
 one level away from the middle. Without `domain` both sides share the larger distance from the
 midpoint, so equal distances get equal colors. Use an odd `levels` for a symmetric ramp. The JSON
 schema and `validatePivotSpec` accept both keys.
+
+### Host tone keys (`cellTone`, `PivotHeatSpec.palette`, `toneColors`)
+
+A host that stores a design as data (not CSS) can pass **tone keys**: a key is letters, digits, `-` and
+`_`, starting with a letter (`isPivotToneKey`). The grid draws key `k` as `var(--nq-pivot-tone-k)`, so a
+stored key never becomes free CSS. Map each key to a colour once — either in the host stylesheet, or
+with the renderer prop **`toneColors`** (not a field of `PivotSpec`):
+
+```tsx
+<PivotTable
+  model={model}
+  toneColors={{
+    good: "color-mix(in oklab, var(--chart-2) 32%, transparent)",
+    bad: "color-mix(in oklab, var(--destructive) 32%, transparent)",
+    plain: "transparent",
+  }}
+  cellTone={(ctx) => (/* … */ "bad")}
+  heat={[{ measure: "growth", scale: "diverging", palette: ["bad", "plain", "good"] }]}
+/>
+```
+
+```css
+/* Or define the same variables on a wrapper; omit toneColors. */
+.my-pivot {
+  --nq-pivot-tone-good: color-mix(in oklab, var(--success) 30%, transparent);
+  --nq-pivot-tone-bad: color-mix(in oklab, var(--destructive) 30%, transparent);
+  --nq-pivot-tone-plain: transparent;
+}
+```
+
+- **`cellTone`** colors one cell from a key (above).
+- **`toneColors`**: key → colour that passes `isPivotToneColor` (hex, `transparent`, `color-mix(...)`,
+  `var(--token)`). Written as `--nq-pivot-tone-<key>` on **that** table, so two tables can mean
+  different colours by the same key. Forwarded through `renderPivotHtml` as `table.toneColors` /
+  `table.cellTone`.
+- **`PivotHeatSpec.palette`** (also in `spec.heat`): `[low, high]` or `[low, middle, high]`. Two stops sit
+  on palette steps 0 and 8, three on steps 0, 4 and 8; the steps between two stops are
+  `color-mix(in oklab, …)` of them (`pivotHeatPaletteColor(palette, step)`). With three stops on a
+  diverging spec, the middle key is the `midpoint`; on a sequential spec it is the middle of the domain.
+  A spec without `palette` keeps the `--nq-pivot-heat-*` ramp. `pivotTableGeometry` reports the palette on
+  each cell (`cells[r][c].heat.palette`) for an exporter.
+- **Excel** (`writePivotXlsx`): pass the same `cellTone` callback and a `toneColors` map of **`#rgb` /
+  `#rrggbb` only** (a `color-mix` or `var()` value is ignored). A toned cell wins over heat. With
+  `model.heat.palette`, fills come from `pivotPaletteFillHex`; a stop with no usable hex paints **no**
+  fill (no built-in-ramp fallback). Wire option: `options.xlsx.toneColors`.
+- The helpers are pure and live in `@nqlib/nqgrid/core` (`pivotHeatPaletteColor`, `pivotHeatPaletteStep`,
+  `pivotToneVar`, `isPivotToneKey`, `isPivotToneColor`, `isPivotHeatPalette`), so a Node print or export
+  bridge needs no React entry. `/pivot` re-exports them. Hex blends for Excel/static live in
+  `/render-static` (`pivotPaletteFillHex`, `isPivotToneHex`).
+
+Edge cases of a palette:
+
+| Case | Result |
+|---|---|
+| A diverging spec with **2** stops | The midpoint is step 4: a 50% mix of the two keys. Give 3 stops to name the middle color. |
+| A sequential spec on a **flat domain** (every value equal, no `domain`) | Level 0, so step 0: the low stop. This is the same rule as the grid's own ramp; the grid does not skip heat. Pass `domain` to place a flat column elsewhere. |
+| A diverging spec with an **even** `levels` | The scale is uneven: the middle level is `floor(levels / 2)`, so `levels: 8` has 4 levels below the midpoint and 3 above it. Use an odd `levels` (the default is 9). This was already true before palettes. |
+| An invalid palette | `validatePivotSpec` and `buildPivotModel` reject it in `spec.heat`. In the `heat` prop, or in a model built with `validate: false`, the grid ignores it and draws its own ramp. |
+
+```tsx
+<PivotTable
+  model={model}
+  measureWidths={{ plan: 140 }}                                   // a width per measure (or valueWidths per column)
+  bars={[{ measure: "plan" }]}
+  toneColors={{
+    good: "color-mix(in oklab, var(--chart-2) 32%, transparent)",
+    plain: "transparent",
+    bad: "color-mix(in oklab, var(--destructive) 32%, transparent)",
+  }}
+  heat={[{ measure: "variance", scale: "diverging", midpoint: 0, palette: ["good", "plain", "bad"] }]}
+  cellTone={(ctx) => (ctx.column.measureId === "variance" && (ctx.cell.value ?? 0) < -0.1 ? "bad" : undefined)}
+/>
+```
 
 ### Number formats (Excel's "Format Cells")
 
@@ -1241,8 +1315,11 @@ map them to your tokens:
 | `--nq-pivot-heat-diverging-0` … `--nq-pivot-heat-diverging-8` | diverging `heat` (4 is the midpoint) |
 | `--nq-pivot-bar`, `--nq-pivot-bar-negative` | `bars` (negative falls back to `--nq-pivot-bar`) |
 | `--nq-pivot-drop-indicator` | measure drag indicator (default `currentColor`) |
+| `--nq-pivot-tone-<key>` | `cellTone` keys and `PivotHeatSpec.palette` stops (one per key you use) |
 
-The model's own heat (`spec.heat`, without the `heat` prop) still uses `--nqg-heat-N` as in 0.4.0. The
+The model's own heat (`spec.heat`, without the `heat` prop) uses `--nqg-heat-N` as in 0.4.0 only for a
+sequential spec without `palette`. A diverging `spec.heat` uses `--nq-pivot-heat-diverging-N`, and a
+`spec.heat` with a `palette` uses the `--nq-pivot-tone-<key>` variables, as the `heat` prop does. The
 resize handles carry `pivotResizeHandleClass` (`nqg-pivot-resize`, visible on hover and focus).
 
 ### Export the same design (XLSX)
@@ -1263,10 +1340,14 @@ const g = pivotTableGeometry(ordered, {
 g.columnWidths;   // px, dimension columns then value columns
 g.frozenRows;     // header rows (ySplit under your title rows); 0 with freezeHeader: false
 g.frozenColumns;  // row-label columns (xSplit); 0 with freezeDimensions: false
-g.cells?.[r]?.[c]; // { heat?: { level, levels, step, scale }, bar?: { start, width, negative } }
+g.cells?.[r]?.[c]; // { heat?: { level, levels, step, scale, palette? }, bar?: { start, width, negative }, tone? }
 ```
 
-`cells` is present when `heat` or `bars` is passed (`heat: undefined` with `bars` reports the model's
+Pass `cellTone` (the same function as on `PivotTable`) to get the rule colors too: a toned cell reports
+`tone` and no `heat`, as the grid draws it, and keeps its bar and number format. Without `heat`, the
+other cells report the model's own heat.
+
+`cells` is present when `heat`, `bars`, `numberFormats` or `cellTone` is passed (`heat: undefined` with `bars` reports the model's
 own heat levels). The new fields are optional on the `PivotTableGeometry` type, so code that builds its
 own geometry objects keeps compiling; `pivotTableGeometry` always sets them.
 

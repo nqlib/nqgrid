@@ -185,6 +185,15 @@
             },
             "midpoint": {
               "type": "number"
+            },
+            "palette": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 3,
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+              }
             }
           }
         }

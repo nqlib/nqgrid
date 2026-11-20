@@ -61,6 +61,11 @@ export type PivotStaticTableOptions = Pick<
   | "chartHeight"
   | "kpiHeadlineId"
   | "kpiCaptionAttribute"
+  | "cellTone"
+  | "toneColors"
+  | "heat"
+  | "bars"
+  | "numberFormats"
 >;
 
 /**

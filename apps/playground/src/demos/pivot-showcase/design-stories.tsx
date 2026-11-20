@@ -60,6 +60,12 @@ const DESIGN_VARS = {
   "--nq-pivot-bar": "color-mix(in oklab, var(--chart-1) 30%, transparent)",
   "--nq-pivot-bar-negative": "color-mix(in oklab, var(--destructive) 30%, transparent)",
   "--nq-pivot-drop-indicator": "var(--chart-1)",
+  // Host tone keys (`cellTone`, `PivotHeatSpec.palette`): one variable per key, mapped to tokens.
+  "--nq-pivot-tone-good": "color-mix(in oklab, var(--chart-2) 32%, transparent)",
+  "--nq-pivot-tone-bad": "color-mix(in oklab, var(--destructive) 32%, transparent)",
+  "--nq-pivot-tone-warn": "color-mix(in oklab, var(--chart-4) 32%, transparent)",
+  "--nq-pivot-tone-plain": "transparent",
+  "--nq-pivot-tone-heat": "color-mix(in oklab, var(--chart-1) 56%, transparent)",
 } as CSSProperties;
 
 interface Story {
@@ -86,6 +92,19 @@ const BARS: readonly PivotBarSpec[] = [{ measure: "plan", negative: "left" }];
 const LAYOUT: Readonly<Record<string, PivotMeasureLayout>> = { growth: { align: "center" }, plan: { align: "start" } };
 const renameHeader = (ctx: PivotColumnHeaderContext): ReactNode => (ctx.kind === "measure" && ctx.cell.measureId === "plan" ? "Budget" : ctx.label);
 const negativeCell: PivotTableProps["cellClassName"] = (ctx) => (ctx.cell.value !== null && ctx.cell.value < 0 ? "text-destructive" : undefined);
+/** A host rule ("Plan above 1M is good, Growth below 0 is bad"), stored as keys, drawn with `cellTone`. */
+const ruleTone: PivotTableProps["cellTone"] = (ctx) => {
+  const v = ctx.cell.value;
+  if (v === null || ctx.row.kind !== "leaf") return undefined;
+  if (ctx.column.measureId === "growth" && v < 0) return "bad";
+  if (ctx.column.measureId === "plan" && v > 1_000_000) return "good";
+  return undefined;
+};
+/** A host's heat palettes: 3 stops around a middle value (diverging), 2 stops (sequential). */
+const PALETTE_HEAT: readonly PivotHeatSpec[] = [
+  { measure: "growth", scale: "diverging", midpoint: 0, palette: ["bad", "plain", "good"] },
+  { measure: "actual", scope: "column", palette: ["plain", "heat"] },
+];
 const subtotalRow: PivotTableProps["rowClassName"] = (_, ctx) => (ctx.kind === "subtotal" ? "font-semibold" : undefined);
 const measureHeader: PivotTableProps["headerClassName"] = (ctx) => (ctx.kind === "measure" ? "text-foreground" : undefined);
 
@@ -164,6 +183,29 @@ const STORIES: readonly Story[] = [
     title: "Data bars",
     what: <>Bars behind Plan, from <code>--nq-pivot-bar</code>. The number stays on top and selectable.</>,
     props: () => ({ bars: BARS }),
+  },
+  {
+    id: "cell-tone",
+    title: "Cell tone",
+    what: (
+      <>
+        <code>cellTone</code> returns a host key for one cell (a rule: Growth below 0 is <code>bad</code>, Plan above 1M is{" "}
+        <code>good</code>). The cell gets <code>data-nq-tone</code> and <code>var(--nq-pivot-tone-&lt;key&gt;)</code>; a toned cell
+        takes no heat. No color is stored, only the key.
+      </>
+    ),
+    props: () => ({ cellTone: ruleTone, heat: HEAT, bars: BARS }),
+  },
+  {
+    id: "heat-palette",
+    title: "Heat palette",
+    what: (
+      <>
+        <code>PivotHeatSpec.palette</code> takes the host's tone keys: Growth diverges <code>bad → plain → good</code> around{" "}
+        <code>midpoint: 0</code>, Actual runs <code>plain → heat</code> per month. Steps between two stops are an oklab mix.
+      </>
+    ),
+    props: () => ({ heat: PALETTE_HEAT }),
   },
   {
     id: "layout",

@@ -1,6 +1,6 @@
 import { DEFAULT_PIVOT_PERCENT_FORMAT, formatPivotNumber, PIVOT_RANK_FORMAT, pivotShowAsFormatKind, toExcelNumFmt } from "../core/pivot/format";
-import { pivotScaledHeatLevel, type PivotHeatDomain } from "../core/pivot/heat";
-import type { PivotBodyRow, PivotCell, PivotHeatScale, PivotHeatSpec, PivotModel, PivotNumberFormat, PivotValueColumn } from "../core/pivot/types";
+import { isPivotHeatPalette, pivotHeatPaletteStep, pivotScaledHeatLevel, pivotToneVar, type PivotHeatDomain } from "../core/pivot/heat";
+import type { PivotBodyRow, PivotCell, PivotHeatPalette, PivotHeatScale, PivotHeatSpec, PivotModel, PivotNumberFormat, PivotValueColumn } from "../core/pivot/types";
 import type { PivotCellContext, PivotColumnHeaderContext } from "./pivot-table";
 
 /**
@@ -78,6 +78,11 @@ export interface PivotRowClassContext {
 }
 
 export type PivotCellClassName = (context: PivotCellContext) => string | undefined;
+/**
+ * `cellTone(context)`: a tone key for one value cell (e.g. the color key of a conditional rule), or
+ * `undefined`. See `PivotTable` `cellTone`.
+ */
+export type PivotCellTone = (context: PivotCellContext) => string | undefined;
 export type PivotRowClassName = (row: PivotBodyRow, context: PivotRowClassContext) => string | undefined;
 export type PivotHeaderClassName = (context: PivotColumnHeaderContext) => string | undefined;
 
@@ -90,9 +95,6 @@ export function pivotRowDesignKind(row: Pick<PivotBodyRow, "kind">): PivotRowCla
 // Per-cell heat and bar levels
 // ---------------------------------------------------------------------------
 
-/** CSS palette steps of a heat ramp (`--nq-pivot-heat-0 … -8`). */
-const HEAT_STEPS = 9;
-
 export interface PivotCellHeat {
   /** Level `0 … levels-1`. */
   readonly level: number;
@@ -100,6 +102,8 @@ export interface PivotCellHeat {
   /** Palette step `0 … 8` (`data-nq-heat`, `--nq-pivot-heat-N`); the middle level maps to step 4. */
   readonly step: number;
   readonly scale: PivotHeatScale;
+  /** The spec's `palette` (tone keys), when it has one: color `step` with `pivotHeatPaletteColor`. */
+  readonly palette?: PivotHeatPalette;
 }
 
 export interface PivotCellBar {
@@ -120,10 +124,13 @@ export interface PivotCellNumberFormat {
 }
 
 export interface PivotCellDesign {
+  /** Absent on a toned cell (`tone`): a rule wins over heat. */
   readonly heat?: PivotCellHeat;
   readonly bar?: PivotCellBar;
   /** Present on cells a `numberFormats` rule changed. */
   readonly numberFormat?: PivotCellNumberFormat;
+  /** The `cellTone` key of the cell (a valid tone key only), drawn as `var(--nq-pivot-tone-<key>)`. */
+  readonly tone?: string;
 }
 
 /** Heat / bar of every body cell: `[rowIndex][columnIndex]` over `model.rows` / `model.columns`. */
@@ -138,22 +145,21 @@ export interface PivotCellDesignOptions {
   readonly bars?: readonly PivotBarSpec[];
   /** Number format rules (`PivotTable` `numberFormats`): fills `numberFormat` on the cells they change. */
   readonly numberFormats?: readonly PivotFormatRule[];
+  /**
+   * As `PivotTable` `cellTone`: called for every value cell of every body row. A valid tone key sets
+   * `tone` and removes the cell's `heat`, as `PivotTable` draws it; the bar and number format stay.
+   */
+  readonly cellTone?: PivotCellTone;
 }
 
 /**
- * Palette step (`0 … 8`) of a heat level. Sequential: a linear map. Diverging: the middle level
- * (`floor(levels / 2)`) is always step 4, lower levels spread over steps 0–3 and higher ones over 5–8,
- * whatever `levels` is.
+ * The heat of a cell from the model's own heat (`spec.heat`): `level` is `cell.heat`. The scale and a
+ * valid palette come from `model.heat`. `PivotTable` and `pivotCellDesigns` both use it.
  */
-export function pivotHeatPaletteStep(level: number, levels: number, scale: PivotHeatScale = "sequential"): number {
-  if (levels <= 1) return 0;
-  const l = Math.min(levels - 1, Math.max(0, Math.round(level)));
-  if (scale !== "diverging") return Math.round((l * (HEAT_STEPS - 1)) / (levels - 1));
-  const middle = Math.floor(levels / 2);
-  if (l === middle) return 4;
-  if (l < middle) return middle <= 1 ? 0 : Math.round((l * 3) / (middle - 1));
-  const above = levels - 1 - middle;
-  return 5 + (above <= 1 ? 3 : Math.round(((l - middle - 1) * 3) / (above - 1)));
+export function pivotModelCellHeat(info: NonNullable<PivotModel["heat"]>, level: number): PivotCellHeat {
+  const scale: PivotHeatScale = info.scale ?? "sequential";
+  const step = pivotHeatPaletteStep(level, info.levels, scale);
+  return isPivotHeatPalette(info.palette) ? { level, levels: info.levels, step, scale, palette: info.palette } : { level, levels: info.levels, step, scale };
 }
 
 /** `heat` prop → a list (`undefined` stays `undefined`: the model's heat). */
@@ -191,10 +197,9 @@ export function pivotCellDesigns(model: PivotModel, options: PivotCellDesignOpti
     // The model's own heat (spec.heat).
     const info = model.heat;
     if (info) {
-      const scale: PivotHeatScale = info.scale ?? "sequential";
       model.rows.forEach((row, r) =>
         row.cells.forEach((cell, c) => {
-          if (cell.heat !== undefined) set(r, c, { heat: { level: cell.heat, levels: info.levels, step: pivotHeatPaletteStep(cell.heat, info.levels, scale), scale } });
+          if (cell.heat !== undefined) set(r, c, { heat: pivotModelCellHeat(info, cell.heat) });
         }),
       );
     }
@@ -207,6 +212,7 @@ export function pivotCellDesigns(model: PivotModel, options: PivotCellDesignOpti
       const applyTo = spec.applyTo ?? "leaf";
       const scale: PivotHeatScale = spec.scale ?? "sequential";
       const midpoint = spec.midpoint ?? 0;
+      const palette = isPivotHeatPalette(spec.palette) ? { palette: spec.palette } : {};
       const columns = model.columns.flatMap((c, i) =>
         c.measureId === measureId && !(levelsOfColumns > 0 && c.columnKey === null) && (scope === "column" || !c.subtotal) ? [i] : [],
       );
@@ -237,7 +243,7 @@ export function pivotCellDesigns(model: PivotModel, options: PivotCellDesignOpti
           const domain = fixed ?? domains.get(keyOf(rowKey, c));
           if (!domain) continue;
           const level = pivotScaledHeatLevel(row.cells[c]?.value ?? null, domain, levels, scale, midpoint, !fixed);
-          if (level !== undefined) set(r, c, { heat: { level, levels, step: pivotHeatPaletteStep(level, levels, scale), scale } });
+          if (level !== undefined) set(r, c, { heat: { level, levels, step: pivotHeatPaletteStep(level, levels, scale), scale, ...palette } });
         }
       });
     }
@@ -281,6 +287,18 @@ export function pivotCellDesigns(model: PivotModel, options: PivotCellDesignOpti
     pivotCellFormats(model, options.numberFormats).forEach((row, r) =>
       row?.forEach((numberFormat, c) => {
         if (numberFormat) set(r, c, { numberFormat });
+      }),
+    );
+  }
+  const cellTone = options.cellTone;
+  if (cellTone) {
+    model.rows.forEach((row, rowIndex) =>
+      row.cells.forEach((cell, columnIndex) => {
+        const tone = cellTone({ model, row, rowIndex, column: model.columns[columnIndex]!, columnIndex, cell });
+        if (pivotToneVar(tone) === undefined) return;
+        const { heat: _heat, ...rest } = out[rowIndex]?.[columnIndex] ?? {};
+        void _heat;
+        (out[rowIndex] ??= [])[columnIndex] = { ...rest, tone };
       }),
     );
   }
@@ -401,4 +419,6 @@ export function pivotClampRowHeight(height: number): number {
 }
 
 /** Re-exported for `PivotTable` `heat` (also in `@nqlib/nqgrid/core`). */
-export type { PivotHeatScale, PivotHeatScope, PivotHeatSpec } from "../core/pivot/types";
+export type { PivotHeatPalette, PivotHeatScale, PivotHeatScope, PivotHeatSpec } from "../core/pivot/types";
+/** Re-exported for `PivotTable` hosts (pure, defined in `@nqlib/nqgrid/core`). */
+export { isPivotHeatPalette, isPivotToneColor, isPivotToneKey, pivotHeatPaletteColor, pivotHeatPaletteStep, pivotToneVar } from "../core/pivot/heat";

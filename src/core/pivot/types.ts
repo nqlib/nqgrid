@@ -448,7 +448,19 @@ export interface PivotHeatSpec {
   readonly scale?: PivotHeatScale;
   /** Diverging only: the neutral value (default 0). */
   readonly midpoint?: number;
+  /**
+   * The host's own colors for this spec, as tone keys (not CSS): `[low, high]` or
+   * `[low, middle, high]`. A renderer draws key `k` as the CSS variable `--nq-pivot-tone-k`, and the
+   * steps between two stops as a mix of them. With three stops the middle key is palette step 4: the
+   * `midpoint` of a diverging scale, the middle of the domain of a sequential one. Without
+   * `palette`, the renderer's own ramp (`--nq-pivot-heat-N` / `--nq-pivot-heat-diverging-N`).
+   * A key is letters, digits, `-` and `_` (`isPivotToneKey`).
+   */
+  readonly palette?: PivotHeatPalette;
 }
+
+/** Tone keys of a heat palette: `[low, high]` or `[low, middle, high]` (see `PivotHeatSpec.palette`). */
+export type PivotHeatPalette = readonly [string, string] | readonly [string, string, string];
 
 /** Color ramp of a heat spec (see `PivotHeatSpec.scale`). */
 export type PivotHeatScale = "sequential" | "diverging";
@@ -774,6 +786,8 @@ export interface PivotModel {
     readonly scale?: "diverging";
     /** Diverging only: the neutral value. */
     readonly midpoint?: number;
+    /** Present when the spec names a `palette` (tone keys). */
+    readonly palette?: PivotHeatPalette;
   } | null;
   readonly headerSeries: PivotHeaderSeries | null;
   /** Grand-level KPIs. */

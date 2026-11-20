@@ -57,7 +57,8 @@ const [design, setDesign] = useState(savedDesign)
 | Measure order | `measureOrder`, `onMeasureOrderChange`. Drag a measure header (a drop indicator shows the place; Escape cancels), or focus it and press Alt+ArrowLeft / Alt+ArrowRight. Column-dimension members keep the model's sort. |
 | Freeze | `freezeHeader`, `freezeDimensions` (both on by default in interactive mode; work with `virtualize` and `pagination`). |
 | Style hooks | `cellClassName`, `rowClassName`, `headerClassName`, `bandedRows` (`data-nq-band`), `dataAttributes` (`data-nq-measure`, `data-nq-row-kind`, `data-nq-negative`). The grid adds no colors: map these to your own tokens. |
-| Heat | `heat`: one `PivotHeatSpec` or a list (one per measure), each `sequential` or `diverging` around a `midpoint`. Cells get `data-nq-heat="0…8"` and `data-nq-heat-scale`. |
+| Cell tone | `cellTone`: a tone key for one cell (e.g. a rule's `good` / `bad`) → `data-nq-tone` and `var(--nq-pivot-tone-<key>)`; a toned cell takes no heat. |
+| Heat | `heat`: one `PivotHeatSpec` or a list (one per measure), each `sequential` or `diverging` around a `midpoint`. Cells get `data-nq-heat="0…8"` and `data-nq-heat-scale`. `palette: [low, middle?, high]` draws the steps from your tone keys instead of the `--nq-pivot-heat-*` ramp. |
 | Data bars | `bars`: `PivotBarSpec[]` with `measure`, `applyTo`, `domain`, `negative: "left" \| "hide"`. The number stays the cell's selectable text. |
 | Per-measure layout | `measureLayout`: `align` and `wrap` per measure id. Rename a header with `renderColumnHeader` (return your own label). |
 | Number formats | `numberFormats`: Excel-style "Format Cells" rules (digits, currency, percent, thousands, compact) for a measure, column, row, row kind or one cell; `onCellClick` to pick the target. |
@@ -76,6 +77,7 @@ Colors come from CSS variables that you define (no colors in JavaScript):
   --nq-pivot-bar: color-mix(in oklab, var(--primary) 28%, transparent);
   --nq-pivot-bar-negative: color-mix(in oklab, var(--destructive) 28%, transparent);
   --nq-pivot-drop-indicator: var(--primary);
+  --nq-pivot-tone-bad: color-mix(in oklab, var(--destructive) 30%, transparent);  /* cellTone / palette key "bad" */
 }
 .my-pivot [data-nq-band="even"] > td { background-color: var(--muted); }
 .my-pivot [data-nq-negative] { color: var(--destructive); }
