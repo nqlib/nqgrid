@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import * as core from "../core";
 import { buildPivotModel } from "../core/pivot/build-model";
-import { isPivotHeatPalette, isPivotToneKey, pivotHeatPaletteColor, pivotToneVar } from "../core/pivot/heat";
+import { isPivotHeatPalette, isPivotToneColor, isPivotToneKey, pivotHeatPaletteColor, pivotToneVar } from "../core/pivot/heat";
 import type { PivotHeatSpec, PivotSpec } from "../core/pivot/types";
 import { validatePivotSpec } from "../core/pivot/validate";
 import { generatePlanningPivotRows, planningPivotSpec } from "../fixtures/planning-pivot-mock";
@@ -82,6 +82,25 @@ describe("slot 3: a tone for one cell (cellTone)", () => {
     for (const bad of ["", "4x", "a b", "a)", "#ff0000", "a".repeat(65), 7, null]) expect(isPivotToneKey(bad)).toBe(false);
     expect(pivotToneVar("good")).toBe("var(--nq-pivot-tone-good)");
     expect(pivotToneVar("x;y")).toBeUndefined();
+  });
+
+  it("toneColors writes --nq-pivot-tone-<key> on the table root; unsafe values are dropped", () => {
+    const out = html({
+      cellTone: negative,
+      toneColors: {
+        bad: "color-mix(in oklab, var(--destructive) 32%, transparent)",
+        good: "#0f9488",
+        "a;b": "#fff",
+        evil: "red; } table { background: url(x)",
+      },
+    });
+    expect(out).toMatch(/style="[^"]*--nq-pivot-tone-bad:color-mix\(in oklab, var\(--destructive\) 32%, transparent\)/);
+    expect(out).toMatch(/--nq-pivot-tone-good:#0f9488/);
+    expect(out).not.toContain("--nq-pivot-tone-a;b");
+    expect(out).not.toContain("--nq-pivot-tone-evil");
+    expect(isPivotToneColor("var(--chart-2)")).toBe(true);
+    expect(isPivotToneColor("transparent")).toBe(true);
+    expect(isPivotToneColor("red; }")).toBe(false);
   });
 });
 
@@ -184,7 +203,14 @@ describe("cellTone in pivotTableGeometry (export)", () => {
 
 describe("entry points", () => {
   it("the palette and tone helpers are in /core (for a Node print bridge) and re-exported from /pivot", () => {
-    for (const name of ["pivotHeatPaletteColor", "pivotHeatPaletteStep", "pivotToneVar", "isPivotToneKey", "isPivotHeatPalette"] as const) {
+    for (const name of [
+      "pivotHeatPaletteColor",
+      "pivotHeatPaletteStep",
+      "pivotToneVar",
+      "isPivotToneKey",
+      "isPivotToneColor",
+      "isPivotHeatPalette",
+    ] as const) {
       expect(typeof core[name]).toBe("function");
       expect(pivot[name]).toBe(core[name]);
     }

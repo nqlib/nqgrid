@@ -1,6 +1,9 @@
 import ExcelJS from "exceljs";
 import {
   DEFAULT_PIVOT_DELTA_FORMAT,
+  isPivotHeatPalette,
+  isPivotToneKey,
+  pivotHeatPaletteStep,
   pivotModelToSheet,
   toExcelNumFmt,
   type PivotKpiValue,
@@ -11,7 +14,13 @@ import {
   type PivotSheetLine,
   type PivotSpec,
 } from "@nqlib/nqgrid/core";
-import { PIVOT_STATIC_PALETTE, pivotHeatLevelFillHex } from "@nqlib/nqgrid/render-static";
+import type { PivotCellTone } from "@nqlib/nqgrid/pivot";
+import {
+  isPivotToneHex,
+  PIVOT_STATIC_PALETTE,
+  pivotHeatLevelFillHex,
+  pivotPaletteFillHex,
+} from "@nqlib/nqgrid/render-static";
 
 export interface PivotXlsxOptions {
   /** Spec used to build the model: KPI number formats + a hidden `Spec` sheet for traceability. */
@@ -28,6 +37,18 @@ export interface PivotXlsxOptions {
   readonly sheet?: PivotSheet;
   /** `statement`: bold totals with rules, no grey bands (used when `sheet` is not given). */
   readonly profile?: "report" | "statement";
+  /**
+   * Same callback as `PivotTable` `cellTone`. Applied when the written sheet's body rows align with
+   * `model.rows` (the default sheet). A key with a `#rgb` / `#rrggbb` in `toneColors` paints that
+   * fill and skips heat. Not stored in `PivotSpec`.
+   */
+  readonly cellTone?: PivotCellTone;
+  /**
+   * Hex colours for tone keys (`#rgb` / `#rrggbb` only). Used for `cellTone` and for
+   * `model.heat.palette`. A `color-mix` or `var()` value is ignored. A palette stop with no usable
+   * hex paints no fill (no built-in-ramp fallback). Not part of `PivotSpec`.
+   */
+  readonly toneColors?: Readonly<Record<string, string>>;
 }
 
 const argb = (hex: string) => `FF${hex.replace("#", "").toUpperCase()}`;
@@ -41,7 +62,49 @@ export function xlsxSheetName(name: string, fallback = "Pivot"): string {
   return clean || fallback;
 }
 
-function styleCell(cell: ExcelJS.Cell, src: PivotSheetCell, levels: number, isDimension: boolean, statement: boolean) {
+/** Hex entries only (`#rgb` / `#rrggbb`), keyed by valid tone key. */
+function hexToneMap(toneColors: Readonly<Record<string, string>> | undefined): Readonly<Record<string, string>> {
+  if (!toneColors) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(toneColors)) {
+    if (!isPivotToneKey(key) || !isPivotToneHex(value)) continue;
+    out[key] = value.trim();
+  }
+  return out;
+}
+
+/**
+ * Fill for one sheet value cell: `cellTone` hex wins, else a `model.heat.palette` blend, else the
+ * built-in heat ramp when there is no palette. A palette with a missing hex returns `null` (no fill).
+ */
+function valueFillHex(
+  src: PivotSheetCell,
+  levels: number,
+  model: PivotModel,
+  toneHex: Readonly<Record<string, string>>,
+  toneKey: string | undefined,
+): string | null | undefined {
+  if (toneKey !== undefined && isPivotToneKey(toneKey)) {
+    const hex = toneHex[toneKey];
+    if (hex !== undefined) return hex;
+  }
+  if (src.heat === undefined) return undefined;
+  const heat = model.heat;
+  if (heat && isPivotHeatPalette(heat.palette)) {
+    const step = pivotHeatPaletteStep(src.heat, levels, heat.scale ?? "sequential");
+    return pivotPaletteFillHex(heat.palette, step, toneHex) ?? null;
+  }
+  return pivotHeatLevelFillHex(src.heat, levels);
+}
+
+function styleCell(
+  cell: ExcelJS.Cell,
+  src: PivotSheetCell,
+  levels: number,
+  isDimension: boolean,
+  statement: boolean,
+  fillHex: string | null | undefined,
+) {
   if (src.numFmt && typeof src.v === "number") cell.numFmt = src.numFmt;
   const font: Partial<ExcelJS.Font> = { name: "Calibri", size: 11, color: { argb: argb(palette.foreground) } };
   if (src.bold) font.bold = true;
@@ -61,7 +124,10 @@ function styleCell(cell: ExcelJS.Cell, src: PivotSheetCell, levels: number, isDi
       ...(src.border?.top ? { top: rule } : src.role === "grandTotal" ? { top: thin(palette.border) } : {}),
     };
   }
-  if (src.heat !== undefined) cell.fill = solid(pivotHeatLevelFillHex(src.heat, levels));
+  if (typeof fillHex === "string") cell.fill = solid(fillHex);
+  else if (fillHex === null) {
+    /* palette set, no usable hex: leave unfilled */
+  } else if (src.heat !== undefined) cell.fill = solid(pivotHeatLevelFillHex(src.heat, levels));
   else if (!statement && (src.role === "group" || src.role === "grandTotal")) cell.fill = solid(palette.muted);
   cell.font = font;
 }
@@ -101,6 +167,9 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
   const sheet = options.sheet ?? pivotModelToSheet(model, { profile: options.profile, ...(options.spec ? { spec: options.spec } : {}) });
   const statement = sheet.profile === "statement";
   const top = sheet.tableRow ?? 0;
+  const toneHex = hexToneMap(options.toneColors);
+  const cellTone = options.cellTone;
+  const toneAligned = cellTone !== undefined && sheet.bodyRows.length === model.rows.length;
   const wb = new ExcelJS.Workbook();
   wb.creator = "nqgrid-export";
   if (model.title) wb.title = model.title;
@@ -130,7 +199,21 @@ export async function writePivotXlsx(model: PivotModel, options: PivotXlsxOption
       const cell = ws.getCell(top + r + 1, c + 1);
       if (src.f !== undefined) cell.value = { formula: src.f, result: typeof src.v === "number" ? src.v : undefined } as ExcelJS.CellFormulaValue;
       else if (src.v !== null) cell.value = src.v;
-      styleCell(cell, src, levels, c < sheet.rowHeaderColumnCount, statement);
+      const isDimension = c < sheet.rowHeaderColumnCount;
+      const bodyIndex = r - sheet.frozenRows;
+      const columnIndex = c - sheet.rowHeaderColumnCount;
+      let toneKey: string | undefined;
+      if (toneAligned && !isDimension && bodyIndex >= 0 && columnIndex >= 0) {
+        const bodyRow = model.rows[bodyIndex]!;
+        const column = model.columns[columnIndex]!;
+        const modelCell = bodyRow.cells[columnIndex]!;
+        toneKey = cellTone!({ model, row: bodyRow, rowIndex: bodyIndex, column, columnIndex, cell: modelCell });
+      }
+      const fillHex =
+        isDimension || r < sheet.frozenRows
+          ? undefined
+          : valueFillHex(src, levels, model, toneHex, toneKey);
+      styleCell(cell, src, levels, isDimension, statement, fillHex);
     });
     const xr = ws.getRow(top + r + 1);
     xr.height = r < sheet.frozenRows ? 20 : 18;

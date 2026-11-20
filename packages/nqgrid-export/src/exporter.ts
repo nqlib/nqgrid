@@ -156,7 +156,12 @@ export function createPivotExporter(options: CreatePivotExporterOptions = {}): P
       case "html":
         return renderPivotHtml(model, htmlOptions(req.options));
       case "xlsx":
-        return writePivotXlsx(model, { spec: req.spec, sheet, generatedAt: req.options?.generatedAt ?? null });
+        return writePivotXlsx(model, {
+          spec: req.spec,
+          sheet,
+          generatedAt: req.options?.generatedAt ?? null,
+          ...(req.options?.xlsx?.toneColors ? { toneColors: req.options.xlsx.toneColors } : {}),
+        });
       case "pdf": {
         const html = renderPivotHtml(model, htmlOptions(req.options));
         const o = req.options;

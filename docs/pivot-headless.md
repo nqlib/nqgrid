@@ -1157,13 +1157,28 @@ one level away from the middle. Without `domain` both sides share the larger dis
 midpoint, so equal distances get equal colors. Use an odd `levels` for a symmetric ramp. The JSON
 schema and `validatePivotSpec` accept both keys.
 
-### Host tone keys (`cellTone`, `PivotHeatSpec.palette`)
+### Host tone keys (`cellTone`, `PivotHeatSpec.palette`, `toneColors`)
 
 A host that stores a design as data (not CSS) can pass **tone keys**: a key is letters, digits, `-` and
 `_`, starting with a letter (`isPivotToneKey`). The grid draws key `k` as `var(--nq-pivot-tone-k)`, so a
-stored key never becomes free CSS, and the host maps each key to its own token once:
+stored key never becomes free CSS. Map each key to a colour once — either in the host stylesheet, or
+with the renderer prop **`toneColors`** (not a field of `PivotSpec`):
+
+```tsx
+<PivotTable
+  model={model}
+  toneColors={{
+    good: "color-mix(in oklab, var(--chart-2) 32%, transparent)",
+    bad: "color-mix(in oklab, var(--destructive) 32%, transparent)",
+    plain: "transparent",
+  }}
+  cellTone={(ctx) => (/* … */ "bad")}
+  heat={[{ measure: "growth", scale: "diverging", palette: ["bad", "plain", "good"] }]}
+/>
+```
 
 ```css
+/* Or define the same variables on a wrapper; omit toneColors. */
 .my-pivot {
   --nq-pivot-tone-good: color-mix(in oklab, var(--success) 30%, transparent);
   --nq-pivot-tone-bad: color-mix(in oklab, var(--destructive) 30%, transparent);
@@ -1172,15 +1187,24 @@ stored key never becomes free CSS, and the host maps each key to its own token o
 ```
 
 - **`cellTone`** colors one cell from a key (above).
+- **`toneColors`**: key → colour that passes `isPivotToneColor` (hex, `transparent`, `color-mix(...)`,
+  `var(--token)`). Written as `--nq-pivot-tone-<key>` on **that** table, so two tables can mean
+  different colours by the same key. Forwarded through `renderPivotHtml` as `table.toneColors` /
+  `table.cellTone`.
 - **`PivotHeatSpec.palette`** (also in `spec.heat`): `[low, high]` or `[low, middle, high]`. Two stops sit
   on palette steps 0 and 8, three on steps 0, 4 and 8; the steps between two stops are
   `color-mix(in oklab, …)` of them (`pivotHeatPaletteColor(palette, step)`). With three stops on a
   diverging spec, the middle key is the `midpoint`; on a sequential spec it is the middle of the domain.
   A spec without `palette` keeps the `--nq-pivot-heat-*` ramp. `pivotTableGeometry` reports the palette on
   each cell (`cells[r][c].heat.palette`) for an exporter.
+- **Excel** (`writePivotXlsx`): pass the same `cellTone` callback and a `toneColors` map of **`#rgb` /
+  `#rrggbb` only** (a `color-mix` or `var()` value is ignored). A toned cell wins over heat. With
+  `model.heat.palette`, fills come from `pivotPaletteFillHex`; a stop with no usable hex paints **no**
+  fill (no built-in-ramp fallback). Wire option: `options.xlsx.toneColors`.
 - The helpers are pure and live in `@nqlib/nqgrid/core` (`pivotHeatPaletteColor`, `pivotHeatPaletteStep`,
-  `pivotToneVar`, `isPivotToneKey`, `isPivotHeatPalette`), so a Node print or export bridge needs no React
-  entry. `/pivot` re-exports them.
+  `pivotToneVar`, `isPivotToneKey`, `isPivotToneColor`, `isPivotHeatPalette`), so a Node print or export
+  bridge needs no React entry. `/pivot` re-exports them. Hex blends for Excel/static live in
+  `/render-static` (`pivotPaletteFillHex`, `isPivotToneHex`).
 
 Edge cases of a palette:
 
@@ -1196,6 +1220,11 @@ Edge cases of a palette:
   model={model}
   measureWidths={{ plan: 140 }}                                   // a width per measure (or valueWidths per column)
   bars={[{ measure: "plan" }]}
+  toneColors={{
+    good: "color-mix(in oklab, var(--chart-2) 32%, transparent)",
+    plain: "transparent",
+    bad: "color-mix(in oklab, var(--destructive) 32%, transparent)",
+  }}
   heat={[{ measure: "variance", scale: "diverging", midpoint: 0, palette: ["good", "plain", "bad"] }]}
   cellTone={(ctx) => (ctx.column.measureId === "variance" && (ctx.cell.value ?? 0) < -0.1 ? "bad" : undefined)}
 />

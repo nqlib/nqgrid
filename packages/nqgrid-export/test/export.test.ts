@@ -4,8 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   addPivotMeasure,
+  buildPivotModel,
   movePivotField,
   pivotColumnFields,
+  pivotHeatPaletteStep,
+  pivotModelToSheet,
   resolvePivotFields,
   setPivotDateGrouping,
   setPivotFilterValues,
@@ -16,10 +19,11 @@ import {
   type PivotSheet,
   type PivotSpec,
 } from "@nqlib/nqgrid/core";
-import { pivotHeatLevelFillHex } from "@nqlib/nqgrid/render-static";
+import { pivotHeatLevelFillHex, pivotPaletteFillHex } from "@nqlib/nqgrid/render-static";
 
 import { exportPivot } from "../src/exporter";
 import { NQGRID_EXPORT_VERSION } from "../src/version";
+import { writePivotXlsx } from "../src/xlsx";
 import { chromiumAvailable, GOLDEN_GENERATED_AT, pdfPageCount, planningFilteredSpec, planningRows, planningSpec, readExample } from "./helpers";
 
 const colName = (c: number) => {
@@ -541,4 +545,75 @@ describe("income statement golden: calculated items (planning-income)", async ()
     const pdf = (await exportPivot({ spec, rows, format: "pdf", options: { profile: "statement", generatedAt: GOLDEN_GENERATED_AT } })) as Uint8Array;
     expect(pdfPageCount(pdf)).toBe(1);
   }, 60_000);
+});
+
+describe("writePivotXlsx toneColors and cellTone", () => {
+  const toneHex = { bad: "#dc2626", plain: "#ffffff", good: "#059669" } as const;
+  const load = async (bytes: Uint8Array) => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    return wb.worksheets[0]!;
+  };
+
+  it("blends a model.heat.palette of hex stops; a missing hex paints no fill (not the built-in ramp)", async () => {
+    const withPalette: PivotSpec = {
+      ...planningSpec,
+      heat: { measure: "actual", scope: "all", applyTo: "leaf", palette: ["bad", "plain", "good"] },
+    };
+    const model = buildPivotModel(withPalette, planningRows);
+    const sheet = pivotModelToSheet(model);
+    const bytes = await writePivotXlsx(model, { sheet, toneColors: toneHex });
+    const ws = await load(bytes);
+    const r = sheet.cells.findIndex((row) => row.some((c) => c.heat !== undefined));
+    expect(r).toBeGreaterThanOrEqual(0);
+    const c = sheet.cells[r]!.findIndex((cell) => cell.heat !== undefined);
+    const level = sheet.cells[r]![c]!.heat!;
+    const step = pivotHeatPaletteStep(level, model.heat!.levels, model.heat!.scale ?? "sequential");
+    const hex = pivotPaletteFillHex(["bad", "plain", "good"], step, toneHex)!;
+    expect(hex).toBeTruthy();
+    expect((ws.getCell(sheet.tableRow + r + 1, c + 1).fill as ExcelJS.FillPattern).fgColor?.argb).toBe(
+      `FF${hex.slice(1).toUpperCase()}`,
+    );
+    expect(hex).not.toBe(pivotHeatLevelFillHex(level, model.heat!.levels));
+
+    const missing = await writePivotXlsx(model, { sheet, toneColors: { plain: "#ffffff" } });
+    const wsMissing = await load(missing);
+    const fill = wsMissing.getCell(sheet.tableRow + r + 1, c + 1).fill as ExcelJS.FillPattern | undefined;
+    const rampArgb = `FF${pivotHeatLevelFillHex(level, model.heat!.levels).slice(1).toUpperCase()}`;
+    expect(fill?.fgColor?.argb).not.toBe(rampArgb);
+  });
+
+  it("cellTone hex wins over heat", async () => {
+    const model = buildPivotModel(planningSpec, planningRows);
+    const sheet = pivotModelToSheet(model);
+    const bytes = await writePivotXlsx(model, {
+      sheet,
+      toneColors: { mark: "#dc2626" },
+      cellTone: (ctx: { row: { kind: string } }) => (ctx.row.kind === "leaf" ? "mark" : undefined),
+    });
+    const ws = await load(bytes);
+    expect(sheet.bodyRows.length).toBe(model.rows.length);
+    let found = false;
+    model.rows.forEach((row, rowIndex) => {
+      if (row.kind !== "leaf") return;
+      const r = sheet.frozenRows + rowIndex;
+      const c = sheet.rowHeaderColumnCount;
+      const fill = ws.getCell(sheet.tableRow + r + 1, c + 1).fill as ExcelJS.FillPattern;
+      expect(fill.fgColor?.argb).toBe("FFDC2626");
+      found = true;
+    });
+    expect(found).toBe(true);
+  });
+
+  it("a model with no palette still matches the built-in heat fill", async () => {
+    const bytes = await exportPivot({ spec: planningSpec, rows: planningRows, format: "xlsx", options: { generatedAt: GOLDEN_GENERATED_AT } });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(Buffer.from(bytes) as unknown as ArrayBuffer);
+    const sheet = JSON.parse(readExample("planning.sheet.json")) as PivotSheet;
+    const ws = wb.worksheets[0]!;
+    const r = sheet.cells.findIndex((row) => row.some((c) => c.heat !== undefined));
+    const c = sheet.cells[r]!.findIndex((cell) => cell.heat !== undefined);
+    const fill = ws.getCell(sheet.tableRow + r + 1, c + 1).fill as ExcelJS.FillPattern;
+    expect(fill.fgColor?.argb).toBe(`FF${pivotHeatLevelFillHex(sheet.cells[r]![c]!.heat!, 9).slice(1).toUpperCase()}`);
+  });
 });

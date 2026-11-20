@@ -13,6 +13,9 @@ removed or renamed. `PivotSpec` stays `version: 1`.
 - **`PivotTable` `cellTone`** (`@nqlib/nqgrid/pivot`): a tone key for one value cell, for example the
   color key of a conditional rule. The cell gets `data-nq-tone="<key>"` and
   `background-color: var(--nq-pivot-tone-<key>)`. A toned cell draws no heat; its data bar stays.
+- **`PivotTable` `toneColors`**: optional map of tone key → colour (`isPivotToneColor`: hex,
+  `transparent`, `color-mix(...)`, `var(--token)`). Written as `--nq-pivot-tone-<key>` on that table
+  root. Omitting the map leaves host-stylesheet variables as they were. Not part of `PivotSpec`.
 - **`PivotHeatSpec.palette`**: 2 or 3 tone keys (`[low, high]` or `[low, middle, high]`), in the `heat`
   prop and in `spec.heat` (model, `validatePivotSpec`, JSON schema). The steps come from
   `var(--nq-pivot-tone-<key>)` and an oklab `color-mix` between two stops. With 3 stops, the middle key
@@ -20,9 +23,14 @@ removed or renamed. `PivotSpec` stays `version: 1`.
   `PivotCellHeat.palette` (`pivotTableGeometry` cells) carry it.
 - **`pivotTableGeometry` `cellTone`** (and `pivotCellDesigns`): a toned cell reports
   `cells[r][c].tone` and no `heat`, as `PivotTable` draws it, so an exporter writes the same rule colors.
+- **`renderPivotHtml` `table.cellTone` / `table.toneColors`**: forwarded onto the static `PivotTable`.
+- **`writePivotXlsx` `cellTone` / `toneColors`**: Excel fills from `#rgb` / `#rrggbb` only. A toned cell
+  wins over heat; a `model.heat.palette` blends stop hexes (`pivotPaletteFillHex`). A palette stop
+  with no usable hex paints no fill (no built-in-ramp fallback). Wire: `options.xlsx.toneColors` and
+  `options.table.toneColors`.
 - New exports: `PivotCellTone`, `PivotHeatPalette`, `pivotModelCellHeat` (`/pivot`);
-  `pivotToneVar`, `pivotHeatPaletteColor`, `isPivotToneKey`, `isPivotHeatPalette` (`/core`, also
-  re-exported from `/pivot`).
+  `pivotToneVar`, `pivotHeatPaletteColor`, `isPivotToneKey`, `isPivotToneColor`, `isPivotHeatPalette`
+  (`/core`, also re-exported from `/pivot`); `pivotPaletteFillHex`, `isPivotToneHex` (`/render-static`).
 
 ### Changed
 
@@ -32,13 +40,6 @@ removed or renamed. `PivotSpec` stays `version: 1`.
 ### Playground
 
 - Pivot showcase → **Design**: the stories "Cell tone" and "Heat palette".
-
-### Notes
-
-- `@nqlib/nqgrid/render-static` draws a `spec.heat` palette with `var(--nq-pivot-tone-<key>)`, but its
-  theme CSS defines no tone variable: a static host adds them. The XLSX writer
-  (`packages/nqgrid-export`) still fills a palette spec with the grid's own heat ramp. Neither knows
-  `cellTone`.
 
 ## [0.5.0] - 2026-11-18
 

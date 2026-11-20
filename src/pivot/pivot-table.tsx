@@ -11,6 +11,8 @@ import {
   pivotCellDesigns,
   pivotCellFormats,
   isPivotHeatPalette,
+  isPivotToneColor,
+  isPivotToneKey,
   pivotHeatPaletteColor,
   pivotHeatSpecList,
   pivotModelCellHeat,
@@ -260,11 +262,18 @@ export interface PivotTableProps {
   /**
    * A tone key for one value cell, e.g. the color key of a conditional-format rule (`good`, `bad`).
    * The cell gets `data-nq-tone="<key>"` and `background-color: var(--nq-pivot-tone-<key>)`; define
-   * that variable for each key you return. A toned cell draws no heat (the rule wins, as Excel's
-   * "Stop If True"); its data bar stays. `undefined`, or a key that is not a valid tone key
-   * (`isPivotToneKey`), leaves the cell as it was.
+   * that variable for each key you return (host stylesheet, or `toneColors` on this table). A toned
+   * cell draws no heat (the rule wins, as Excel's "Stop If True"); its data bar stays. `undefined`,
+   * or a key that is not a valid tone key (`isPivotToneKey`), leaves the cell as it was.
    */
   readonly cellTone?: PivotCellTone;
+  /**
+   * Colours for tone keys used by `cellTone` and `PivotHeatSpec.palette`, written as
+   * `--nq-pivot-tone-<key>` on this table. Values must pass `isPivotToneColor` (hex, `transparent`,
+   * `color-mix(...)`, `var(--token)`). Keys that fail `isPivotToneKey` are ignored. Omitting the map
+   * leaves host-stylesheet variables as they were. Not part of `PivotSpec`.
+   */
+  readonly toneColors?: Readonly<Record<string, string>>;
   /** Extra class for a body row. */
   readonly rowClassName?: PivotRowClassName;
   /** Extra class for a value-column header cell. */
@@ -530,6 +539,7 @@ export const PivotTable = memo(function PivotTable({
   freezeDimensions,
   cellClassName,
   cellTone,
+  toneColors,
   rowClassName,
   headerClassName,
   bandedRows,
@@ -1053,10 +1063,20 @@ export const PivotTable = memo(function PivotTable({
     return { start, end: Math.min(model.rows.length, wanted) };
   };
 
+  const toneVars: CSSProperties | undefined = (() => {
+    if (!toneColors) return undefined;
+    const vars: Record<string, string> = {};
+    for (const [key, value] of Object.entries(toneColors)) {
+      if (!isPivotToneKey(key) || !isPivotToneColor(value)) continue;
+      vars[`--nq-pivot-tone-${key}`] = value.trim();
+    }
+    return Object.keys(vars).length > 0 ? (vars as CSSProperties) : undefined;
+  })();
+
   return (
     <table
       className={cx(pivotTableClass, className)}
-      style={{ width: geometry.width, minWidth: geometry.width, ...style }}
+      style={{ width: geometry.width, minWidth: geometry.width, ...style, ...toneVars }}
       aria-label={ariaLabel ?? model.title}
       aria-rowcount={virtual ? model.headerRows.length + model.rows.length : undefined}
       data-nqg-pivot=""

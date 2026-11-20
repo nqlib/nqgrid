@@ -215,6 +215,13 @@
             },
             "kpiCaptionAttribute": {
               "type": "string"
+            },
+            "toneColors": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Colours for PivotTable tone keys (cellTone / heat palette): written as --nq-pivot-tone-<key> on the static table. Hex, transparent, color-mix(...), or var(--token). Not part of PivotSpec."
             }
           }
         },
@@ -234,6 +241,13 @@
             "subtotalFormulas": {
               "type": "boolean",
               "description": "Write group, subtotal and grand-total cells of plain sum / count measures (no showAs, not calculated) as SUBTOTAL(9, ...) formulas over their detail rows, with the computed value cached. Default false: values only. The Python openpyxl writer cannot store cached values, so its formulas show their result only after Excel / LibreOffice recalculates."
+            },
+            "toneColors": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Hex fills (#rgb / #rrggbb) for spec.heat.palette tone keys. A palette stop with no usable hex paints no fill. Not part of PivotSpec."
             }
           }
         }

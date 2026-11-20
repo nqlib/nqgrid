@@ -117,8 +117,23 @@ export function pivotHeatPaletteStep(level: number, levels: number, scale: Pivot
 }
 
 /**
+ * A CSS colour value safe to put in a custom property (hex, named colour, `transparent`,
+ * `color-mix(...)`, `var(--token)`). Rejects `;`, `{`, `}`, quotes, backslashes and `url(` — the same
+ * character check nqchart's `safeCssColor` uses — so a host map cannot close a declaration.
+ */
+export function isPivotToneColor(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const v = value.trim();
+  if (!v || v.length > 200) return false;
+  if (!/^[A-Za-z0-9#%.,()\s+\-/*]+$/.test(v)) return false;
+  if (/url\s*\(/i.test(v)) return false;
+  return true;
+}
+
+/**
  * `var(--nq-pivot-tone-<key>)` for a valid tone key (`isPivotToneKey`), else `undefined`. The host
- * defines one `--nq-pivot-tone-<key>` variable per key it uses; the grid never writes a color.
+ * defines one `--nq-pivot-tone-<key>` variable per key (stylesheet or `PivotTable` `toneColors`); the
+ * grid never writes a free colour into a cell style.
  */
 export function pivotToneVar(key: string | undefined): string | undefined {
   return isPivotToneKey(key) ? `var(--nq-pivot-tone-${key})` : undefined;

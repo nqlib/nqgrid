@@ -421,4 +421,4 @@ export function pivotClampRowHeight(height: number): number {
 /** Re-exported for `PivotTable` `heat` (also in `@nqlib/nqgrid/core`). */
 export type { PivotHeatPalette, PivotHeatScale, PivotHeatScope, PivotHeatSpec } from "../core/pivot/types";
 /** Re-exported for `PivotTable` hosts (pure, defined in `@nqlib/nqgrid/core`). */
-export { isPivotHeatPalette, isPivotToneKey, pivotHeatPaletteColor, pivotHeatPaletteStep, pivotToneVar } from "../core/pivot/heat";
+export { isPivotHeatPalette, isPivotToneColor, isPivotToneKey, pivotHeatPaletteColor, pivotHeatPaletteStep, pivotToneVar } from "../core/pivot/heat";
